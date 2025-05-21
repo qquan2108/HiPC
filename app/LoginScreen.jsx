@@ -49,7 +49,6 @@ const LoginScreen = () => {
   }
 };
 
-
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
