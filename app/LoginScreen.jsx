@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import { useRouter } from 'expo-router';
+import axiosInstance from '../utils/AxiosInstance'; // đúng đường dẫn
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
+  Alert,
   View,
   Text,
   TextInput,
@@ -18,6 +21,33 @@ const LoginScreen = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPass, setShowPass] = useState(false);
+
+  const handleLogin = async () => {
+  if (!email || !password) {
+    Alert.alert('Lỗi', 'Vui lòng nhập đầy đủ email và mật khẩu.');
+    return;
+  }
+
+  try {
+    const res = await axiosInstance.post('/users/login', {
+      email,
+      password,
+    });
+
+    if (res.data?.token) {
+      // Lưu token vào AsyncStorage
+      await AsyncStorage.setItem('token', res.data.token);
+
+      Alert.alert('Thành công', 'Đăng nhập thành công!');
+      console.log('User:', res.data.user);
+
+      router.push('/HomeScreen'); // Hoặc màn hình chính của app bạn
+    }
+  } catch (err) {
+    console.error(err);
+    Alert.alert('Lỗi đăng nhập', err.response?.data?.message || 'Đăng nhập thất bại');
+  }
+};
 
   return (
     <KeyboardAvoidingView
@@ -61,7 +91,7 @@ const LoginScreen = () => {
         </TouchableOpacity>
 
         {/* Nút đăng nhập */}
-        <TouchableOpacity style={styles.loginButton}>
+        <TouchableOpacity style={styles.loginButton} onPress={handleLogin}> 
           <Text style={styles.loginText}>Đăng Nhập</Text>
         </TouchableOpacity>
 
