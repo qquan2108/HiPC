@@ -1,4 +1,4 @@
-// app/index.tsx
+
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 
