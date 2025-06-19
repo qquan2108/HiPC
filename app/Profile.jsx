@@ -1,177 +1,167 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Image, StyleSheet, ScrollView } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import React from 'react';
+import { View, Text, TouchableOpacity, Image, StyleSheet, ScrollView } from 'react-native';
+import { Feather, FontAwesome, Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 
 export default function Profile() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [city, setCity] = useState('');
-  const [district, setDistrict] = useState('');
-  const [ward, setWard] = useState('');
-  const [address, setAddress] = useState('');
+  const router = useRouter();
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity>
-          <Feather name="arrow-left" size={22} color="#222" />
+        <TouchableOpacity onPress={() => router.back()}>
+          <Feather name="arrow-left" size={24} color="#1976ff" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Cá nhân</Text>
-        <View style={{ width: 22 }} />
+        <Text style={styles.headerTitle}>Hồ sơ của tôi</Text>
+        <View style={{ width: 24 }} />
       </View>
 
-      {/* Avatar */}
+      {/* Avatar + Name */}
       <View style={styles.avatarWrapper}>
-        <Image
-          source={require('../assets/images/avatar.png')}
-          style={styles.avatar}
-        />
-      </View>
-
-      {/* Thông tin cá nhân */}
-      <Text style={styles.sectionTitle}>Thông tin cá nhân</Text>
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Email</Text>
-        <TextInput
-          style={styles.input}
-          value={email}
-          onChangeText={setEmail}
-        />
-      </View>
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Mật khẩu</Text>
-        <View style={styles.passwordRow}>
-          <TextInput
-            style={[styles.input, { flex: 1 }]}
-            value={password}
-            secureTextEntry
-            onChangeText={setPassword}
+        <View>
+          <Image
+            source={require('../assets/images/avatar.png')}
+            style={styles.avatar}
           />
-          <TouchableOpacity>
-            <Text style={styles.changePass}>Đổi mật khẩu</Text>
+          <TouchableOpacity style={styles.editIcon}>
+            <Feather name="edit-2" size={16} color="#fff" />
           </TouchableOpacity>
         </View>
+        <Text style={styles.name}>Nguyễn Văn A</Text>
       </View>
 
-      {/* Số địa chỉ */}
-      <Text style={styles.sectionTitle}>Số địa chỉ</Text>
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Tỉnh/Thành phố</Text>
-        <TextInput
-          style={styles.input}
-          value={city}
-          onChangeText={setCity}
+      {/* Menu */}
+      <View style={styles.menu}>
+        <MenuItem
+          icon={<Feather name="user" size={22} color="#1976ff" />}
+          label="Thông tin cá nhân"
+          onPress={() => {}}
+        />
+        <MenuItem
+          icon={<Feather name="heart" size={22} color="#1976ff" />}
+          label="Yêu thích"
+          onPress={() => router.push('./favorite')}
+        />
+        <MenuItem
+          icon={<Feather name="credit-card" size={22} color="#1976ff" />}
+          label="Phương thức thanh toán"
+          onPress={() => {}}
+        />
+        <MenuItem
+          icon={<Feather name="package" size={22} color="#1976ff" />}
+          label="Theo dõi đơn hàng"
+          onPress={() => router.push('./theodoidonhang')}
+        />
+        <MenuItem
+          icon={<Ionicons name="lock-closed-outline" size={22} color="#1976ff" />}
+          label="Chính sách bảo mật"
+          onPress={() => {}}
+        />
+        <MenuItem
+          icon={<Feather name="settings" size={22} color="#1976ff" />}
+          label="Cài đặt"
+          onPress={() => {}}
+        />
+        <MenuItem
+          icon={<Feather name="help-circle" size={22} color="#1976ff" />}
+          label="Chăm sóc khách hàng"
+          onPress={() => {}}
+        />
+        <MenuItem
+          icon={<Feather name="log-out" size={22} color="#1976ff" />}
+          label="Đăng xuất"
+          onPress={() => router.push('./LoginScreen')}
         />
       </View>
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Quận/Huyện</Text>
-        <TextInput
-          style={styles.input}
-          value={district}
-          onChangeText={setDistrict}
-        />
-      </View>
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Xã/Phường/Thị trấn</Text>
-        <TextInput
-          style={styles.input}
-          value={ward}
-          onChangeText={setWard}
-        />
-      </View>
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Địa chỉ</Text>
-        <TextInput
-          style={styles.input}
-          value={address}
-          onChangeText={setAddress}
-        />
-      </View>
-
-      {/* Save Button */}
-      <TouchableOpacity style={styles.saveBtn}>
-        <Text style={styles.saveText}>Save</Text>
-      </TouchableOpacity>
     </ScrollView>
+  );
+}
+
+function MenuItem({ icon, label, onPress }) {
+  return (
+    <TouchableOpacity style={styles.menuItem} onPress={onPress} activeOpacity={0.7}>
+      <View style={styles.menuIcon}>{icon}</View>
+      <Text style={styles.menuLabel}>{label}</Text>
+      <Feather name="chevron-right" size={20} color="#b0b9c8" />
+    </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    padding: 24,
     backgroundColor: '#fff',
     flexGrow: 1,
+    paddingTop: 18,
+    paddingHorizontal: 0,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 18,
-    marginTop: 10,
+    paddingHorizontal: 18,
+    marginBottom: 10,
   },
   headerTitle: {
     flex: 1,
     textAlign: 'center',
     fontSize: 20,
     fontWeight: '700',
-    color: '#222',
+    color: '#1976ff',
   },
   avatarWrapper: {
     alignItems: 'center',
     marginBottom: 18,
   },
   avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    marginBottom: 6,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    marginTop: 18,
+    width: 90,
+    height: 90,
+    borderRadius: 45,
     marginBottom: 8,
+    backgroundColor: '#eaf2ff',
+  },
+  editIcon: {
+    position: 'absolute',
+    right: 0,
+    bottom: 8,
+    backgroundColor: '#1976ff',
+    borderRadius: 14,
+    padding: 4,
+    borderWidth: 2,
+    borderColor: '#fff',
+  },
+  name: {
+    fontWeight: 'bold',
+    fontSize: 18,
     color: '#222',
+    marginTop: 2,
+    marginBottom: 8,
   },
-  inputGroup: {
-    marginBottom: 12,
+  menu: {
+    marginTop: 8,
+    paddingHorizontal: 0,
   },
-  label: {
-    fontSize: 13,
-    color: '#888',
-    marginBottom: 4,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#eee',
-    borderRadius: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    fontSize: 15,
-    backgroundColor: '#f9f9f9',
-    color: '#222',
-  },
-  passwordRow: {
+  menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
-  },
-  changePass: {
-    color: '#f55858',
-    fontSize: 13,
-    marginLeft: 8,
-    fontWeight: '500',
-  },
-  saveBtn: {
-    backgroundColor: '#f55858',
-    borderRadius: 10,
     paddingVertical: 16,
-    marginTop: 18,
-    marginBottom: 30,
+    paddingHorizontal: 24,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f4fa',
+    backgroundColor: '#fff',
   },
-  saveText: {
-    color: '#fff',
-    textAlign: 'center',
-    fontWeight: '700',
-    fontSize: 17,
+  menuIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#eaf2ff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 18,
+  },
+  menuLabel: {
+    flex: 1,
+    fontSize: 16,
+    color: '#222',
+    fontWeight: '500',
   },
 });

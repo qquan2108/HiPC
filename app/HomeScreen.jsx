@@ -1,487 +1,466 @@
-import React from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TextInput,
-  TouchableOpacity,
-  Image,
-  ScrollView,
-  FlatList,
-  Dimensions,
-} from 'react-native';
-import { Feather } from '@expo/vector-icons';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { AntDesign, Ionicons } from "@expo/vector-icons";
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useFocusEffect, useRouter } from "expo-router";
+import React, { useEffect, useRef, useState } from "react";
+import { Animated, Dimensions, ImageBackground, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import BackgroundImage from "../assets/images/backroundLogin.png";
+import AIChatBox from "../compomentHome/AIChatBox";
+import Banner from "../compomentHome/Banner";
+import BestSellerList from "../compomentHome/BestSellerList";
+import CategoryList from "../compomentHome/CategoryList";
+import CustomTabBar from "../compomentHome/CustomTabBar";
+import FlashSale from "../compomentHome/FlashSale";
+import ForYouGrid from "../compomentHome/ForYouGrid";
+import Header from "../compomentHome/Header";
+import NewProducts from "../compomentHome/NewProducts";
+import PromoPopup from "../compomentHome/PromoPopup";
+import axiosInstance from "../utils/AxiosInstance";
 
-const categories = [
-  { key: 'PC', icon: require('../assets/images/pc.png'), label: 'PC' },
-  { key: 'Ram', icon: require('../assets/images/ram.png'), label: 'Ram' },
-  { key: 'Ổ cứng', icon: require('../assets/images/DC.png'), label: 'Ổ cứng' },
-  { key: 'Thẻ nhớ', icon: require('../assets/images/the.png'), label: 'Thẻ nhớ' },
-  { key: 'NAS', icon: require('../assets/images/mag.png'), label: 'NAS' },
-];
+const { width } = Dimensions.get("window");
 
-const products = [
-  {
-    id: '1',
-    name: 'PC SE-MERCURY G7 Ryzen 5 5600G, Radeon Graphics, Ram 8GB, SSD 500GB, Win 11',
-    price: '9.190.000đ',
-    image: require('../assets/images/pc1.png'),
-    rating: 5,
-    sold: 100,
-  },
-  {
-    id: '2',
-    name: 'PC SE-MERCURY G7 Ryzen 5 4650G, Radeon Graphics, Ram 8GB, SSD 500GB, Win 11',
-    price: '9.190.000đ',
-    image: require('../assets/images/pc1.png'),
-    rating: 5,
-    sold: 100,
-  },
-];
-
-const { width } = Dimensions.get('window');
 
 export default function HomeScreen() {
+  const router = useRouter();
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [showPromoPopup, setShowPromoPopup] = useState(true);
+  const fadeAnim = useRef(new Animated.Value(1)).current;
+  const [aiChatScale] = useState(new Animated.Value(1));
+  const [categories, setCategories] = useState([]);
+  const [showAIChat, setShowAIChat] = useState(false);
+  const [products, setProducts] = useState([]);
+  const [bestSellers, setBestSellers] = useState([]);
+  const [flashSaleProducts, setFlashSaleProducts] = useState([]);
+
+  // Badge renderers
+  const renderDiscountBadge = (discount) => (
+    <View style={styles.discountBadge}>
+      <Text style={styles.discountTextBadge}>-{discount}%</Text>
+    </View>
+  );
+  const renderNewBadge = () => (
+    <View style={styles.newBadge}>
+      <Text style={styles.newBadgeText}>Mới</Text>
+    </View>
+  );
+  const renderHotBadge = () => (
+    <View style={styles.hotBadge}>
+      <Ionicons name="flame" size={12} color="#fff" />
+      <Text style={styles.hotBadgeText}>Hot</Text>
+    </View>
+  );
+  const renderBestSellerBadge = () => (
+    <View style={styles.bestSellerBadge}>
+      <AntDesign name="star" size={12} color="#fff" />
+      <Text style={styles.bestSellerBadgeText}>Bán chạy</Text>
+    </View>
+  );
+
+  useEffect(() => {
+    if (showPromoPopup) {
+      fadeAnim.setValue(1);
+      const timer = setTimeout(() => {
+        Animated.timing(fadeAnim, {
+          toValue: 0,
+          duration: 500,
+          useNativeDriver: true,
+        }).start(() => setShowPromoPopup(false));
+      }, 5000);
+      return () => {
+        clearTimeout(timer);
+        fadeAnim.setValue(1);
+      };
+    }
+  }, [showPromoPopup]);
+
+  const handleClosePopup = () => {
+    Animated.timing(fadeAnim, {
+      toValue: 0,
+      duration: 500,
+      useNativeDriver: true,
+    }).start(() => setShowPromoPopup(false));
+  };
+
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(aiChatScale, {
+          toValue: 1.18,
+          duration: 600,
+          useNativeDriver: true,
+        }),
+        Animated.timing(aiChatScale, {
+          toValue: 1,
+          duration: 600,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  }, []);
+  useEffect(() => {
+    Promise.all([
+      axiosInstance.get("/category"),
+      axiosInstance.get("/images")
+    ])
+      .then(([catRes, imgRes]) => {
+        const images = imgRes.data;
+        setCategories(
+          catRes.data.map(cat => {
+            // Tìm ảnh có category_id trùng với _id của category
+            const img = images.find(i => i.category_id && i.category_id._id === cat._id);
+            return {
+              key: cat.name,
+              label: cat.name,
+              icon: img ? { uri: img.url } : require("../assets/images/pc.png"), // fallback nếu không có ảnh
+            };
+          })
+        );
+      })
+      .catch(() => setCategories([]));
+  }, []);
+  useEffect(() => {
+    axiosInstance.get("/product")
+      .then(res => {
+        const mapped = res.data.map(p => ({
+          ...p,
+          id: p._id,
+          image: p.image ? { uri: p.image } : require("../assets/images/pc1.png"),
+          discount: p.originalPrice && p.price < p.originalPrice
+            ? Math.round(100 - (p.price / p.originalPrice) * 100)
+            : 0,
+          isHot: p.sold > 50,
+          price: p.price?.toLocaleString("vi-VN") + " đ",
+          originalPrice: p.originalPrice
+            ? p.originalPrice.toLocaleString("vi-VN") + " đ"
+            : undefined,
+        }));
+        setProducts(mapped);
+        setBestSellers(mapped.filter(p => p.isBestSeller));
+        // Lọc flash sale: sản phẩm có discount > 0
+        setFlashSaleProducts(mapped); // Đổ hết sản phẩm vào flash sale
+      })
+      .catch(() => {
+        setProducts([]);
+        setBestSellers([]);
+        setFlashSaleProducts([]);
+      });
+  }, []);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      // Gọi lại API khi HomeScreen được focus
+      axiosInstance.get("/product")
+        .then(res => {
+          const mapped = res.data.map(p => ({
+            ...p,
+            id: p._id,
+            image: p.image ? { uri: p.image } : require("../assets/images/pc1.png"),
+            discount: p.originalPrice && p.price < p.originalPrice
+              ? Math.round(100 - (p.price / p.originalPrice) * 100)
+              : 0,
+            isHot: p.sold > 50,
+            price: p.price?.toLocaleString("vi-VN") + " đ",
+            originalPrice: p.originalPrice
+              ? p.originalPrice.toLocaleString("vi-VN") + " đ"
+              : undefined,
+          }));
+          setProducts(mapped);
+          setBestSellers(mapped.filter(p => p.isBestSeller));
+          setFlashSaleProducts(mapped);
+        })
+        .catch(() => {
+          setProducts([]);
+          setBestSellers([]);
+          setFlashSaleProducts([]);
+        });
+
+      // Gọi lại API danh mục
+      Promise.all([
+        axiosInstance.get("/category"),
+        axiosInstance.get("/images")
+      ])
+        .then(([catRes, imgRes]) => {
+          const images = imgRes.data;
+          setCategories(
+            catRes.data.map(cat => {
+              const img = images.find(i => i.category_id && i.category_id._id === cat._id);
+              return {
+                key: cat.name,
+                label: cat.name,
+                icon: img ? { uri: img.url } : require("../assets/images/pc.png"),
+              };
+            })
+          );
+        })
+        .catch(() => setCategories([]));
+    }, [])
+  );
+
+  // Kiểm tra đăng nhập mỗi lần vào HomeScreen
+  useFocusEffect(
+    React.useCallback(() => {
+      const checkLogin = async () => {
+        const token = await AsyncStorage.getItem('token');
+        setIsLoggedIn(!!token);
+      };
+      checkLogin();
+    }, [])
+  );
+
+  // Hàm xử lý khi bấm vào các chức năng cần đăng nhập
+  const requireLogin = () => {
+    router.push('/LoginScreen');
+  };
+
   return (
-    <View style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity>
-            <Feather name="menu" size={24} color="#222" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>HIPC SALE</Text>
-          <TouchableOpacity style={styles.avatarBtn}>
-            <Image
-              source={require('../assets/images/avatar.png')}
-              style={styles.avatar}
-            />
-          </TouchableOpacity>
-        </View>
+    <ImageBackground
+      source={BackgroundImage}
+      resizeMode="cover"
+      style={{
+        flex: 1,
+        width: "100%",
+        height: "100%",
+        justifyContent: "center",
+      }}
+      imageStyle={{ opacity: 0.92 }}
+    >
+      <PromoPopup
+        visible={showPromoPopup}
+        fadeAnim={fadeAnim}
+        onClose={handleClosePopup}
+      />
 
-        {/* Search & Filter */}
-       <View style={styles.searchRow}>
-          <View style={styles.searchBox}>
-            <Feather name="search" size={18} color="#aaa" style={{ marginRight: 8 }} />
-            <TextInput
-              placeholder="Tìm kiếm"
-              placeholderTextColor="#aaa"
-              style={{ flex: 1, fontSize: 15 }}
-            />
-            <Feather name="mic" size={18} color="#ccc" style={{ marginLeft: 8 }} />
-             <MaterialCommunityIcons name="google-lens" size={20} color="#ccc" style={{ marginLeft: 8 }} />
+      <View style={styles.container}>
+        <ScrollView showsVerticalScrollIndicator={false}>
+          {/* Header */}
+          <Header router={router} />
+
+          <View style={{ paddingHorizontal: 18, marginTop: 14, marginBottom: 14 }}>
+            <LinearGradient
+              colors={['#2979ff', '#00c6ff']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={{
+                borderRadius: 18,
+                padding: 18,
+                flexDirection: 'row',
+                alignItems: 'center',
+                elevation: 4,
+                shadowColor: '#2979ff',
+                shadowOpacity: 0.18,
+                shadowRadius: 10,
+                shadowOffset: { width: 0, height: 4 },
+              }}
+            >
+              <Ionicons name="rocket-outline" size={40} color="#fff" style={{ marginRight: 18 }} />
+              <View style={{ flex: 1 }}>
+                <Text style={{
+                  color: '#fff',
+                  fontSize: 22,
+                  fontWeight: 'bold',
+                  letterSpacing: 0.5,
+                  marginBottom: 4,
+                  textShadowColor: 'rgba(0,0,0,0.18)',
+                  textShadowOffset: { width: 0, height: 2 },
+                  textShadowRadius: 6,
+                }}>
+                  HIPC chào bạn!
+                </Text>
+                <Text style={{
+                  color: '#eaf3ff',
+                  fontSize: 15,
+                  fontWeight: '500',
+                  lineHeight: 22,
+                  textShadowColor: 'rgba(0,0,0,0.10)',
+                  textShadowOffset: { width: 0, height: 1 },
+                  textShadowRadius: 3,
+                }}>
+                  Đừng bỏ lỡ các ưu đãi hấp dẫn hôm nay nhé.
+                </Text>
+              </View>
+            </LinearGradient>
           </View>
-        </View>
 
-        {/* Danh mục nổi bật */}
-        <View style={styles.sectionRow}>
-          <Text style={styles.sectionTitle}>Tất cả nổi bật</Text>
-          <TouchableOpacity style={styles.filterChip}>
-            <Text style={styles.filterChipText}>Lọc</Text>
-            <Feather name="filter" size={16} color="#222" style={{ marginLeft: 4 }} />
-          </TouchableOpacity>
-        </View>
-        <FlatList
-          data={categories}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          keyExtractor={item => item.key}
-          style={{ marginBottom: 10, marginLeft: 10 }}
-          renderItem={({ item }) => (
-            <View style={styles.categoryItem}>
-              <Image source={item.icon} style={styles.categoryIcon} />
-              <Text style={styles.categoryLabel}>{item.label}</Text>
-            </View>
-          )}
-        />
+          {/* Banner đầu */}
+          <Banner onPress={() => router.push("./DanhMucPC")} source={require("../assets/images/pcbanner.jpg")}
+          title="Khuyến mãi PC cực sốc"
+            subtitle="Giảm giá lên đến 30% cho các dòng PC mới nhất!"
+            badge="HOT"
+            overlayType="gradient" />
 
-        {/* Banner */}
-        <Image source={require('../assets/images/banner1.png')} style={styles.banner} />
+          {/* Danh mục */}
+          <CategoryList categories={categories} router={router} />
 
-        {/* Ưu đãi trong ngày */}
-    
-              <View style={styles.dealBox}>
-                  <View style={styles.sectionRow}>
-                      <Text style={styles.sectionTitle}>Ưu đãi trong ngày</Text>
-                      <TouchableOpacity>
-                          <Text style={styles.linkText}>Xem tất cả &gt;</Text>
-                      </TouchableOpacity>
-                  </View>
-                  <Text style={styles.timeText}>⏰ 20 giờ 30 phút 30 giây</Text>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 10 }}>
-                      {products.map(product => (
-                          <View key={product.id} style={styles.productCard}>
-                              <Image source={product.image} style={styles.productImage} />
-                              <Text numberOfLines={2} style={styles.productName}>{product.name}</Text>
-                              <Text style={styles.productPrice}>{product.price}</Text>
-                              <View style={styles.productInfoRow}>
-                                  <Text style={styles.rating}>★★★★★</Text>
-                                  <Text style={styles.soldText}>{product.sold} đã bán</Text>
-                              </View>
-                          </View>
-                      ))}
-                  </ScrollView>
-              </View>
+          {/* Khung giờ vàng */}
+          <FlashSale
+            flashSale={products}
+            renderDiscountBadge={renderDiscountBadge}
+            renderHotBadge={renderHotBadge}
+            isLoggedIn={isLoggedIn}
+            onRequireLogin={requireLogin}
+            router={router}
+          />
+          <BestSellerList
+            bestSellers={bestSellers}
+            renderDiscountBadge={renderDiscountBadge}
+            renderHotBadge={renderHotBadge}
+            renderBestSellerBadge={renderBestSellerBadge}
+            isLoggedIn={isLoggedIn}
+            onRequireLogin={requireLogin}
+            router={router}
+          />
+          {/* Banner giữa */}
+          <Banner source={require("../assets/images/ctgr2.jpg")} />
 
-        {/* Banner nhỏ */}
-        <Image source={require('../assets/images/banner1.png')} style={styles.bannerSmall} />
+          {/* Sản phẩm mới */}
+          <NewProducts
+            products={products}
+            renderNewBadge={renderNewBadge}
+            renderHotBadge={renderHotBadge}
+            renderDiscountBadge={renderDiscountBadge}
+            isLoggedIn={isLoggedIn}
+            onRequireLogin={requireLogin}
+            router={router}
+          />
 
-        {/* Sản phẩm thịnh hành */}
-        <View style={styles.sectionRow}>
-          <Text style={styles.sectionTitle}>Sản phẩm thịnh hành</Text>
-          <TouchableOpacity>
-            <Text style={styles.linkText}>Xem tất cả &gt;</Text>
-          </TouchableOpacity>
-        </View>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 10 }}>
-          {products.map(product => (
-            <View key={product.id + 'hot'} style={styles.productCard}>
-              <Image source={product.image} style={styles.productImage} />
-              <Text numberOfLines={2} style={styles.productName}>{product.name}</Text>
-              <Text style={styles.productPrice}>{product.price}</Text>
-              <View style={styles.productInfoRow}>
-                <Text style={styles.rating}>★★★★★</Text>
-                <Text style={styles.soldText}>{product.sold} đã bán</Text>
-              </View>
-            </View>
-          ))}
+          {/* Dành riêng cho bạn */}
+          <ForYouGrid
+            products={products}
+            renderNewBadge={renderNewBadge}
+            renderDiscountBadge={renderDiscountBadge}
+            isLoggedIn={isLoggedIn}
+            onRequireLogin={requireLogin}
+            router={router}
+          />
+
+          <View style={{ height: 20 }} />
         </ScrollView>
 
-        {/* Banner SanDisk */}
-        <Image source={require('../assets/images/banner1.png')} style={styles.bannerSandisk} />
-
-        {/* Hàng mới về */}
-        <View style={styles.sectionRow}>
-          <Text style={styles.sectionTitle}>Hàng mới về</Text>
-          <TouchableOpacity>
-            <Text style={styles.linkText}>Xem tất cả &gt;</Text>
+        {/* AI Chat Floating Icon */}
+        <Animated.View
+          style={[styles.aiChatIcon, { transform: [{ scale: aiChatScale }] }]}
+        >
+          <TouchableOpacity
+            onPress={() => {
+              if (!isLoggedIn) requireLogin();
+              else setShowAIChat(true);
+            }}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="chatbubbles" size={54} color="#4a90e2" />
           </TouchableOpacity>
-        </View>
-        <Text style={styles.newTag}># Top PC hot nhất Hè 2025</Text>
+        </Animated.View>
 
-        {/* Được tài trợ */}
-        <Image source={require('../assets/images/banner1.png')} style={styles.bannerSponsor} />
+        {/* AI Chat Box */}
+        {showAIChat && isLoggedIn && (
+          <AIChatBox
+            onClose={() => setShowAIChat(false)}
+            onStartChat={() => router.push("./chatboxai")}
+          />
+        )}
 
-        {/* Giảm giá */}
-        <Text style={styles.discountText}>Giảm giá 50%</Text>
-      </ScrollView>
-
-      {/* Bottom Tab Bar */}
-      <View style={styles.tabBar}>
-        <TouchableOpacity style={styles.tabItem}>
-          <Feather name="home" size={22} color="#f55858" />
-          <Text style={styles.tabLabelActive}>Trang chủ</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.tabItem}>
-          <Feather name="heart" size={22} color="#222" />
-          <Text style={styles.tabLabel}>Yêu thích</Text>
-        </TouchableOpacity>
-
-        <View style={styles.tabCartWrapper}>
-          <TouchableOpacity style={styles.tabCartBtn} >
-            <Feather name="shopping-cart" size={28} color="#222" />
-          </TouchableOpacity>
-        </View>
-
-        <TouchableOpacity style={styles.tabItem}>
-          <Feather name="search" size={22} color="#222" />
-          <Text style={styles.tabLabel}>Tìm kiếm</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.tabItem}>
-          <Feather name="settings" size={22} color="#222" />
-          <Text style={styles.tabLabel}>Cài đặt</Text>
-        </TouchableOpacity>
+        {/* Custom Tab Bar */}
+        <CustomTabBar router={router} />
       </View>
-    </View>
+    </ImageBackground>
   );
 }
 
-// ...existing code...
+// Bạn có thể giữ lại styles này cho các badge và header, các component con đã có style riêng.
 const styles = StyleSheet.create({
-  // Layout
-  container: { flex: 1, backgroundColor: '#fafafa' },
-
-  // Header
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 18,
-    paddingTop: 18,
-    paddingBottom: 10,
-    backgroundColor: '#fff',
-    justifyContent: 'space-between',
-  },
-  headerTitle: {
-    fontWeight: 'bold',
-    fontSize: 18,
-    color: '#1a73e8',
-    letterSpacing: 1,
-  },
-  avatarBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    overflow: 'hidden',
-    backgroundColor: '#eee',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatar: { width: 36, height: 36, borderRadius: 18 },
-
-  // Search
-  searchRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 18,
-    marginTop: 10,
-    marginBottom: 8,
-  },
-  searchBox: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f3f3f3',
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    height: 40,
-    marginRight: 10,
-  },
-
-  // Filter chip (danh mục nổi bật)
-  filterChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderWidth: 1,
-    borderColor: '#eee',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  filterChipText: {
-    fontSize: 13,
-    color: '#222',
-    fontWeight: '500',
-  },
-
-  // Section
-  sectionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 18,
-    marginTop: 18,
-    marginBottom: 6,
-  },
-  sectionTitle: {
-    fontWeight: 'bold',
+  container: { flex: 1, backgroundColor: "transparent" },
+  greeting: {
+    fontWeight: "bold",
     fontSize: 16,
-    color: '#222',
+    marginLeft: 18,
+    marginTop: 8,
   },
-  linkText: {
-    color: '#1a73e8',
+  greetingDesc: {
     fontSize: 13,
-    fontWeight: '600',
-  },
-  timeText: {
-    color: '#1a73e8',
-    fontSize: 13,
+    color: "#666",
     marginLeft: 18,
     marginBottom: 8,
+    marginRight: 18,
+    lineHeight: 18,
   },
-
-  // Category
-  categoryItem: {
-    alignItems: 'center',
-    marginRight: 22,
-    width: 72,
+  discountBadge: {
+    position: "absolute",
+    top: 4,
+    right: 4,
+    backgroundColor: "#f55858",
+    borderRadius: 4,
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+    zIndex: 2,
   },
-  categoryIcon: {
-    width: 56,
-    height: 56,
-    marginBottom: 6,
-    borderRadius: 16,
-    backgroundColor: '#fff',
-    shadowColor: '#000',
+  discountTextBadge: {
+    color: "#fff",
+    fontSize: 10,
+    fontWeight: "bold",
+  },
+  newBadge: {
+    position: "absolute",
+    top: 4,
+    left: 4,
+    backgroundColor: "#1a73e8",
+    borderRadius: 4,
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+    zIndex: 2,
+  },
+  newBadgeText: {
+    color: "#fff",
+    fontSize: 10,
+    fontWeight: "bold",
+  },
+  hotBadge: {
+    position: "absolute",
+    top: 4,
+    left: 4,
+    backgroundColor: "#FF4500",
+    borderRadius: 4,
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+    flexDirection: "row",
+    alignItems: "center",
+    zIndex: 2,
+  },
+  hotBadgeText: {
+    color: "#fff",
+    fontSize: 10,
+    fontWeight: "bold",
+    marginLeft: 2,
+  },
+  bestSellerBadge: {
+    position: "absolute",
+    top: 4,
+    left: 4,
+    backgroundColor: "#FFD700",
+    borderRadius: 4,
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+    flexDirection: "row",
+    alignItems: "center",
+    zIndex: 2,
+  },
+  bestSellerBadgeText: {
+    color: "#333",
+    fontSize: 10,
+    fontWeight: "bold",
+    marginLeft: 2,
+  },
+  aiChatIcon: {
+    position: "absolute",
+    bottom: 90,
+    right: 24,
+    zIndex: 100,
+    backgroundColor: "#fff",
+    borderRadius: 36,
+    elevation: 8,
+    shadowColor: "#4a90e2",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  categoryLabel: {
-    fontSize: 12,
-    color: '#222',
-    textAlign: 'center',
-  },
-
-  // Banner
-  banner: {
-    width: width - 36,
-    height: 200,
-    borderRadius: 12,
-    marginHorizontal: 18,
-    alignSelf: 'center',
-    marginVertical: 10,
-    resizeMode: 'cover',
-  },
-  bannerSmall: {
-    width: width - 36,
-    height: 100,
-    borderRadius: 12,
-    marginHorizontal: 18,
-    alignSelf: 'center',
-    marginVertical: 10,
-    resizeMode: 'cover',
-  },
-  bannerSandisk: {
-    width: width - 36,
-    height: 200,
-    borderRadius: 12,
-    marginHorizontal: 18,
-    alignSelf: 'center',
-    marginVertical: 10,
-    resizeMode: 'cover',
-  },
-  bannerSponsor: {
-    width: width - 36,
-    height: 200,
-    borderRadius: 12,
-    marginHorizontal: 18,
-    alignSelf: 'center',
-    marginVertical: 10,
-    resizeMode: 'cover',
-  },
-
-  // Deal box (Ưu đãi trong ngày)
-  dealBox: {
-    backgroundColor: 'pink',
-    borderRadius: 16,
-    marginHorizontal: 12,
-    marginTop: 10,
-    marginBottom: 16,
-    paddingVertical: 10,
-    shadowColor: '#f55858',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
+    shadowOpacity: 0.18,
     shadowRadius: 8,
-    elevation: 2,
-  },
-
-  // Product
-  productCard: {
-    width: 160,
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    marginHorizontal: 8,
     padding: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  productImage: {
-    width: '100%',
-    height: 80,
-    borderRadius: 8,
-    marginBottom: 8,
-    resizeMode: 'contain',
-    backgroundColor: '#f3f3f3',
-  },
-  productName: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#222',
-    marginBottom: 4,
-  },
-  productPrice: {
-    color: '#f55858',
-    fontWeight: 'bold',
-    fontSize: 15,
-    marginBottom: 2,
-  },
-  productInfoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 2,
-  },
-  rating: {
-    color: '#fbc02d',
-    fontSize: 12,
-    marginRight: 6,
-  },
-  soldText: {
-    color: '#888',
-    fontSize: 12,
-  },
-
-  // Tag & Discount
-  newTag: {
-    color: '#222',
-    fontSize: 13,
-    marginLeft: 18,
-    marginBottom: 8,
-    fontWeight: '600',
-  },
-  discountText: {
-    color: '#f55858',
-    fontWeight: 'bold',
-    fontSize: 16,
-    marginLeft: 18,
-    marginBottom: 20,
-  },
-
-  // Tab bar
-  tabBar: {
-    flexDirection: 'row',
-    backgroundColor: '#fff',
-    borderTopWidth: 1,
-    borderTopColor: '#ddd',
-    height: 60,
-    alignItems: 'center',
-    justifyContent: 'space-around',
-  },
-  tabItem: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  tabLabel: {
-    fontSize: 12,
-    color: '#222',
-  },
-  tabLabelActive: {
-    fontSize: 12,
-    color: '#f55858',
-    fontWeight: 'bold',
-  },
-  tabCartWrapper: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#f3f3f3',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: -30,
-    borderWidth: 2,
-    borderColor: '#fff',
-    elevation: 3,
-  },
-  tabCartBtn: {
-    width: 54,
-    height: 54,
-    borderRadius: 27,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-    elevation: 4,
   },
 });

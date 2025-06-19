@@ -4,14 +4,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Tạo instance
 const axiosInstance = axios.create({
-  baseURL: 'http://192.168.10.19:5000', // Hoặc IP LAN nếu dùng thiết bị thật
+  baseURL: 'https://hipc-sever.onrender.com', // Hoặc IP LAN nếu dùng thiết bị thật
   headers: {
     'Content-Type': 'application/json',
   },
 });
-
-
-
 // Gắn token vào header trước mỗi request
 axiosInstance.interceptors.request.use(
   async (config) => {
