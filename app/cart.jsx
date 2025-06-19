@@ -1,413 +1,357 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, TextInput, ScrollView } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Feather } from "@expo/vector-icons";
+import { useFocusEffect, useRouter } from "expo-router";
+import { useCallback, useState } from "react";
+import { ActivityIndicator, Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import axiosInstance from "../utils/AxiosInstance";
+import { useWishlist } from "../context/WishlistContext";
 
-const initialCart = [
+import CartAddressModal from "../compomentCart/CartAddressModal";
+import CartEmpty from "../compomentCart/CartEmpty";
+import CartProductList from "../compomentCart/CartProductList";
+import CartTotalBar from "../compomentCart/CartTotalBar";
+import CartWishlist from "../compomentCart/CartWishlist";
+
+const { width } = Dimensions.get("window");
+
+const defaultAddresses = [
   {
     id: 1,
-    name: 'PC chơi game RTX 3060',
-    desc: 'i5 12400F + Tản Khí / 16GB / 500GB',
-    price: 15280000,
-    oldPrice: 18990000,
-    image: require('../assets/images/pc1.png'),
-    quantity: 2,
-  },
-  {
-    id: 2,
-    name: 'PC GAMING CAO RTX 4060',
-    desc: 'i5 12400F + Tản Khí / 16GB / 500GB',
-    price: 17280000,
-    oldPrice: 19990000,
-    image: require('../assets/images/pc1.png'),
-    quantity: 1,
+    text: "11 đường Nguyễn Thị A Phường Đông Hưng Thuận Quận 12 Thành Phố Hồ Chí Minh",
+    isDefault: true,
   },
 ];
 
 function formatCurrency(num) {
-  return num.toLocaleString('vi-VN') + 'đ';
+  if (typeof num !== "number" || isNaN(num)) return "0 đ";
+  return num.toLocaleString("vi-VN") + " đ";
 }
 
-export default function Card() {
-  const [cart, setCart] = useState(initialCart);
+export default function CartScreen() {
+  const [cart, setCart] = useState([]);
+  const [addresses, setAddresses] = useState(defaultAddresses);
+  const [showAddressModal, setShowAddressModal] = useState(false);
+  const [newAddress, setNewAddress] = useState("");
+  const [editAddressId, setEditAddressId] = useState(null);
+  const [editAddressText, setEditAddressText] = useState("");
+  const [loading, setLoading] = useState(true);
+  const router = useRouter();
+  const { wishlist } = useWishlist();
 
-  const handleQuantity = (id, delta) => {
-    setCart(cart =>
-      cart.map(item =>
-        item.id === id
-          ? { ...item, quantity: Math.max(1, item.quantity + delta) }
-          : item
+  // Hàm fetch giỏ hàng từ API
+  const fetchCart = async () => {
+    try {
+      setLoading(true);
+      const res = await axiosInstance.get("/oders"); // Đổi từ "/oders" sang "/orders"
+      
+      if (res.data && Array.isArray(res.data)) {
+        // Xử lý dữ liệu từ API
+        const cartItems = res.data.flatMap(order => 
+          (order.products || []).map(item => ({
+            id: item.productId?._id || item.productId,
+            name: item.productId?.name || "Không có tên",
+            price: item.productId?.price ?? 0,
+            image: item.productId?.image
+              ? { uri: item.productId.image }
+              : require("../assets/images/pc1.png"),
+            quantity: item.quantity ?? 1,
+            productId: item.productId?._id || item.productId // Thêm trường productId để dễ thao tác
+          }))
+        );
+        setCart(cartItems);
+      } else {
+        setCart([]);
+      }
+    } catch (err) {
+      console.error("Lỗi khi lấy giỏ hàng:", err);
+      setCart([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Sử dụng useFocusEffect để load lại giỏ hàng mỗi khi màn hình được focus
+  useFocusEffect(
+    useCallback(() => {
+      fetchCart();
+    }, [])
+  );
+
+  // Hàm xử lý thay đổi số lượng sản phẩm
+  const handleQuantity = async (id, delta) => {
+    try {
+      // Tìm sản phẩm trong giỏ hàng
+      const product = cart.find(item => item.id === id);
+      if (!product) return;
+
+      const newQuantity = Math.max(1, product.quantity + delta);
+
+      // Gọi API cập nhật số lượng
+      const res = await axiosInstance.put('/oders/update-quantity', {
+        productId: id,
+        quantity: newQuantity
+      });
+
+      // Kiểm tra phản hồi từ backend
+      if (res.data && res.data.products) {
+        // Cập nhật lại cart từ dữ liệu mới nhất của order
+        const updatedCart = res.data.products.map(item => ({
+          id: item.productId?._id || item.productId,
+          name: item.productId?.name || "Không có tên",
+          price: item.productId?.price ?? 0,
+          image: item.productId?.image
+            ? { uri: item.productId.image }
+            : require("../assets/images/pc1.png"),
+          quantity: item.quantity ?? 1,
+          productId: item.productId?._id || item.productId
+        }));
+        setCart(updatedCart);
+      } else {
+        // Nếu không có dữ liệu mới, cập nhật UI tạm thời
+        setCart(cart.map(item =>
+          item.id === id ? { ...item, quantity: newQuantity } : item
+        ));
+      }
+    } catch (err) {
+      // Log chi tiết lỗi để debug
+      if (err.response) {
+        console.error("Lỗi khi cập nhật số lượng:", err.response.data);
+        alert("Có lỗi khi cập nhật số lượng sản phẩm: " + (err.response.data?.error || ""));
+      } else {
+        console.error("Lỗi khi cập nhật số lượng:", err);
+        alert("Có lỗi khi cập nhật số lượng sản phẩm");
+      }
+    }
+  };
+  
+
+  // Hàm xóa sản phẩm khỏi giỏ hàng
+  const handleRemove = async (id) => {
+    try {
+      // Gọi API xóa sản phẩm
+      await axiosInstance.delete(`/oders/remove-product/${id}`);
+      
+      // Cập nhật UI nếu API thành công
+      setCart(cart.filter(item => item.id !== id));
+    } catch (err) {
+      console.error("Lỗi khi xóa sản phẩm:", err);
+      alert("Có lỗi khi xóa sản phẩm khỏi giỏ hàng");
+    }
+  };
+
+  // Tính tổng tiền
+  const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const isEmpty = cart.length === 0;
+
+  // Logic xử lý địa chỉ (giữ nguyên)
+  const handleSelectAddress = (id) => {
+    setAddresses(addrs =>
+      addrs.map(addr => ({
+        ...addr,
+        isDefault: addr.id === id,
+      }))
+    );
+    setShowAddressModal(false);
+  };
+
+  const handleAddAddress = () => {
+    if (newAddress.trim()) {
+      setAddresses(addrs => [
+        ...addrs,
+        { id: Date.now(), text: newAddress.trim(), isDefault: false },
+      ]);
+      setNewAddress("");
+    }
+  };
+
+  const handleDeleteAddress = (id) => {
+    setAddresses(addrs => {
+      let filtered = addrs.filter(addr => addr.id !== id);
+      if (!filtered.some(addr => addr.isDefault) && filtered.length > 0) {
+        filtered[0].isDefault = true;
+      }
+      return filtered;
+    });
+  };
+
+  const handleEditAddress = (id, text) => {
+    setEditAddressId(id);
+    setEditAddressText(text);
+  };
+
+  const handleSaveEditAddress = () => {
+    setAddresses(addrs =>
+      addrs.map(addr =>
+        addr.id === editAddressId ? { ...addr, text: editAddressText } : addr
       )
     );
+    setEditAddressId(null);
+    setEditAddressText("");
   };
 
-  const handleRemove = id => {
-    setCart(cart => cart.filter(item => item.id !== id));
-  };
+  const selectedAddress = addresses.find(addr => addr.isDefault);
 
-  const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#2979ff" />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Feather name="arrow-left" size={22} color="#222" />
-          <Text style={styles.headerTitle}>Giỏ hàng của bạn</Text>
-          <Feather name="heart" size={22} color="#222" />
-        </View>
-
-        {/* Cart Items */}
-        <View style={styles.cartBox}>
-          {cart.map(item => (
-            <View key={item.id} style={styles.cartItem}>
-              <Image source={item.image} style={styles.cartImage} />
-              <View style={{ flex: 1, marginLeft: 10 }}>
-                <Text style={styles.cartName}>{item.name}</Text>
-                <Text style={styles.cartDesc}>{item.desc}</Text>
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
-                  <Text style={styles.cartPrice}>{formatCurrency(item.price)}</Text>
-                  <Text style={styles.cartOldPrice}>{formatCurrency(item.oldPrice)}</Text>
-                </View>
-                <View style={styles.cartBottomRow}>
-                  <Text style={styles.cartTotal}>{formatCurrency(item.price * item.quantity)}</Text>
-                  <View style={styles.qtyBox}>
-                    <TouchableOpacity onPress={() => handleQuantity(item.id, -1)}>
-                      <Text style={styles.qtyBtn}>-</Text>
-                    </TouchableOpacity>
-                    <Text style={styles.qtyText}>{item.quantity}</Text>
-                    <TouchableOpacity onPress={() => handleQuantity(item.id, 1)}>
-                      <Text style={styles.qtyBtn}>+</Text>
-                    </TouchableOpacity>
-                  </View>
-                  <TouchableOpacity onPress={() => handleRemove(item.id)}>
-                    <Feather name="trash-2" size={20} color="#222" style={{ marginLeft: 10 }} />
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </View>
-          ))}
-        </View>
-
-        {/* Ghi chú đơn hàng */}
-        <View style={styles.noteBox}>
-          <Text style={styles.noteLabel}>Ghi chú đơn hàng</Text>
-          <TextInput
-            style={styles.noteInput}
-            placeholder="Nhập ghi chú cho đơn hàng"
-            placeholderTextColor="#bbb"
-            multiline
-          />
-        </View>
-
-        {/* Phiếu giảm giá */}
-        <View style={styles.voucherRow}>
-          <Text style={styles.voucherLabel}>Áp dụng phiếu giảm giá</Text>
-          <TouchableOpacity>
-            <Text style={styles.voucherChoose}>Chọn</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Chi tiết thanh toán */}
-        <View style={styles.paymentBox}>
-          <Text style={styles.paymentTitle}>Chi tiết thanh toán đặt hàng</Text>
-          <View style={styles.paymentRow}>
-            <Text style={styles.paymentLabel}>Số tiền đặt hàng</Text>
-            <Text style={styles.paymentValue}>{formatCurrency(total)}</Text>
-          </View>
-          <View style={styles.paymentRow}>
-            <Text style={styles.paymentLabel}>Phiếu giảm giá</Text>
-            <Text style={[styles.paymentValue, { color: '#f55858' }]}>Áp dụng phiếu giảm giá</Text>
-          </View>
-          <View style={styles.paymentRow}>
-            <Text style={styles.paymentLabel}>Phí giao hàng</Text>
-            <Text style={[styles.paymentValue, { color: '#1a73e8' }]}>miễn phí</Text>
-          </View>
-        </View>
-
-        {/* Tổng tiền */}
-        <View style={styles.totalRow}>
-          <Text style={styles.totalLabel}>Tổng tiền</Text>
-          <Text style={styles.totalValue}>{formatCurrency(total)}</Text>
-        </View>
-
-        {/* Tiếp tục */}
-        <TouchableOpacity style={styles.continueBtn}>
-          <Text style={styles.continueText}>Tiếp Tục</Text>
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity
+          style={styles.backBtn}
+          onPress={() => router.back()}
+        >
+          <Feather name="arrow-left" size={24} color="#222" />
         </TouchableOpacity>
-      </ScrollView>
-
-      {/* Bottom Tab Bar */}
-      <View style={styles.tabBar}>
-        <TouchableOpacity style={styles.tabItem}>
-          <Feather name="home" size={22} color="#f55858" />
-          <Text style={styles.tabLabelActive}>Trang chủ</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.tabItem}>
-          <Feather name="heart" size={22} color="#222" />
-          <Text style={styles.tabLabel}>Yêu thích</Text>
-        </TouchableOpacity>
-        <View style={styles.tabCartWrapper}>
-          <TouchableOpacity style={styles.tabCartBtn}>
-            <Feather name="shopping-cart" size={28} color="#222" />
-          </TouchableOpacity>
+        <Text style={styles.headerTitle}>Giỏ hàng</Text>
+        <View style={styles.cartCount}>
+          <Text style={styles.cartCountText}>{cart.length}</Text>
         </View>
-        <TouchableOpacity style={styles.tabItem}>
-          <Feather name="search" size={22} color="#222" />
-          <Text style={styles.tabLabel}>Tìm kiếm</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.tabItem}>
-          <Feather name="settings" size={22} color="#222" />
-          <Text style={styles.tabLabel}>Cài đặt</Text>
+      </View>
+
+      {/* Địa chỉ nhận hàng */}
+      <View style={styles.addressBox}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.addressLabel}>Địa chỉ nhận hàng</Text>
+          <Text style={styles.addressText} numberOfLines={2}>
+            {selectedAddress ? selectedAddress.text : "Chưa có địa chỉ"}
+          </Text>
+        </View>
+        <TouchableOpacity 
+          style={styles.addressEditBtn} 
+          onPress={() => setShowAddressModal(true)}
+        >
+          <Feather name="edit-2" size={18} color="#2979ff" />
         </TouchableOpacity>
       </View>
+
+      {/* Modal địa chỉ */}
+      <CartAddressModal
+        visible={showAddressModal}
+        addresses={addresses}
+        editAddressId={editAddressId}
+        editAddressText={editAddressText}
+        newAddress={newAddress}
+        setShowAddressModal={setShowAddressModal}
+        setEditAddressText={setEditAddressText}
+        handleSelectAddress={handleSelectAddress}
+        handleEditAddress={handleEditAddress}
+        handleDeleteAddress={handleDeleteAddress}
+        handleSaveEditAddress={handleSaveEditAddress}
+        setNewAddress={setNewAddress}
+        handleAddAddress={handleAddAddress}
+      />
+
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ flexGrow: 1, paddingBottom: 100 }}
+      >
+        {!isEmpty ? (
+          <CartProductList
+            cart={cart}
+            onRemove={handleRemove}
+            onQuantity={handleQuantity}
+            formatCurrency={formatCurrency}
+          />
+        ) : (
+          <CartEmpty />
+        )}
+
+        <CartWishlist wishlist={wishlist} formatCurrency={formatCurrency} />
+      </ScrollView>
+
+      {/* Tổng tiền + Thanh toán */}
+      <CartTotalBar
+        total={total}
+        formatCurrency={formatCurrency}
+        onCheckout={() => router.push("./pay")}
+        disabled={isEmpty}
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fafafa' },
+  container: { 
+    flex: 1, 
+    backgroundColor: "#fafbff" 
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 18,
     paddingTop: 18,
     paddingBottom: 10,
-    backgroundColor: '#fff',
-    justifyContent: 'space-between',
+    backgroundColor: "#fff",
+  },
+  backBtn: {
+    marginRight: 10,
+    padding: 4,
+    borderRadius: 20,
+    backgroundColor: "#f5f6fa",
+    alignItems: "center",
+    justifyContent: "center",
   },
   headerTitle: {
-    fontWeight: 'bold',
-    fontSize: 18,
-    color: '#222',
-    letterSpacing: 1,
+    fontWeight: "bold",
+    fontSize: 20,
+    color: "#222",
+    flex: 1,
+    marginLeft: 8,
   },
-  cartBox: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    marginHorizontal: 12,
-    marginTop: 10,
-    marginBottom: 16,
-    padding: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  cartItem: {
-    flexDirection: 'row',
-    marginBottom: 18,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f3f3f3',
-    paddingBottom: 12,
-    alignItems: 'flex-start',
-  },
-  cartImage: {
-    width: 70,
-    height: 70,
-    borderRadius: 10,
-    backgroundColor: '#f3f3f3',
-  },
-  cartName: {
-    fontWeight: 'bold',
-    fontSize: 15,
-    color: '#222',
-    marginBottom: 2,
-  },
-  cartDesc: {
-    fontSize: 13,
-    color: '#888',
-    marginBottom: 2,
-  },
-  cartPrice: {
-    color: '#222',
-    fontWeight: 'bold',
-    fontSize: 14,
-    marginRight: 8,
-  },
-  cartOldPrice: {
-    color: '#888',
-    fontSize: 13,
-    textDecorationLine: 'line-through',
-  },
-  cartBottomRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 6,
-  },
-  cartTotal: {
-    fontWeight: 'bold',
-    fontSize: 16,
-    color: '#222',
-    marginRight: 12,
-  },
-  qtyBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#eee',
-    borderRadius: 8,
+  cartCount: {
+    backgroundColor: "#2979ff",
+    borderRadius: 12,
+    minWidth: 24,
+    height: 24,
+    alignItems: "center",
+    justifyContent: "center",
+    marginLeft: 8,
     paddingHorizontal: 6,
-    marginRight: 8,
-    backgroundColor: '#fafafa',
   },
-  qtyBtn: {
-    fontSize: 18,
-    color: '#888',
-    paddingHorizontal: 6,
-    fontWeight: 'bold',
-  },
-  qtyText: {
-    fontSize: 15,
-    color: '#222',
-    marginHorizontal: 6,
-    minWidth: 18,
-    textAlign: 'center',
-  },
-  noteBox: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    marginHorizontal: 12,
-    marginBottom: 16,
-    padding: 12,
-  },
-  noteLabel: {
+  cartCountText: {
+    color: "#fff",
+    fontWeight: "bold",
     fontSize: 14,
-    color: '#222',
-    fontWeight: 'bold',
-    marginBottom: 6,
   },
-  noteInput: {
-    backgroundColor: '#fafafa',
-    borderRadius: 8,
-    minHeight: 60,
-    padding: 8,
-    fontSize: 14,
-    color: '#222',
-    borderWidth: 1,
-    borderColor: '#eee',
-  },
-  voucherRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    marginHorizontal: 12,
-    marginBottom: 16,
-    padding: 12,
-  },
-  voucherLabel: {
-    fontSize: 14,
-    color: '#222',
-    fontWeight: 'bold',
-  },
-  voucherChoose: {
-    color: '#f55858',
-    fontWeight: 'bold',
-    fontSize: 15,
-  },
-  paymentBox: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    marginHorizontal: 12,
+  addressBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#fff",
+    borderRadius: 14,
+    marginHorizontal: 14,
     marginBottom: 10,
     padding: 12,
+    elevation: 1,
+    shadowColor: "#000",
+    shadowOpacity: 0.03,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
   },
-  paymentTitle: {
-    fontWeight: 'bold',
-    fontSize: 15,
-    color: '#222',
-    marginBottom: 8,
+  addressLabel: {
+    fontSize: 13,
+    color: "#888",
+    marginBottom: 2,
   },
-  paymentRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 4,
-  },
-  paymentLabel: {
+  addressText: {
     fontSize: 14,
-    color: '#222',
+    color: "#222",
+    fontWeight: "bold",
   },
-  paymentValue: {
-    fontSize: 14,
-    color: '#222',
-    fontWeight: 'bold',
-  },
-  totalRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginHorizontal: 18,
-    marginBottom: 18,
-    marginTop: 8,
-  },
-  totalLabel: {
-    fontSize: 16,
-    color: '#222',
-    fontWeight: 'bold',
-  },
-  totalValue: {
-    fontSize: 18,
-    color: '#222',
-    fontWeight: 'bold',
-  },
-  continueBtn: {
-    backgroundColor: '#f55858',
-    borderRadius: 12,
-    marginHorizontal: 18,
-    marginBottom: 24,
-    paddingVertical: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  continueText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 18,
-  },
-  // Tab bar
-  tabBar: {
-    flexDirection: 'row',
-    backgroundColor: '#fff',
-    borderTopWidth: 1,
-    borderTopColor: '#ddd',
-    height: 60,
-    alignItems: 'center',
-    justifyContent: 'space-around',
-  },
-  tabItem: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  tabLabel: {
-    fontSize: 12,
-    color: '#222',
-  },
-  tabLabelActive: {
-    fontSize: 12,
-    color: '#f55858',
-    fontWeight: 'bold',
-  },
-  tabCartWrapper: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#f3f3f3',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: -30,
-    borderWidth: 2,
-    borderColor: '#fff',
-    elevation: 3,
-  },
-  tabCartBtn: {
-    width: 54,
-    height: 54,
-    borderRadius: 27,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-    elevation: 4,
+  addressEditBtn: {
+    backgroundColor: "#eaf3ff",
+    borderRadius: 16,
+    padding: 6,
+    marginLeft: 8,
   },
 });

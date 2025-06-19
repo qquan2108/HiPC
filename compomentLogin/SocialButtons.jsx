@@ -1,0 +1,184 @@
+// components/Auth/SocialButtons.jsx
+import React from 'react';
+import { 
+  View, 
+  TouchableOpacity, 
+  Image, 
+  StyleSheet, 
+  Text 
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+
+const socialIcons = {
+  Google: require('../assets/images/Google.png'),
+  Apple: require('../assets/images/apple.png'),
+  Facebook: require('../assets/images/Facebook.png'),
+};
+
+const SocialButtons = () => {
+  const handleSocialLogin = (platform) => {
+    console.log(`Login with ${platform}`);
+    // Implement social login logic here
+  };
+
+  return (
+    <View style={styles.container}>
+      {/* Premium Social Buttons with Labels */}
+      <TouchableOpacity 
+        style={[styles.socialButton, styles.googleButton]}
+        onPress={() => handleSocialLogin('Google')}
+        activeOpacity={0.8}
+      >
+        <Image
+          source={socialIcons.Google}
+          style={styles.socialIcon}
+        />
+        <Text style={styles.socialButtonText}>Tiếp tục với Google</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity 
+        style={[styles.socialButton, styles.appleButton]}
+        onPress={() => handleSocialLogin('Apple')}
+        activeOpacity={0.8}
+      >
+        <Image
+          source={socialIcons.Apple}
+          style={styles.socialIcon}
+        />
+        <Text style={[styles.socialButtonText, styles.appleText]}>
+          Tiếp tục với Apple
+        </Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity 
+        style={[styles.socialButton, styles.facebookButton]}
+        onPress={() => handleSocialLogin('Facebook')}
+        activeOpacity={0.8}
+      >
+        <Image
+          source={socialIcons.Facebook}
+          style={styles.socialIcon}
+        />
+        <Text style={[styles.socialButtonText, styles.facebookText]}>
+          Tiếp tục với Facebook
+        </Text>
+      </TouchableOpacity>
+
+      {/* Alternative: Compact Icon-only Version */}
+      <View style={styles.compactContainer}>
+        <Text style={styles.compactLabel}>Hoặc chọn nhanh:</Text>
+        <View style={styles.compactButtonsRow}>
+          {Object.keys(socialIcons).map((platform, idx) => (
+            <TouchableOpacity 
+              key={idx} 
+              style={styles.compactSocialButton}
+              onPress={() => handleSocialLogin(platform)}
+              activeOpacity={0.8}
+            >
+              <Image
+                source={socialIcons[platform]}
+                style={styles.compactSocialIcon}
+              />
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    width: '100%',
+    marginBottom: 20,
+  },
+  socialButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  googleButton: {
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#DADCE0',
+  },
+  appleButton: {
+    backgroundColor: '#000',
+  },
+  facebookButton: {
+    backgroundColor: '#1877F2',
+  },
+  socialIcon: {
+    width: 20,
+    height: 20,
+    marginRight: 12,
+    resizeMode: 'contain',
+  },
+  socialButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  appleText: {
+    color: '#fff',
+  },
+  facebookText: {
+    color: '#fff',
+  },
+  // Compact version styles
+  compactContainer: {
+    alignItems: 'center',
+    marginTop: 20,
+    paddingTop: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+  },
+  compactLabel: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginBottom: 16,
+    fontWeight: '500',
+  },
+  compactButtonsRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 16,
+  },
+  compactSocialButton: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#fff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 6,
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
+  },
+  compactSocialIcon: {
+    width: 24,
+    height: 24,
+    resizeMode: 'contain',
+  },
+});
+
+export default SocialButtons;
