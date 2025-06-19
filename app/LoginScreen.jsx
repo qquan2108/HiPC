@@ -42,6 +42,8 @@ const LoginScreen = () => {
       const res = await axiosInstance.post('/users/login', { email, password });
       if (res.data?.token) {
         await AsyncStorage.setItem('token', res.data.token);
+        const user = res.data.user; // Assuming the user data is in res.data.user
+        await AsyncStorage.setItem('user', JSON.stringify(user));
         Toast.show({
           type: 'success',
           text1: 'Đăng nhập thành công!',

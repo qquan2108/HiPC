@@ -57,7 +57,7 @@ export default function PayScreen() {
   useEffect(() => {
     // Lấy sản phẩm từ giỏ hàng
     const fetchCart = async () => {
-      const res = await axiosInstance.get("/oders");
+      const res = await axiosInstance.get("/orders");
       if (res.data && Array.isArray(res.data)) {
         const cartItems = res.data.flatMap(order =>
           (order.products || []).map(item => ({
@@ -140,7 +140,7 @@ export default function PayScreen() {
         total,
       };
 
-      const response = await axiosInstance.post("/oders/checkout", orderData);
+      const response = await axiosInstance.post("/orders/checkout", orderData);
 
       // Xóa giỏ hàng ở localStorage (nếu có)
       if (typeof localStorage !== "undefined") {

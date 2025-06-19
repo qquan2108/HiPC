@@ -4,7 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Tạo instance
 const axiosInstance = axios.create({
-  baseURL: 'https://hipc-sever.onrender.com', // Hoặc IP LAN nếu dùng thiết bị thật
+  baseURL: 'http://localhost:3000', // Hoặc IP LAN nếu dùng thiết bị thật
   headers: {
     'Content-Type': 'application/json',
   },
@@ -21,5 +21,40 @@ axiosInstance.interceptors.request.use(
   },
   (error) => Promise.reject(error)
 );
+
+const addToCart = async (product) => {
+  try {
+    // Kiểm tra đăng nhập
+    const token = await AsyncStorage.getItem('token');
+    if (!token) {
+      router.push('/LoginScreen');
+      return;
+    }
+    // Nếu đã đăng nhập, thêm vào giỏ hàng như cũ
+    await axiosInstance.post('/orders/add-to-cart', {
+      productId: product.id,
+      quantity: 1
+    });
+    Toast.show({
+      type: 'success',
+      text1: 'Đã thêm vào giỏ hàng!',
+      text2: 'Bạn có thể kiểm tra trong giỏ hàng.',
+      position: 'bottom',
+      visibilityTime: 1200,
+    });
+    setTimeout(() => {
+      router.push('./cart');
+    }, 1200);
+  } catch (err) {
+    Toast.show({
+      type: 'error',
+      text1: 'Có lỗi khi thêm vào giỏ hàng!',
+      text2: 'Vui lòng thử lại.',
+      position: 'top',
+      visibilityTime: 1800,
+    });
+    console.error(err);
+  }
+};
 
 export default axiosInstance;
