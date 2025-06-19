@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, Image, StyleSheet, ScrollView } from 'react-native';
 import { Feather, FontAwesome, Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function Profile() {
   const router = useRouter();
@@ -36,7 +37,7 @@ export default function Profile() {
         <MenuItem
           icon={<Feather name="user" size={22} color="#1976ff" />}
           label="Thông tin cá nhân"
-          onPress={() => {}}
+          onPress={() => router.push('./UserInfo')}
         />
         <MenuItem
           icon={<Feather name="heart" size={22} color="#1976ff" />}
@@ -71,7 +72,12 @@ export default function Profile() {
         <MenuItem
           icon={<Feather name="log-out" size={22} color="#1976ff" />}
           label="Đăng xuất"
-          onPress={() => router.push('./LoginScreen')}
+          onPress={async () => {
+            await AsyncStorage.removeItem('token');
+            // Nếu bạn lưu thông tin user, cũng nên xóa luôn:
+            await AsyncStorage.removeItem('user');
+            router.push('./LoginScreen');
+          }}
         />
       </View>
     </ScrollView>

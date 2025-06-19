@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Image, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import Toast from 'react-native-toast-message';
 import axiosInstance from "../utils/AxiosInstance";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import BuyWithList from '../compomentCTSP/BuyWithList';
 import DeliveryBox from '../compomentCTSP/DeliveryBox';
@@ -139,7 +140,7 @@ export default function CTSP() {
 
   useEffect(() => {
     const fetchCart = async () => {
-      const res = await axiosInstance.get("/oders");
+      const res = await axiosInstance.get("/orders");
       // Xử lý dữ liệu như bạn đã làm:
       const cartItems = res.data.flatMap(order =>
         (order.products || []).map(item => ({
@@ -187,7 +188,15 @@ export default function CTSP() {
 
   const addToCart = async (product) => {
     try {
-      await axiosInstance.post('/oders/add-to-cart', {
+      const userStr = await AsyncStorage.getItem('user');
+      if (!userStr) {
+        router.push('/LoginScreen');
+        return;
+      }
+      const user = JSON.parse(userStr);
+      const userId = user.id || user._id;
+      await axiosInstance.post('/orders/add-to-cart', {
+        user_id: userId, // PHẢI TRUYỀN user_id
         productId: product.id,
         quantity: 1
       });
@@ -196,11 +205,11 @@ export default function CTSP() {
         text1: 'Đã thêm vào giỏ hàng!',
         text2: 'Bạn có thể kiểm tra trong giỏ hàng.',
         position: 'bottom',
-        visibilityTime: 1200, // Giảm thời gian để chuyển trang nhanh hơn
+        visibilityTime: 1200,
       });
       setTimeout(() => {
         router.push('./cart');
-      }, 1200); // Chờ toast hiện xong rồi chuyển trang
+      }, 1200);
     } catch (err) {
       Toast.show({
         type: 'error',

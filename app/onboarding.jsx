@@ -110,7 +110,7 @@ const Onboarding = () => {
       });
     } else {
       animateSlideOut(() => {
-        router.replace('/LoginScreen'); // <-- chuyển sang HomeScreen thay vì LoginScreen
+        router.replace('/HomeScreen'); // <-- chuyển sang HomeScreen thay vì LoginScreen
       });
     }
   };
