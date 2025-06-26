@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useCallback } from 'react';
 import { Feather } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Dimensions,
@@ -10,9 +11,8 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
-import axiosInstance from '../utils/AxiosInstance';
 import { useWishlist } from '../context/WishlistContext';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import axiosInstance from '../utils/AxiosInstance';
 
 import CartAddressModal from '../compomentCart/CartAddressModal';
 import CartEmpty from '../compomentCart/CartEmpty';

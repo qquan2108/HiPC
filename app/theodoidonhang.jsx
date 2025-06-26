@@ -3,16 +3,26 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, Image, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  Image,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import axiosInstance from '../utils/AxiosInstance';
 
 const TABS = [
   { key: 'pending',    label: 'Chờ xác nhận',    icon: 'clock-outline' },
-  { key: 'confirmed',  label: 'Chờ lấy hàng',   icon: 'check-circle-outline' },
-  { key: 'shipping',   label: 'Chờ giao hàng',  icon: 'truck-delivery-outline' },
-  { key: 'delivered',  label: 'Đã giao',         icon: 'home-outline' },
-  { key: 'returned',   label: 'Trả hàng',        icon: 'archive-arrow-down-outline' },
-  { key: 'cancelled',  label: 'Đã huỷ',         icon: 'close-circle-outline' },
+  { key: 'confirmed',  label: 'Chờ lấy hàng',     icon: 'check-circle-outline' },
+  { key: 'shipping',   label: 'Chờ giao hàng',    icon: 'truck-delivery-outline' },
+  { key: 'delivered',  label: 'Đã giao',           icon: 'home-outline' },
+  { key: 'returned',   label: 'Trả hàng',          icon: 'archive-arrow-down-outline' },
+  { key: 'cancelled',  label: 'Đã huỷ',           icon: 'close-circle-outline' },
 ];
 
 const STATUS_META = {
@@ -38,7 +48,7 @@ const OrderCard = React.memo(({ order, onCancel }) => {
     <View style={styles.card}>
       <View style={styles.cardHeader}>
         <Text style={styles.shopName}>{order.shopName || 'Cửa hàng'}</Text>
-        <View style={[styles.statusBadge, { backgroundColor: meta.color + '20' }]}>  {/* 20 suffix for transparency */}
+        <View style={[styles.statusBadge, { backgroundColor: meta.color + '20' }]}>  
           <MaterialCommunityIcons name={meta.icon} size={16} color={meta.color} />
           <Text style={[styles.statusText, { color: meta.color }]}>{meta.label}</Text>
         </View>
@@ -49,13 +59,10 @@ const OrderCard = React.memo(({ order, onCancel }) => {
           <View style={styles.productRow} key={prod._id || prod.productId._id}>
             <Image
               source={
-                // Nếu có prod.productId.image thì dùng luôn
                 prod.productId.image
                   ? { uri: prod.productId.image }
-                  // Nếu không có, thử lấy từ prod.productId.images[0] (nếu backend trả về mảng images)
                   : (prod.productId.images && prod.productId.images.length > 0
                       ? { uri: prod.productId.images[0] }
-                      // Nếu vẫn không có, dùng ảnh mẫu
                       : require('../assets/images/pc1.png'))
               }
               style={styles.productImg}
@@ -76,8 +83,11 @@ const OrderCard = React.memo(({ order, onCancel }) => {
         <Text style={styles.totalPrice}>{formatCurrency(order.total)}</Text>
       </View>
 
-      {order.status === 'pending' && (
-        <TouchableOpacity style={styles.cancelBtn} onPress={() => onCancel(order._id)}>
+      {(['pending', 'confirmed'].includes(order.status)) && (
+        <TouchableOpacity
+          style={styles.cancelBtn}
+          onPress={() => onCancel(order._id, order.status)}
+        >
           <Text style={styles.cancelText}>Hủy đơn</Text>
         </TouchableOpacity>
       )}
@@ -86,14 +96,13 @@ const OrderCard = React.memo(({ order, onCancel }) => {
 });
 
 export default function TrackOrderScreen() {
-  const [activeTab, setActiveTab]       = useState('pending');
-  const [orders, setOrders]             = useState([]);
-  const [loading, setLoading]           = useState(false);
-  const [refreshing, setRefreshing]     = useState(false);
-  const [userId, setUserId]             = useState(null);
+  const [activeTab, setActiveTab] = useState('pending');
+  const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [userId, setUserId] = useState(null);
   const router = useRouter();
 
-  // Load user ID from AsyncStorage
   useEffect(() => {
     AsyncStorage.getItem('user').then(data => {
       if (data) {
@@ -103,7 +112,6 @@ export default function TrackOrderScreen() {
     });
   }, []);
 
-  // Fetch orders from backend
   const fetchOrders = useCallback(async () => {
     if (!userId) return;
     setLoading(true);
@@ -112,17 +120,16 @@ export default function TrackOrderScreen() {
         headers: { 'Cache-Control': 'no-cache', Pragma: 'no-cache' }
       });
       const data = res.data || [];
-      // Sort newest orders first
       data.sort((a, b) => new Date(b.order_date) - new Date(a.order_date));
       setOrders(data);
     } catch (e) {
       console.error('Fetch orders error', e);
+      Alert.alert('Lỗi', 'Không thể tải danh sách đơn hàng');
     } finally {
       setLoading(false);
     }
   }, [userId]);
 
-  // Initial & focus fetch
   useEffect(() => { fetchOrders(); }, [fetchOrders]);
   useFocusEffect(
     useCallback(() => {
@@ -130,29 +137,59 @@ export default function TrackOrderScreen() {
     }, [userId])
   );
 
-  // Pull-to-refresh
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await fetchOrders();
     setRefreshing(false);
   }, [fetchOrders]);
 
-  // Handle cancel order
-  const handleCancel = async (orderId) => {
+  // Tách hàm cancelOrder để xử lý API và UI
+  const cancelOrder = async (orderId) => {
+    setLoading(true);
     try {
       await axiosInstance.put(`${API_URL}/${orderId}/cancel`);
-      fetchOrders();
-    } catch (e) {
-      console.error('Cancel order error', e);
+      Alert.alert('Thành công', 'Đã hủy đơn hàng thành công');
+      setActiveTab('cancelled');
+      await fetchOrders();
+    } catch (error) {
+      console.error('Cancel order error:', error);
+      let errorMessage = 'Không thể hủy đơn hàng';
+      if (error.response?.data?.error) {
+        errorMessage = error.response.data.error;
+      } else if (error.response?.status === 400) {
+        errorMessage = 'Không thể hủy đơn hàng ở trạng thái hiện tại';
+      } else if (error.response?.status === 404) {
+        errorMessage = 'Không tìm thấy đơn hàng';
+      }
+      Alert.alert('Lỗi', errorMessage);
+    } finally {
+      setLoading(false);
     }
   };
 
-  // Filter by current tab
-  const filtered = orders.filter(o => o.status === activeTab);
+  // Chỉ show dialog xác nhận, gọi cancelOrder bên trong
+  const handleCancel = (orderId, orderStatus) => {
+    Alert.alert(
+      'Xác nhận hủy đơn',
+      `Bạn có chắc chắn muốn hủy đơn hàng này?${
+        orderStatus === 'confirmed'
+          ? ' Số lượng sản phẩm sẽ được hoàn về kho.'
+          : ''
+      }`,
+      [
+        { text: 'Không', style: 'cancel' },
+        { text: 'Có, hủy đơn', style: 'destructive', onPress: () => cancelOrder(orderId) },
+      ],
+      { cancelable: false }
+    );
+  };
+
+  const filtered = orders
+    .filter(o => !(o.status === 'pending' && (!o.products || o.products.length === 0)))
+    .filter(o => o.status === activeTab);
 
   return (
     <View style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()}>
           <Feather name="arrow-left" size={24} color="#1976FF" />
@@ -161,7 +198,6 @@ export default function TrackOrderScreen() {
         <View style={{ width: 24 }} />
       </View>
 
-      {/* Tabs */}
       <View style={styles.tabBar}>
         {TABS.map(tab => (
           <TouchableOpacity
@@ -181,7 +217,6 @@ export default function TrackOrderScreen() {
         ))}
       </View>
 
-      {/* Content */}
       {loading && !refreshing ? (
         <ActivityIndicator style={styles.loader} size="large" color="#1976FF" />
       ) : (
@@ -191,7 +226,9 @@ export default function TrackOrderScreen() {
           renderItem={({ item }) => <OrderCard order={item} onCancel={handleCancel} />}
           contentContainerStyle={filtered.length === 0 && styles.emptyContainer}
           ListEmptyComponent={<Text style={styles.emptyText}>Bạn chưa có đơn hàng.</Text>}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#1976FF']} />}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#1976FF']} />
+          }
         />
       )}
     </View>
