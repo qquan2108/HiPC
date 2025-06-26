@@ -1,11 +1,54 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, Image, StyleSheet, ScrollView } from 'react-native';
-import { Feather, FontAwesome, Ionicons } from '@expo/vector-icons';
+// components/Profile.js
+import React, { useEffect, useState } from 'react';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  Image,
+  StyleSheet,
+  ScrollView,
+  Alert
+} from 'react-native';
+import { Feather, Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import axiosInstance from '../utils/AxiosInstance';
 
 export default function Profile() {
   const router = useRouter();
+  const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    AsyncStorage.getItem('user').then(userStr => {
+      if (userStr) {
+        const u = JSON.parse(userStr);
+        fetchUser(u.id || u._id);
+      }
+    });
+  }, []);
+
+  const fetchUser = async (userId) => {
+    try {
+      const res = await axiosInstance.get(`/users/${userId}`);
+      setUser(res.data);
+    } catch (err) {
+      Alert.alert('Lỗi', 'Không lấy được thông tin người dùng');
+    }
+  };
+
+  const handleLogout = async () => {
+    await AsyncStorage.removeItem('token');
+    await AsyncStorage.removeItem('user');
+    router.replace('./LoginScreen');
+  };
+
+  if (!user) {
+    return (
+      <View style={styles.loadingContainer}>
+        <Text>Đang tải...</Text>
+      </View>
+    );
+  }
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -20,16 +63,12 @@ export default function Profile() {
 
       {/* Avatar + Name */}
       <View style={styles.avatarWrapper}>
-        <View>
-          <Image
-            source={require('../assets/images/avatar.png')}
-            style={styles.avatar}
-          />
-          <TouchableOpacity style={styles.editIcon}>
-            <Feather name="edit-2" size={16} color="#fff" />
-          </TouchableOpacity>
-        </View>
-        <Text style={styles.name}>Nguyễn Văn A</Text>
+        {user.avatarUrl ? (
+          <Image source={{ uri: user.avatarUrl }} style={styles.avatar} />
+        ) : (
+          <View style={[styles.avatar, styles.avatarPlaceholder]} />
+        )}
+        <Text style={styles.name}>{user.full_name}</Text>
       </View>
 
       {/* Menu */}
@@ -72,12 +111,7 @@ export default function Profile() {
         <MenuItem
           icon={<Feather name="log-out" size={22} color="#1976ff" />}
           label="Đăng xuất"
-          onPress={async () => {
-            await AsyncStorage.removeItem('token');
-            // Nếu bạn lưu thông tin user, cũng nên xóa luôn:
-            await AsyncStorage.removeItem('user');
-            router.push('./LoginScreen');
-          }}
+          onPress={handleLogout}
         />
       </View>
     </ScrollView>
@@ -86,7 +120,11 @@ export default function Profile() {
 
 function MenuItem({ icon, label, onPress }) {
   return (
-    <TouchableOpacity style={styles.menuItem} onPress={onPress} activeOpacity={0.7}>
+    <TouchableOpacity
+      style={styles.menuItem}
+      onPress={onPress}
+      activeOpacity={0.7}
+    >
       <View style={styles.menuIcon}>{icon}</View>
       <Text style={styles.menuLabel}>{label}</Text>
       <Feather name="chevron-right" size={20} color="#b0b9c8" />
@@ -95,56 +133,52 @@ function MenuItem({ icon, label, onPress }) {
 }
 
 const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
   container: {
     backgroundColor: '#fff',
     flexGrow: 1,
-    paddingTop: 18,
-    paddingHorizontal: 0,
+    paddingTop: 18
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 18,
-    marginBottom: 10,
+    marginBottom: 10
   },
   headerTitle: {
     flex: 1,
     textAlign: 'center',
     fontSize: 20,
     fontWeight: '700',
-    color: '#1976ff',
+    color: '#1976ff'
   },
   avatarWrapper: {
     alignItems: 'center',
-    marginBottom: 18,
+    marginBottom: 18
   },
   avatar: {
     width: 90,
     height: 90,
     borderRadius: 45,
     marginBottom: 8,
-    backgroundColor: '#eaf2ff',
+    backgroundColor: '#eaf2ff'
   },
-  editIcon: {
-    position: 'absolute',
-    right: 0,
-    bottom: 8,
-    backgroundColor: '#1976ff',
-    borderRadius: 14,
-    padding: 4,
-    borderWidth: 2,
-    borderColor: '#fff',
+  avatarPlaceholder: {
+    backgroundColor: 'transparent'
   },
   name: {
     fontWeight: 'bold',
     fontSize: 18,
     color: '#222',
     marginTop: 2,
-    marginBottom: 8,
+    marginBottom: 8
   },
   menu: {
-    marginTop: 8,
-    paddingHorizontal: 0,
+    marginTop: 8
   },
   menuItem: {
     flexDirection: 'row',
@@ -153,7 +187,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     borderBottomWidth: 1,
     borderBottomColor: '#f0f4fa',
-    backgroundColor: '#fff',
+    backgroundColor: '#fff'
   },
   menuIcon: {
     width: 38,
@@ -162,12 +196,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#eaf2ff',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 18,
+    marginRight: 18
   },
   menuLabel: {
     flex: 1,
     fontSize: 16,
     color: '#222',
-    fontWeight: '500',
-  },
+    fontWeight: '500'
+  }
 });

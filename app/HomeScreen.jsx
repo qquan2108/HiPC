@@ -121,15 +121,16 @@ export default function HomeScreen() {
   useEffect(() => {
     axiosInstance.get("/product")
       .then(res => {
-        const mapped = res.data.map(p => ({
+        const mapped = (res.data.products || []).map(p => ({
           ...p,
           id: p._id,
           image: p.image ? { uri: p.image } : require("../assets/images/pc1.png"),
           discount: p.originalPrice && p.price < p.originalPrice
             ? Math.round(100 - (p.price / p.originalPrice) * 100)
             : 0,
-          isHot: p.sold > 50,
-          price: p.price?.toLocaleString("vi-VN") + " đ",
+          isHot: p.sold ? p.sold > 50 : false,
+          isBestSeller: p.isBestSeller ?? false,
+          price: (p.price ?? 0).toLocaleString("vi-VN") + " đ",
           originalPrice: p.originalPrice
             ? p.originalPrice.toLocaleString("vi-VN") + " đ"
             : undefined,
@@ -151,15 +152,16 @@ export default function HomeScreen() {
       // Gọi lại API khi HomeScreen được focus
       axiosInstance.get("/product")
         .then(res => {
-          const mapped = res.data.map(p => ({
+          const mapped = (res.data.products || []).map(p => ({
             ...p,
             id: p._id,
             image: p.image ? { uri: p.image } : require("../assets/images/pc1.png"),
             discount: p.originalPrice && p.price < p.originalPrice
               ? Math.round(100 - (p.price / p.originalPrice) * 100)
               : 0,
-            isHot: p.sold > 50,
-            price: p.price?.toLocaleString("vi-VN") + " đ",
+            isHot: p.sold ? p.sold > 50 : false,
+            isBestSeller: p.isBestSeller ?? false,
+            price: (p.price ?? 0).toLocaleString("vi-VN") + " đ",
             originalPrice: p.originalPrice
               ? p.originalPrice.toLocaleString("vi-VN") + " đ"
               : undefined,
