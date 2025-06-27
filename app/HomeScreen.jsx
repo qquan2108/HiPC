@@ -1,4 +1,4 @@
-import { AntDesign, Ionicons } from "@expo/vector-icons";
+import { AntDesign, Ionicons, Feather } from "@expo/vector-icons";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useRouter } from "expo-router";
@@ -104,17 +104,18 @@ export default function HomeScreen() {
     ])
       .then(([catRes, imgRes]) => {
         const images = imgRes.data;
-        setCategories(
-          catRes.data.map(cat => {
-            // Tìm ảnh có category_id trùng với _id của category
-            const img = images.find(i => i.category_id && i.category_id._id === cat._id);
-            return {
-              key: cat.name,
-              label: cat.name,
-              icon: img ? { uri: img.url } : require("../assets/images/pc.png"), // fallback nếu không có ảnh
-            };
-          })
-        );
+        let cats = catRes.data.slice(0, 7).map((cat, idx) => ({
+          key: cat._id,
+          label: cat.name,
+          icon: categoryImages[idx] || require("../assets/images/cpu.png"),
+        }));
+        cats.push({
+          key: "more",
+          label: "Xem thêm",
+          icon: require("../assets/images/more.png"),
+          isMore: true,
+        });
+        setCategories(cats);
       })
       .catch(() => setCategories([]));
   }, []);
@@ -291,7 +292,26 @@ export default function HomeScreen() {
             overlayType="gradient" />
 
           {/* Danh mục */}
-          <CategoryList categories={categories} router={router} />
+          <View
+  style={{
+    marginHorizontal: 16,
+    marginTop: 10,
+    marginBottom: 18,
+    borderRadius: 18,
+    borderWidth: 1.5,
+    borderColor: "#e0e7ef",
+    backgroundColor: "#fafdff",
+    paddingVertical: 12,
+    paddingHorizontal: 6,
+    shadowColor: "#000",
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  }}
+>
+  <CategoryList categories={categories} router={router} />
+</View>
 
           {/* Khung giờ vàng */}
           <FlashSale

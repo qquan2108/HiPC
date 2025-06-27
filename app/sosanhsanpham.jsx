@@ -1,8 +1,9 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity } from 'react-native';
+import { useLocalSearchParams } from 'expo-router';
 
 // Demo dữ liệu sản phẩm PC để so sánh
-const compareProducts = [
+const sampleProducts = [
   {
     id: 1,
     name: 'PC GVN Intel i3-12100F/ VGA RX 6500XT',
@@ -80,10 +81,31 @@ const specs = [
 ];
 
 function formatCurrency(num) {
+  if (typeof num !== 'number' || isNaN(num)) return '—';
   return num.toLocaleString('vi-VN') + 'đ';
 }
 
 export default function SoSanhSanPham() {
+  const params = useLocalSearchParams();
+  let compareProducts = [];
+
+  try {
+    if (params.compare) {
+      compareProducts = JSON.parse(params.compare);
+    }
+  } catch {
+    compareProducts = [];
+  }
+
+  // Nếu không có dữ liệu truyền sang thì fallback về dữ liệu mẫu hoặc báo lỗi
+  if (!compareProducts.length) {
+    return (
+      <View style={{flex:1, justifyContent:'center', alignItems:'center'}}>
+        <Text>Không có sản phẩm để so sánh.</Text>
+      </View>
+    );
+  }
+
   return (
     <ScrollView style={styles.container}>
       {/* Header sản phẩm */}

@@ -1,6 +1,6 @@
 import { Feather } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -11,6 +11,7 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
+import Toast from 'react-native-toast-message';
 import { useWishlist } from '../context/WishlistContext';
 import axiosInstance from '../utils/AxiosInstance';
 
@@ -43,8 +44,10 @@ export default function CartScreen() {
   const [editAddressId, setEditAddressId] = useState(null);
   const [editAddressText, setEditAddressText] = useState('');
   const [loading, setLoading] = useState(true);
+  const [selectedIds, setSelectedIds] = useState([]);
   const router = useRouter();
   const { wishlist } = useWishlist();
+  const params = useLocalSearchParams();
 
   // Load user ID
   useEffect(() => {
@@ -113,7 +116,12 @@ export default function CartScreen() {
       setCart(items);
     } catch (err) {
       console.error('Lỗi khi cập nhật số lượng:', err);
-      alert('Có lỗi khi cập nhật số lượng sản phẩm');
+      Toast.show({
+        type: 'error',
+        text1: 'Có lỗi khi cập nhật số lượng sản phẩm',
+        position: 'top',
+        visibilityTime: 2000,
+      });
     }
   };
 
@@ -124,7 +132,33 @@ export default function CartScreen() {
       setCart(prev => prev.filter(item => item.id !== id));
     } catch (err) {
       console.error('Lỗi khi xóa sản phẩm:', err);
-      alert('Có lỗi khi xóa sản phẩm khỏi giỏ hàng');
+      Toast.show({
+        type: 'error',
+        text1: 'Có lỗi khi xóa sản phẩm khỏi giỏ hàng',
+        position: 'top',
+        visibilityTime: 2000,
+      });
+    }
+  };
+
+  // Remove selected products
+  const handleRemoveSelected = async () => {
+    if (selectedIds.length === 0) return;
+    try {
+      await Promise.all(
+        selectedIds.map(id =>
+          axiosInstance.delete(`/orders/remove-product/${userId}/${id}`)
+        )
+      );
+      setCart(prev => prev.filter(item => !selectedIds.includes(item.id)));
+      setSelectedIds([]);
+    } catch (err) {
+      Toast.show({
+        type: 'error',
+        text1: 'Có lỗi khi xóa sản phẩm đã chọn',
+        position: 'top',
+        visibilityTime: 2000,
+      });
     }
   };
 
@@ -139,6 +173,21 @@ export default function CartScreen() {
   const handleEditAddress = (id, text) => { /* ... */ };
   const handleSaveEditAddress = () => { /* ... */ };
   const selectedAddress = addresses.find(addr => addr.isDefault);
+
+  const toggleSelect = (id) => {
+    setSelectedIds(prev =>
+      prev.includes(id) ? prev.filter(_id => _id !== id) : [...prev, id]
+    );
+  };
+
+  const selectAll = () => {
+    if (selectedIds.length === cart.length) setSelectedIds([]);
+    else setSelectedIds(cart.map(item => item.id));
+  };
+
+  useEffect(() => {
+    fetchCart();
+  }, [fetchCart]);
 
   if (loading) {
     return (
@@ -156,6 +205,13 @@ export default function CartScreen() {
           <Feather name="arrow-left" size={24} color="#222" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Giỏ hàng</Text>
+        <TouchableOpacity
+          style={{ marginLeft: 8, padding: 4 }}
+          onPress={handleRemoveSelected}
+          disabled={selectedIds.length === 0}
+        >
+          <Feather name="trash-2" size={22} color={selectedIds.length === 0 ? "#ccc" : "#ff4d4f"} />
+        </TouchableOpacity>
         <View style={styles.cartCount}>
           <Text style={styles.cartCountText}>{cart.length}</Text>
         </View>
@@ -189,6 +245,8 @@ export default function CartScreen() {
             onRemove={handleRemove}
             onQuantity={handleQuantity}
             formatCurrency={formatCurrency}
+            selectedIds={selectedIds}
+            onToggleSelect={toggleSelect}
           />
         ) : (
           <CartEmpty />
@@ -200,7 +258,24 @@ export default function CartScreen() {
       <CartTotalBar
         total={total}
         formatCurrency={formatCurrency}
-        onCheckout={() => router.push('./pay')}
+        onCheckout={() => {
+          const selectedProducts = cart.filter(item => selectedIds.includes(item.id));
+          if (selectedProducts.length === 0) {
+            Toast.show({
+              type: 'error',
+              text1: 'Vui lòng chọn sản phẩm để thanh toán!',
+              position: 'top',
+              visibilityTime: 2000,
+            });
+            return;
+          }
+          router.push({
+            pathname: './pay',
+            params: {
+              selectedProducts: JSON.stringify(selectedProducts)
+            }
+          });
+        }}
         disabled={isEmpty}
       />
     </View>
