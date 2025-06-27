@@ -48,7 +48,11 @@ const DanhMucPCScreen = () => {
   // Lấy danh sách sản phẩm
   useEffect(() => {
     axiosInstance.get('/product')
-      .then(res => setProducts(res.data))
+      .then(res => {
+        // Đảm bảo luôn là mảng
+        const arr = Array.isArray(res.data.products) ? res.data.products : [];
+        setProducts(arr);
+      })
       .catch(() => setProducts([]));
   }, []);
 

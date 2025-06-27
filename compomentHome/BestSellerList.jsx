@@ -1,5 +1,8 @@
 import { AntDesign } from "@expo/vector-icons";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import Toast from 'react-native-toast-message';
+import axiosInstance from "../utils/AxiosInstance";
 
 export default function BestSellerList({
   bestSellers,
@@ -10,9 +13,26 @@ export default function BestSellerList({
   onRequireLogin,
   router,
 }) {
+  // Hàm thêm vào giỏ hàng
+  const addToCart = async (product) => {
+    try {
+      const userStr = await AsyncStorage.getItem('user');
+      if (!userStr) {
+        Toast.show({ type:'error', text1:'Vui lòng đăng nhập để mua hàng!', position:'top' });
+        return router.push('/LoginScreen');
+      }
+      const userId = JSON.parse(userStr).id;
+      await axiosInstance.post('/orders/add-to-cart', { user_id: userId, productId: product.id, quantity: 1 });
+      Toast.show({ type:'success', text1:'Đã thêm vào giỏ hàng!', position:'bottom' });
+      setTimeout(() => router.push('./cart'), 1200);
+    } catch {
+      Toast.show({ type:'error', text1:'Thêm giỏ hàng thất bại!', position:'top' });
+    }
+  };
+
   const handleAddToCart = (product) => {
     if (!isLoggedIn) return onRequireLogin();
-    // Thêm vào giỏ hàng
+    addToCart(product);
   };
 
   return (

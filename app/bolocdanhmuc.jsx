@@ -1,46 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'expo-router';
 import { View, Text, TouchableOpacity, Image, ScrollView, StyleSheet } from 'react-native';
 import { Feather, MaterialIcons } from '@expo/vector-icons';
-const categories = [
-  {
-    key: 'PC',
-    label: 'PC',
-    icon: require('../assets/images/pc.png'),
-    sub: ['PC I3', 'PC I5', 'PC I7', 'PC I9', 'PC R3', 'PC R5', 'PC R7', 'PC R9'],
-  },
-  {
-    key: 'RAM',
-    label: 'RAM',
-    icon: require('../assets/images/ram.png'),
-    sub: ['DDR3', 'DDR4', 'DDR5', 'Laptop', 'Desktop'],
-  },
-  {
-    key: 'TANNHIET',
-    label: 'Tản nhiệt',
-    icon: require('../assets/images/pc1.png'),
-    sub: ['Fan 120mm', 'Fan 140mm', 'Water Cooling', 'Air Cooling'],
-  },
-  {
-    key: 'VGA',
-    label: 'VAG',
-    icon: require('../assets/images/the.png'),
-    sub: ['GTX 1650', 'RTX 3060', 'RTX 4060', 'RX 6600'],
-  },
-  {
-    key: 'OCUNG',
-    label: 'Ổ cứng',
-    icon: require('../assets/images/DC.png'),
-    sub: ['SSD 256GB', 'SSD 512GB', 'HDD 1TB', 'HDD 2TB'],
-  },
-  {
-    key: 'FORYOU',
-    label: 'Dành cho bạn',
-    icon: require('../assets/images/pc1.png'),
-    sub: [],
-    special: true,
-  },
-];
+import axiosInstance from '../utils/AxiosInstance'; // Đảm bảo đã có file này
 
 const filterTabs = [
   { key: 'all', label: 'Tất cả' },
@@ -49,16 +11,28 @@ const filterTabs = [
 ];
 
 export default function BoLocDanhMuc() {
-  // Lưu trạng thái mở/đóng từng danh mục
+  const [categories, setCategories] = useState([]);
   const [open, setOpen] = useState([]);
-
   const [activeTab, setActiveTab] = useState('all');
 
-  // Toggle mở/đóng từng danh mục
+  // Fetch categories từ API
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const res = await axiosInstance.get('/category');
+        setCategories(res.data);
+      } catch (err) {
+        // Có thể dùng Toast ở đây nếu muốn
+        console.error('Lỗi lấy danh mục:', err);
+      }
+    };
+    fetchCategories();
+  }, []);
+
   const handleToggle = (key) => {
-    setOpen(prev => 
-      prev.includes(key) 
-        ? prev.filter(k => k !== key) 
+    setOpen(prev =>
+      prev.includes(key)
+        ? prev.filter(k => k !== key)
         : [...prev, key]
     );
   };
@@ -95,32 +69,24 @@ export default function BoLocDanhMuc() {
       {/* Category List */}
       <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
         {categories.map((cat, idx) => (
-          <View key={cat.key} style={styles.catBlock}>
+          <View key={cat._id} style={styles.catBlock}>
             <TouchableOpacity
               style={styles.catHeader}
               activeOpacity={0.7}
-              onPress={() => handleToggle(cat.key)}
+              onPress={() => handleToggle(cat._id)}
             >
-              <Image source={cat.icon} style={styles.catIcon} />
-              <Text style={styles.catLabel}>{cat.label}</Text>
-              {cat.special ? (
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginLeft: 'auto' }}>
-                  <MaterialIcons name="star" size={20} color="#2979ff" />
-                  <TouchableOpacity style={styles.specialBtn}>
-                    <Feather name="arrow-right" size={20} color="#fff" />
-                  </TouchableOpacity>
-                </View>
-              ) : (
-                <Feather
-                  name={open.includes(cat.key) ? 'chevron-up' : 'chevron-down'}
-                  size={22}
-                  color="#222"
-                  style={{ marginLeft: 'auto' }}
-                />
-              )}
+              {/* Nếu có icon thì hiển thị, không thì bỏ */}
+              {cat.icon && <Image source={{ uri: cat.icon }} style={styles.catIcon} />}
+              <Text style={styles.catLabel}>{cat.name}</Text>
+              <Feather
+                name={open.includes(cat._id) ? 'chevron-up' : 'chevron-down'}
+                size={22}
+                color="#222"
+                style={{ marginLeft: 'auto' }}
+              />
             </TouchableOpacity>
-            {/* Subcategory grid */}
-            {open.includes(cat.key) && cat.sub && cat.sub.length > 0 && (
+            {/* Nếu có subcategory, render tương tự */}
+            {open.includes(cat._id) && cat.sub && cat.sub.length > 0 && (
               <View style={styles.subGrid}>
                 {cat.sub.map((sub, i) => (
                   <View key={sub} style={styles.subItemWrap}>

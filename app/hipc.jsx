@@ -28,6 +28,7 @@ const SplashScreen = () => {
   const ringScale2 = useRef(new Animated.Value(0)).current;
   const ringScale3 = useRef(new Animated.Value(0)).current;
   const gradientOpacity = useRef(new Animated.Value(0)).current;
+  const animatedWidth = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     const animationSequence = () => {

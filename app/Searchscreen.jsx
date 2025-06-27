@@ -131,7 +131,9 @@ export default function SearchScreen() {
   useEffect(() => {
     axiosInstance.get("/product")
       .then(res => {
-        const mapped = res.data.map(p => ({
+        // Sửa ở đây: lấy đúng mảng sản phẩm
+        const arr = Array.isArray(res.data.products) ? res.data.products : [];
+        const mapped = arr.map(p => ({
           ...p,
           id: p._id,
           name: p.name,

@@ -114,6 +114,7 @@ export default function CTSP() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [cart, setCart] = useState([]);
+  const [showLoginDialog, setShowLoginDialog] = useState(false);
 
   // Load dữ liệu sản phẩm và danh sách
   useEffect(() => {
@@ -166,14 +167,22 @@ export default function CTSP() {
   };
   const handleRemoveCompare = id => setCompareProducts(cp => cp.filter(p => p.id !== id));
   const handleClearCompare  = () => { setCompareProducts([]); setAddModalVisible(false); };
-  const handleGoCompare     = () => router.push('/sosanhsanpham');
+  const handleGoCompare     = () => {
+    // Truyền dữ liệu qua params (dùng JSON.stringify)
+    router.push({
+      pathname: '/sosanhsanpham',
+      params: {
+        compare: JSON.stringify(compareProducts)
+      }
+    });
+  };
 
   const addToCart = async prod => {
     try {
       const userStr = await AsyncStorage.getItem('user');
       if (!userStr) {
-        Toast.show({ type:'error', text1:'Vui lòng đăng nhập để mua hàng!', position:'top' });
-        return router.push('/LoginScreen');
+        setShowLoginDialog(true); // Hiện dialog thay vì chuyển trang luôn
+        return;
       }
       const userId = JSON.parse(userStr).id;
       await axiosInstance.post('/orders/add-to-cart', { user_id: userId, productId: prod.id, quantity: 1 });
@@ -314,6 +323,69 @@ export default function CTSP() {
             <TouchableOpacity style={styles.addModalCloseBtn} onPress={()=>setAddModalVisible(false)}>
               <Text>Đóng</Text>
             </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal đăng nhập */}
+      <Modal
+        visible={showLoginDialog}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowLoginDialog(false)}
+      >
+        <View style={{
+          flex: 1,
+          backgroundColor: 'rgba(0,0,0,0.3)',
+          justifyContent: 'center',
+          alignItems: 'center'
+        }}>
+          <View style={{
+            backgroundColor: '#fff',
+            borderRadius: 18,
+            padding: 28,
+            alignItems: 'center',
+            width: 320,
+            shadowColor: '#000',
+            shadowOpacity: 0.15,
+            shadowRadius: 10,
+            elevation: 5
+          }}>
+            <Text style={{ fontSize: 40, marginBottom: 8 }}>😺</Text>
+            <Text style={{ fontWeight: 'bold', fontSize: 18, marginBottom: 8, color: '#1976ff' }}>
+              Bạn chưa đăng nhập!
+            </Text>
+            <Text style={{ color: '#444', textAlign: 'center', marginBottom: 18 }}>
+              Hãy đăng nhập để sử dụng đầy đủ chức năng của ứng dụng nhé!
+            </Text>
+            <View style={{ flexDirection: 'row', gap: 12 }}>
+              <TouchableOpacity
+                style={{
+                  backgroundColor: '#1976ff',
+                  borderRadius: 8,
+                  paddingVertical: 10,
+                  paddingHorizontal: 22,
+                  marginRight: 8
+                }}
+                onPress={() => {
+                  setShowLoginDialog(false);
+                  router.replace('./LoginScreen');
+                }}
+              >
+                <Text style={{ color: '#fff', fontWeight: 'bold' }}>Đăng nhập ngay</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={{
+                  backgroundColor: '#f0f4fa',
+                  borderRadius: 8,
+                  paddingVertical: 10,
+                  paddingHorizontal: 22
+                }}
+                onPress={() => setShowLoginDialog(false)}
+              >
+                <Text style={{ color: '#1976ff', fontWeight: 'bold' }}>Để sau</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>

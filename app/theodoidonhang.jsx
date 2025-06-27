@@ -8,31 +8,17 @@ import {
   Alert,
   FlatList,
   Image,
+  PanResponder,
   RefreshControl,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import OrderStatusStepper from '../components/OrderStatusStepper';
 import axiosInstance from '../utils/AxiosInstance';
 
-const TABS = [
-  { key: 'pending',    label: 'Chờ xác nhận',    icon: 'clock-outline' },
-  { key: 'confirmed',  label: 'Chờ lấy hàng',     icon: 'check-circle-outline' },
-  { key: 'shipping',   label: 'Chờ giao hàng',    icon: 'truck-delivery-outline' },
-  { key: 'delivered',  label: 'Đã giao',           icon: 'home-outline' },
-  { key: 'returned',   label: 'Trả hàng',          icon: 'archive-arrow-down-outline' },
-  { key: 'cancelled',  label: 'Đã huỷ',           icon: 'close-circle-outline' },
-];
 
-const STATUS_META = {
-  pending:    { label: 'Chờ xác nhận', color: '#FFC107', icon: 'clock-outline' },
-  confirmed:  { label: 'Chờ lấy hàng',  color: '#2196F3', icon: 'check-circle-outline' },
-  shipping:   { label: 'Đang giao',     color: '#4CAF50', icon: 'truck-delivery-outline' },
-  delivered:  { label: 'Đã giao',       color: '#4CAF50', icon: 'home-outline' },
-  returned:   { label: 'Đã trả hàng',   color: '#9C27B0', icon: 'archive-arrow-down-outline' },
-  cancelled:  { label: 'Đã huỷ',        color: '#F44336', icon: 'close-circle-outline' },
-};
 
 const API_URL = '/orders';
 
@@ -40,17 +26,23 @@ function formatCurrency(num) {
   return typeof num === 'number' ? num.toLocaleString('vi-VN') + ' đ' : '';
 }
 
-const OrderCard = React.memo(({ order, onCancel }) => {
+const OrderCard = React.memo(({ order, tab, onCancel, onStatusChange }) => {
   const itemCount = order.products?.reduce((sum, p) => sum + p.quantity, 0) || 0;
-  const meta = STATUS_META[order.status] || {};
 
   return (
     <View style={styles.card}>
       <View style={styles.cardHeader}>
         <Text style={styles.shopName}>{order.shopName || 'Cửa hàng'}</Text>
-        <View style={[styles.statusBadge, { backgroundColor: meta.color + '20' }]}>  
-          <MaterialCommunityIcons name={meta.icon} size={16} color={meta.color} />
-          <Text style={[styles.statusText, { color: meta.color }]}>{meta.label}</Text>
+        <View style={[styles.statusBadge, { backgroundColor: '#E3F2FD' }]}>
+          {tab && (
+            <>
+              <MaterialCommunityIcons name={tab.icon} size={16} color="#1976FF" />
+              <Text style={[styles.statusText, { color: '#1976FF' }]}>{tab.label}</Text>
+            </>
+          )}
+          {!tab && (
+            <Text style={styles.statusText}>{order.status}</Text>
+          )}
         </View>
       </View>
 
@@ -83,20 +75,20 @@ const OrderCard = React.memo(({ order, onCancel }) => {
         <Text style={styles.totalPrice}>{formatCurrency(order.total)}</Text>
       </View>
 
-      {(['pending', 'confirmed'].includes(order.status)) && (
-        <TouchableOpacity
-          style={styles.cancelBtn}
-          onPress={() => onCancel(order._id, order.status)}
-        >
-          <Text style={styles.cancelText}>Hủy đơn</Text>
-        </TouchableOpacity>
-      )}
+      
+
+      <OrderStatusStepper
+        orderId={order._id}
+        initialStatus={order.status}
+        onStatusChange={onStatusChange}
+      />
     </View>
   );
 });
 
 export default function TrackOrderScreen() {
   const [activeTab, setActiveTab] = useState('pending');
+  const [tabs, setTabs] = useState([]);
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -110,6 +102,10 @@ export default function TrackOrderScreen() {
         setUserId(user.id || user._id);
       }
     });
+  }, []);
+
+  useEffect(() => {
+    axiosInstance.get('/orders/status-tabs').then(res => setTabs(res.data));
   }, []);
 
   const fetchOrders = useCallback(async () => {
@@ -188,6 +184,28 @@ export default function TrackOrderScreen() {
     .filter(o => !(o.status === 'pending' && (!o.products || o.products.length === 0)))
     .filter(o => o.status === activeTab);
 
+  // Tìm index của tab hiện tại
+  const currentTabIndex = tabs.findIndex(t => t.key === activeTab);
+
+  // PanResponder cho swipe tab
+  const panResponder = React.useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, gestureState) => {
+        // Bắt đầu nhận swipe nếu trượt ngang đủ xa
+        return Math.abs(gestureState.dx) > 18 && Math.abs(gestureState.dy) < 12;
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        if (gestureState.dx < -40 && currentTabIndex < tabs.length - 1) {
+          // Trượt sang trái: sang tab phải
+          setActiveTab(tabs[currentTabIndex + 1].key);
+        } else if (gestureState.dx > 40 && currentTabIndex > 0) {
+          // Trượt sang phải: sang tab trái
+          setActiveTab(tabs[currentTabIndex - 1].key);
+        }
+      },
+    })
+  ).current;
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -199,7 +217,7 @@ export default function TrackOrderScreen() {
       </View>
 
       <View style={styles.tabBar}>
-        {TABS.map(tab => (
+        {tabs.map(tab => (
           <TouchableOpacity
             key={tab.key}
             style={[styles.tabItem, activeTab === tab.key && styles.tabItemActive]}
@@ -217,20 +235,30 @@ export default function TrackOrderScreen() {
         ))}
       </View>
 
-      {loading && !refreshing ? (
-        <ActivityIndicator style={styles.loader} size="large" color="#1976FF" />
-      ) : (
-        <FlatList
-          data={filtered}
-          keyExtractor={item => item._id}
-          renderItem={({ item }) => <OrderCard order={item} onCancel={handleCancel} />}
-          contentContainerStyle={filtered.length === 0 && styles.emptyContainer}
-          ListEmptyComponent={<Text style={styles.emptyText}>Bạn chưa có đơn hàng.</Text>}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#1976FF']} />
-          }
-        />
-      )}
+      {/* Bọc FlatList bằng View nhận gesture */}
+      <View style={{ flex: 1 }} {...panResponder.panHandlers}>
+        {loading && !refreshing ? (
+          <ActivityIndicator style={styles.loader} size="large" color="#1976FF" />
+        ) : (
+          <FlatList
+            data={filtered}
+            keyExtractor={item => item._id}
+            renderItem={({ item }) => (
+              <OrderCard
+                order={item}
+                tab={tabs.find(t => t.key === item.status)}
+                onCancel={handleCancel}
+                onStatusChange={fetchOrders}
+              />
+            )}
+            contentContainerStyle={filtered.length === 0 && styles.emptyContainer}
+            ListEmptyComponent={<Text style={styles.emptyText}>Bạn chưa có đơn hàng.</Text>}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#1976FF']} />
+            }
+          />
+        )}
+      </View>
     </View>
   );
 }
