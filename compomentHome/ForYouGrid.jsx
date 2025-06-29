@@ -51,20 +51,21 @@ export default function ForYouGrid({
   const { wishlist, addToWishlist, removeFromWishlist } = useWishlist();
 
   const handleAddToCart = async (product) => {
-    if (!isLoggedIn) return onRequireLogin();
-    try {
-      const userStr = await AsyncStorage.getItem('user');
-      if (!userStr) {
-        Toast.show({ type:'error', text1:'Vui lòng đăng nhập để mua hàng!', position:'top' });
-        return router.push('/LoginScreen');
-      }
-      const userId = JSON.parse(userStr).id;
-      await axiosInstance.post('/orders/add-to-cart', { user_id: userId, productId: product.id, quantity: 1 });
-      Toast.show({ type:'success', text1:'Đã thêm vào giỏ hàng!', position:'bottom' });
-    } catch {
-      Toast.show({ type:'error', text1:'Thêm giỏ hàng thất bại!', position:'top' });
+  if (!isLoggedIn) return onRequireLogin();
+  try {
+    const userStr = await AsyncStorage.getItem('user');
+    if (!userStr) {
+      Toast.show({ type:'error', text1:'Vui lòng đăng nhập để mua hàng!', position:'top' });
+      return router.push('/LoginScreen');
     }
-  };
+    const userObj = JSON.parse(userStr);
+    const userId = userObj._id || userObj.id; // Ưu tiên _id
+    await axiosInstance.post('/orders/add-to-cart', { user_id: userId, productId: product.id, quantity: 1 });
+    Toast.show({ type:'success', text1:'Đã thêm vào giỏ hàng!', position:'bottom' });
+  } catch {
+    Toast.show({ type:'error', text1:'Thêm giỏ hàng thất bại!', position:'top' });
+  }
+};
 
   return (
     <View style={styles.container}>

@@ -1,9 +1,18 @@
 import { AntDesign, Ionicons, Feather } from "@expo/vector-icons";
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { LinearGradient } from 'expo-linear-gradient';
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { LinearGradient } from "expo-linear-gradient";
 import { useFocusEffect, useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
-import { Animated, Dimensions, ImageBackground, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import {
+  Animated,
+  Dimensions,
+  ImageBackground,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import BackgroundImage from "../assets/images/backroundLogin.png";
 import AIChatBox from "../compomentHome/AIChatBox";
 import Banner from "../compomentHome/Banner";
@@ -16,9 +25,9 @@ import Header from "../compomentHome/Header";
 import NewProducts from "../compomentHome/NewProducts";
 import PromoPopup from "../compomentHome/PromoPopup";
 import axiosInstance from "../utils/AxiosInstance";
+import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
 const { width } = Dimensions.get("window");
-
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -31,6 +40,7 @@ export default function HomeScreen() {
   const [products, setProducts] = useState([]);
   const [bestSellers, setBestSellers] = useState([]);
   const [flashSaleProducts, setFlashSaleProducts] = useState([]);
+  const [avatarUri, setAvatarUri] = useState(null);
 
   // Badge renderers
   const renderDiscountBadge = (discount) => (
@@ -55,7 +65,37 @@ export default function HomeScreen() {
       <Text style={styles.bestSellerBadgeText}>Bán chạy</Text>
     </View>
   );
+  useFocusEffect(
+  React.useCallback(() => {
+    const loadAvatar = async () => {
+      try {
+        const raw = await AsyncStorage.getItem("user");
+        if (!raw) return;
+        const local = JSON.parse(raw);
+        // local.id (được login trả về) hoặc nếu bạn dùng _id thì dùng local._id
+        const userId = local.id ?? local._id;
+        if (!userId) return;
 
+        // Nếu trước đó có avatarUrl, dùng luôn
+        if (local.avatarUrl) {
+          setAvatarUri(local.avatarUrl);
+        } else {
+          // Fetch chi tiết user
+          const res = await axiosInstance.get(`/users/${userId}`);
+          setAvatarUri(res.data.avatarUrl);
+          // Cập nhật AsyncStorage để lần sau khỏi fetch lại
+          await AsyncStorage.setItem(
+            "user",
+            JSON.stringify({ ...local, avatarUrl: res.data.avatarUrl })
+          );
+        }
+      } catch (err) {
+        console.error("Load avatar error:", err);
+      }
+    };
+    loadAvatar();
+  }, [])
+);
   useEffect(() => {
     if (showPromoPopup) {
       fadeAnim.setValue(1);
@@ -98,10 +138,7 @@ export default function HomeScreen() {
     ).start();
   }, []);
   useEffect(() => {
-    Promise.all([
-      axiosInstance.get("/category"),
-      axiosInstance.get("/images")
-    ])
+    Promise.all([axiosInstance.get("/category"), axiosInstance.get("/images")])
       .then(([catRes, imgRes]) => {
         const images = imgRes.data;
         let cats = catRes.data.slice(0, 7).map((cat, idx) => ({
@@ -120,15 +157,19 @@ export default function HomeScreen() {
       .catch(() => setCategories([]));
   }, []);
   useEffect(() => {
-    axiosInstance.get("/product")
-      .then(res => {
-        const mapped = (res.data.products || []).map(p => ({
+    axiosInstance
+      .get("/product")
+      .then((res) => {
+        const mapped = (res.data.products || []).map((p) => ({
           ...p,
           id: p._id,
-          image: p.image ? { uri: p.image } : require("../assets/images/pc1.png"),
-          discount: p.originalPrice && p.price < p.originalPrice
-            ? Math.round(100 - (p.price / p.originalPrice) * 100)
-            : 0,
+          image: p.image
+            ? { uri: p.image }
+            : require("../assets/images/pc1.png"),
+          discount:
+            p.originalPrice && p.price < p.originalPrice
+              ? Math.round(100 - (p.price / p.originalPrice) * 100)
+              : 0,
           isHot: p.sold ? p.sold > 50 : false,
           isBestSeller: p.isBestSeller ?? false,
           price: (p.price ?? 0).toLocaleString("vi-VN") + " đ",
@@ -137,7 +178,7 @@ export default function HomeScreen() {
             : undefined,
         }));
         setProducts(mapped);
-        setBestSellers(mapped.filter(p => p.isBestSeller));
+        setBestSellers(mapped.filter((p) => p.isBestSeller));
         // Lọc flash sale: sản phẩm có discount > 0
         setFlashSaleProducts(mapped); // Đổ hết sản phẩm vào flash sale
       })
@@ -151,15 +192,19 @@ export default function HomeScreen() {
   useFocusEffect(
     React.useCallback(() => {
       // Gọi lại API khi HomeScreen được focus
-      axiosInstance.get("/product")
-        .then(res => {
-          const mapped = (res.data.products || []).map(p => ({
+      axiosInstance
+        .get("/product")
+        .then((res) => {
+          const mapped = (res.data.products || []).map((p) => ({
             ...p,
             id: p._id,
-            image: p.image ? { uri: p.image } : require("../assets/images/pc1.png"),
-            discount: p.originalPrice && p.price < p.originalPrice
-              ? Math.round(100 - (p.price / p.originalPrice) * 100)
-              : 0,
+            image: p.image
+              ? { uri: p.image }
+              : require("../assets/images/pc1.png"),
+            discount:
+              p.originalPrice && p.price < p.originalPrice
+                ? Math.round(100 - (p.price / p.originalPrice) * 100)
+                : 0,
             isHot: p.sold ? p.sold > 50 : false,
             isBestSeller: p.isBestSeller ?? false,
             price: (p.price ?? 0).toLocaleString("vi-VN") + " đ",
@@ -168,7 +213,7 @@ export default function HomeScreen() {
               : undefined,
           }));
           setProducts(mapped);
-          setBestSellers(mapped.filter(p => p.isBestSeller));
+          setBestSellers(mapped.filter((p) => p.isBestSeller));
           setFlashSaleProducts(mapped);
         })
         .catch(() => {
@@ -180,17 +225,21 @@ export default function HomeScreen() {
       // Gọi lại API danh mục
       Promise.all([
         axiosInstance.get("/category"),
-        axiosInstance.get("/images")
+        axiosInstance.get("/images"),
       ])
         .then(([catRes, imgRes]) => {
           const images = imgRes.data;
           setCategories(
-            catRes.data.map(cat => {
-              const img = images.find(i => i.category_id && i.category_id._id === cat._id);
+            catRes.data.map((cat) => {
+              const img = images.find(
+                (i) => i.category_id && i.category_id._id === cat._id
+              );
               return {
                 key: cat.name,
                 label: cat.name,
-                icon: img ? { uri: img.url } : require("../assets/images/pc.png"),
+                icon: img
+                  ? { uri: img.url }
+                  : require("../assets/images/pc.png"),
               };
             })
           );
@@ -203,7 +252,7 @@ export default function HomeScreen() {
   useFocusEffect(
     React.useCallback(() => {
       const checkLogin = async () => {
-        const token = await AsyncStorage.getItem('token');
+        const token = await AsyncStorage.getItem("token");
         setIsLoggedIn(!!token);
       };
       checkLogin();
@@ -212,19 +261,14 @@ export default function HomeScreen() {
 
   // Hàm xử lý khi bấm vào các chức năng cần đăng nhập
   const requireLogin = () => {
-    router.push('/LoginScreen');
+    router.push("/LoginScreen");
   };
 
   return (
     <ImageBackground
       source={BackgroundImage}
       resizeMode="cover"
-      style={{
-        flex: 1,
-        width: "100%",
-        height: "100%",
-        justifyContent: "center",
-      }}
+      style={{ flex: 1, justifyContent: "flex-start" }}
       imageStyle={{ opacity: 0.92 }}
     >
       <PromoPopup
@@ -236,48 +280,63 @@ export default function HomeScreen() {
       <View style={styles.container}>
         <ScrollView showsVerticalScrollIndicator={false}>
           {/* Header */}
-          <Header router={router} />
+          <Header
+            router={router}
+            notificationCount={3} // hoặc state quản lý thật
+            avatarUri={avatarUri}
+          />
 
-          <View style={{ paddingHorizontal: 18, marginTop: 14, marginBottom: 14 }}>
+          <View
+            style={{ paddingHorizontal: 18, marginTop: 14, marginBottom: 14 }}
+          >
             <LinearGradient
-              colors={['#2979ff', '#00c6ff']}
+              colors={["#2979ff", "#00c6ff"]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={{
                 borderRadius: 18,
                 padding: 18,
-                flexDirection: 'row',
-                alignItems: 'center',
+                flexDirection: "row",
+                alignItems: "center",
                 elevation: 4,
-                shadowColor: '#2979ff',
+                shadowColor: "#2979ff",
                 shadowOpacity: 0.18,
                 shadowRadius: 10,
                 shadowOffset: { width: 0, height: 4 },
               }}
             >
-              <Ionicons name="rocket-outline" size={40} color="#fff" style={{ marginRight: 18 }} />
+              <Ionicons
+                name="rocket-outline"
+                size={40}
+                color="#fff"
+                style={{ marginRight: 18 }}
+              />
               <View style={{ flex: 1 }}>
-                <Text style={{
-                  color: '#fff',
-                  fontSize: 22,
-                  fontWeight: 'bold',
-                  letterSpacing: 0.5,
-                  marginBottom: 4,
-                  textShadowColor: 'rgba(0,0,0,0.18)',
-                  textShadowOffset: { width: 0, height: 2 },
-                  textShadowRadius: 6,
-                }}>
+                <Text
+                  style={{
+                    color: "#fff",
+                    fontSize: 22,
+                    fontWeight: "bold",
+                    letterSpacing: 0.5,
+                    marginBottom: 4,
+                    textShadowColor: "rgba(0,0,0,0.18)",
+                    textShadowOffset: { width: 0, height: 2 },
+                    textShadowRadius: 6,
+                  }}
+                >
                   HIPC chào bạn!
                 </Text>
-                <Text style={{
-                  color: '#eaf3ff',
-                  fontSize: 15,
-                  fontWeight: '500',
-                  lineHeight: 22,
-                  textShadowColor: 'rgba(0,0,0,0.10)',
-                  textShadowOffset: { width: 0, height: 1 },
-                  textShadowRadius: 3,
-                }}>
+                <Text
+                  style={{
+                    color: "#eaf3ff",
+                    fontSize: 15,
+                    fontWeight: "500",
+                    lineHeight: 22,
+                    textShadowColor: "rgba(0,0,0,0.10)",
+                    textShadowOffset: { width: 0, height: 1 },
+                    textShadowRadius: 3,
+                  }}
+                >
                   Đừng bỏ lỡ các ưu đãi hấp dẫn hôm nay nhé.
                 </Text>
               </View>
@@ -285,33 +344,36 @@ export default function HomeScreen() {
           </View>
 
           {/* Banner đầu */}
-          <Banner onPress={() => router.push("./DanhMucPC")} source={require("../assets/images/pcbanner.jpg")}
-          title="Khuyến mãi PC cực sốc"
+          <Banner
+            onPress={() => router.push("./DanhMucPC")}
+            source={require("../assets/images/pcbanner.jpg")}
+            title="Khuyến mãi PC cực sốc"
             subtitle="Giảm giá lên đến 30% cho các dòng PC mới nhất!"
             badge="HOT"
-            overlayType="gradient" />
+            overlayType="gradient"
+          />
 
           {/* Danh mục */}
           <View
-  style={{
-    marginHorizontal: 16,
-    marginTop: 10,
-    marginBottom: 18,
-    borderRadius: 18,
-    borderWidth: 1.5,
-    borderColor: "#e0e7ef",
-    backgroundColor: "#fafdff",
-    paddingVertical: 12,
-    paddingHorizontal: 6,
-    shadowColor: "#000",
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
-  }}
->
-  <CategoryList categories={categories} router={router} />
-</View>
+            style={{
+              marginHorizontal: 16,
+              marginTop: 10,
+              marginBottom: 18,
+              borderRadius: 18,
+              borderWidth: 1.5,
+              borderColor: "#e0e7ef",
+              backgroundColor: "#fafdff",
+              paddingVertical: 12,
+              paddingHorizontal: 6,
+              shadowColor: "#000",
+              shadowOpacity: 0.04,
+              shadowRadius: 6,
+              shadowOffset: { width: 0, height: 2 },
+              elevation: 2,
+            }}
+          >
+            <CategoryList categories={categories} router={router} />
+          </View>
 
           {/* Khung giờ vàng */}
           <FlashSale

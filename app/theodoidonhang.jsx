@@ -6,27 +6,38 @@ import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Dimensions,
   FlatList,
   Image,
-  PanResponder,
+  Modal,
   RefreshControl,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
+import { TabBar, TabView } from 'react-native-tab-view';
 import OrderStatusStepper from '../components/OrderStatusStepper';
 import axiosInstance from '../utils/AxiosInstance';
 
 
-
+const TAB_CONFIG = {
+  pending:   { label: 'Chờ xác nhận', icon: 'clock-outline' },
+  confirmed: { label: 'Chờ lấy hàng', icon: 'truck-outline' },
+  packed:    { label: 'Đã đóng gói', icon: 'package-variant-closed' },
+  picked:    { label: 'Đã lấy hàng', icon: 'cube-send' },
+  shipping:  { label: 'Đang giao', icon: 'truck-fast-outline' },
+  delivered: { label: 'Đã giao', icon: 'check-circle-outline' },
+  cancelled: { label: 'Đã huỷ', icon: 'close-circle-outline' },
+};
 const API_URL = '/orders';
 
 function formatCurrency(num) {
   return typeof num === 'number' ? num.toLocaleString('vi-VN') + ' đ' : '';
 }
 
-const OrderCard = React.memo(({ order, tab, onCancel, onStatusChange }) => {
+const OrderCard = React.memo(({ order, tab, onCancel, onStatusChange, onReview }) => {
   const itemCount = order.products?.reduce((sum, p) => sum + p.quantity, 0) || 0;
 
   return (
@@ -75,16 +86,31 @@ const OrderCard = React.memo(({ order, tab, onCancel, onStatusChange }) => {
         <Text style={styles.totalPrice}>{formatCurrency(order.total)}</Text>
       </View>
 
-      
-
       <OrderStatusStepper
         orderId={order._id}
         initialStatus={order.status}
         onStatusChange={onStatusChange}
       />
+
+      {order.status === 'delivered' && (
+        <TouchableOpacity
+          style={{
+            marginTop: 10,
+            backgroundColor: '#2979ff',
+            borderRadius: 8,
+            paddingVertical: 10,
+            alignItems: 'center'
+          }}
+          onPress={() => onReview(order)}
+        >
+          <Text style={{ color: '#fff', fontWeight: 'bold' }}>Đánh giá sản phẩm</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 });
+
+const initialLayout = { width: Dimensions.get('window').width };
 
 export default function TrackOrderScreen() {
   const [activeTab, setActiveTab] = useState('pending');
@@ -93,6 +119,8 @@ export default function TrackOrderScreen() {
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [userId, setUserId] = useState(null);
+  const [index, setIndex] = React.useState(0);
+  const [reviewModal, setReviewModal] = useState({ visible: false, product: null, orderId: null });
   const router = useRouter();
 
   useEffect(() => {
@@ -105,7 +133,19 @@ export default function TrackOrderScreen() {
   }, []);
 
   useEffect(() => {
-    axiosInstance.get('/orders/status-tabs').then(res => setTabs(res.data));
+    // Fetch tabs từ API hoặc sử dụng config cố định
+    axiosInstance.get('/orders/status-tabs')
+      .then(res => {
+        setTabs(res.data);
+      })
+      .catch(() => {
+        // Fallback về config cố định nếu API lỗi
+        const defaultTabs = Object.keys(TAB_CONFIG).map(key => ({
+          key,
+          ...TAB_CONFIG[key]
+        }));
+        setTabs(defaultTabs);
+      });
   }, []);
 
   const fetchOrders = useCallback(async () => {
@@ -139,7 +179,6 @@ export default function TrackOrderScreen() {
     setRefreshing(false);
   }, [fetchOrders]);
 
-  // Tách hàm cancelOrder để xử lý API và UI
   const cancelOrder = async (orderId) => {
     setLoading(true);
     try {
@@ -163,7 +202,6 @@ export default function TrackOrderScreen() {
     }
   };
 
-  // Chỉ show dialog xác nhận, gọi cancelOrder bên trong
   const handleCancel = (orderId, orderStatus) => {
     Alert.alert(
       'Xác nhận hủy đơn',
@@ -180,31 +218,96 @@ export default function TrackOrderScreen() {
     );
   };
 
-  const filtered = orders
-    .filter(o => !(o.status === 'pending' && (!o.products || o.products.length === 0)))
-    .filter(o => o.status === activeTab);
+  const handleReview = (order) => {
+    // Lấy userId từ state, lấy sản phẩm đầu tiên hoặc cho phép chọn từng sản phẩm
+    const product = order.products[0]?.productId;
+    router.push({
+      pathname: '/danhgia',
+      params: {
+        product_id: product._id,
+        product_name: product.name,
+        product_image: product.image, // truyền thêm ảnh sản phẩm
+        order_id: order._id,
+        user_id: userId,
+      }
+    });
+  };
 
-  // Tìm index của tab hiện tại
-  const currentTabIndex = tabs.findIndex(t => t.key === activeTab);
+  // Tạo routes từ tabs với đầy đủ thông tin
+  const routes = tabs.map(tab => ({
+    key: tab.key,
+    title: tab.label,
+    icon: tab.icon,
+  }));
 
-  // PanResponder cho swipe tab
-  const panResponder = React.useRef(
-    PanResponder.create({
-      onMoveShouldSetPanResponder: (_, gestureState) => {
-        // Bắt đầu nhận swipe nếu trượt ngang đủ xa
-        return Math.abs(gestureState.dx) > 18 && Math.abs(gestureState.dy) < 12;
-      },
-      onPanResponderRelease: (_, gestureState) => {
-        if (gestureState.dx < -40 && currentTabIndex < tabs.length - 1) {
-          // Trượt sang trái: sang tab phải
-          setActiveTab(tabs[currentTabIndex + 1].key);
-        } else if (gestureState.dx > 40 && currentTabIndex > 0) {
-          // Trượt sang phải: sang tab trái
-          setActiveTab(tabs[currentTabIndex - 1].key);
+  // Tạo scenes cho từng tab
+  const renderScene = ({ route }) => {
+    const filtered = orders
+      .filter(o => !(o.status === 'pending' && (!o.products || o.products.length === 0)))
+      .filter(o => o.status === route.key);
+
+    return (
+      <FlatList
+        data={filtered}
+        keyExtractor={item => item._id}
+        renderItem={({ item }) => (
+          <OrderCard
+            order={item}
+            tab={tabs.find(t => t.key === item.status)}
+            onCancel={handleCancel}
+            onStatusChange={fetchOrders}
+            onReview={handleReview}
+          />
+        )}
+        contentContainerStyle={filtered.length === 0 && styles.emptyContainer}
+        ListEmptyComponent={<Text style={styles.emptyText}>Bạn chưa có đơn hàng.</Text>}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#1976FF']} />
         }
-      },
-    })
-  ).current;
+      />
+    );
+  };
+
+  // Custom TabBar render với style tốt hơn
+  const renderTabBar = (props) => (
+    <TabBar
+      {...props}
+      scrollEnabled={true}
+      indicatorStyle={styles.tabIndicator}
+      style={styles.tabBarStyle}
+      tabStyle={styles.tabStyle}
+      renderLabel={({ route, focused }) => (
+        <View style={styles.tabLabelContainer}>
+          <MaterialCommunityIcons
+            name={route.icon}
+            size={20}
+            color={focused ? '#1976FF' : '#888'}
+            style={styles.tabIcon}
+          />
+          <Text
+            style={[
+              styles.tabLabel,
+              { color: focused ? '#1976FF' : '#888' },
+              focused && styles.tabLabelActive
+            ]}
+            numberOfLines={1}
+          >
+            {route.title}
+          </Text>
+        </View>
+      )}
+    />
+  );
+
+  // Sync activeTab với index
+  React.useEffect(() => {
+    const idx = tabs.findIndex(t => t.key === activeTab);
+    if (idx !== -1 && idx !== index) setIndex(idx);
+  }, [activeTab, tabs]);
+
+  React.useEffect(() => {
+    if (tabs[index] && tabs[index].key !== activeTab) setActiveTab(tabs[index].key);
+  }, [index, tabs]);
 
   return (
     <View style={styles.container}>
@@ -215,81 +318,269 @@ export default function TrackOrderScreen() {
         <Text style={styles.headerTitle}>Đơn hàng của tôi</Text>
         <View style={{ width: 24 }} />
       </View>
+      
+      {tabs.length > 0 ? (
+        <TabView
+          navigationState={{ index, routes }}
+          renderScene={renderScene}
+          onIndexChange={setIndex}
+          initialLayout={initialLayout}
+          renderTabBar={renderTabBar}
+        />
+      ) : (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#1976FF" />
+          <Text style={styles.loadingText}>Đang tải...</Text>
+        </View>
+      )}
 
-      <View style={styles.tabBar}>
-        {tabs.map(tab => (
-          <TouchableOpacity
-            key={tab.key}
-            style={[styles.tabItem, activeTab === tab.key && styles.tabItemActive]}
-            onPress={() => setActiveTab(tab.key)}
-          >
-            <MaterialCommunityIcons
-              name={tab.icon}
-              size={18}
-              color={activeTab === tab.key ? '#1976FF' : '#888'}
-            />
-            <Text style={[styles.tabLabel, activeTab === tab.key && styles.tabLabelActive]}>
-              {tab.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      {/* Bọc FlatList bằng View nhận gesture */}
-      <View style={{ flex: 1 }} {...panResponder.panHandlers}>
-        {loading && !refreshing ? (
-          <ActivityIndicator style={styles.loader} size="large" color="#1976FF" />
-        ) : (
-          <FlatList
-            data={filtered}
-            keyExtractor={item => item._id}
-            renderItem={({ item }) => (
-              <OrderCard
-                order={item}
-                tab={tabs.find(t => t.key === item.status)}
-                onCancel={handleCancel}
-                onStatusChange={fetchOrders}
+      {reviewModal.visible && (
+        <Modal
+          visible={reviewModal.visible}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setReviewModal({ visible: false, product: null, orderId: null })}
+        >
+          <View style={{
+            flex: 1,
+            backgroundColor: 'rgba(0,0,0,0.2)',
+            justifyContent: 'center',
+            alignItems: 'center'
+          }}>
+            <View style={{
+              backgroundColor: '#fff',
+              borderRadius: 16,
+              padding: 20,
+              width: 320,
+              alignItems: 'center'
+            }}>
+              <Text style={{ fontWeight: 'bold', fontSize: 16, marginBottom: 10 }}>Đánh giá sản phẩm</Text>
+              <Text style={{ marginBottom: 8 }}>{reviewModal.product?.name}</Text>
+              <TextInput
+                placeholder="Nhập đánh giá của bạn..."
+                style={{
+                  borderWidth: 1, borderColor: '#ddd', borderRadius: 8,
+                  padding: 8, width: '100%', marginBottom: 12
+                }}
+                multiline
+                numberOfLines={3}
+                value={reviewModal.text || ''}
+                onChangeText={text => setReviewModal(r => ({ ...r, text }))}
               />
-            )}
-            contentContainerStyle={filtered.length === 0 && styles.emptyContainer}
-            ListEmptyComponent={<Text style={styles.emptyText}>Bạn chưa có đơn hàng.</Text>}
-            refreshControl={
-              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#1976FF']} />
-            }
-          />
-        )}
-      </View>
+              <TouchableOpacity
+                style={{
+                  backgroundColor: '#2979ff',
+                  borderRadius: 8,
+                  paddingVertical: 10,
+                  paddingHorizontal: 24,
+                  marginBottom: 8
+                }}
+                onPress={async () => {
+                  // Gửi đánh giá lên server
+                  await axiosInstance.post('/product/review', {
+                    productId: reviewModal.product._id,
+                    orderId: reviewModal.orderId,
+                    text: reviewModal.text,
+                    // Có thể thêm rating, userId...
+                  });
+                  Alert.alert('Thành công', 'Đã gửi đánh giá!');
+                  setReviewModal({ visible: false, product: null, orderId: null });
+                }}
+              >
+                <Text style={{ color: '#fff', fontWeight: 'bold' }}>Gửi đánh giá</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setReviewModal({ visible: false, product: null, orderId: null })}>
+                <Text style={{ color: '#2979ff' }}>Đóng</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F2F2F2' },
-  header: { flexDirection: 'row', alignItems: 'center', paddingTop: 42, paddingBottom: 12, paddingHorizontal: 16, backgroundColor: '#FFF', elevation: 2 },
-  headerTitle: { flex: 1, textAlign: 'center', fontSize: 18, fontWeight: '700', color: '#1976FF' },
-  tabBar: { flexDirection: 'row', backgroundColor: '#FFF', elevation: 1 },
-  tabItem: { flex: 1, alignItems: 'center', paddingVertical: 10 },
-  tabItemActive: { borderBottomWidth: 2, borderBottomColor: '#1976FF' },
-  tabLabel: { fontSize: 13, color: '#888', marginTop: 4 },
-  tabLabelActive: { color: '#1976FF', fontWeight: '600' },
-  loader: { flex: 1, justifyContent: 'center' },
-  emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  emptyText: { fontSize: 16, color: '#999' },
-  card: { backgroundColor: '#FFF', margin: 12, borderRadius: 8, padding: 12, elevation: 2 },
-  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-  shopName: { fontSize: 15, fontWeight: '700', color: '#333' },
-  statusBadge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12 },
-  statusText: { marginLeft: 4, fontSize: 12, fontWeight: '600' },
-  productRow: { flexDirection: 'row', alignItems: 'center', marginVertical: 6 },
-  productImg: { width: 60, height: 60, borderRadius: 6, backgroundColor: '#EEE' },
-  productInfo: { flex: 1, marginLeft: 10 },
-  productName: { fontSize: 14, fontWeight: '600', color: '#333' },
-  productPrice: { fontSize: 13, fontWeight: '700', color: '#F44336', marginTop: 4 },
-  productQty: { fontSize: 13, color: '#555' },
-  noProduct: { textAlign: 'center', color: '#888', marginVertical: 8 },
-  cardFooter: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 },
-  totalLabel: { fontSize: 13, color: '#555' },
-  totalPrice: { fontSize: 15, fontWeight: '700', color: '#F44336' },
-  cancelBtn: { marginTop: 10, alignSelf: 'flex-end', paddingHorizontal: 14, paddingVertical: 6, borderRadius: 4, borderWidth: 1, borderColor: '#F44336' },
-  cancelText: { color: '#F44336', fontWeight: '600' },
+  container: { 
+    flex: 1, 
+    backgroundColor: '#F2F2F2' 
+  },
+  header: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    paddingTop: 42, 
+    paddingBottom: 12, 
+    paddingHorizontal: 16, 
+    backgroundColor: '#FFF', 
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+  },
+  headerTitle: { 
+    flex: 1, 
+    textAlign: 'center', 
+    fontSize: 18, 
+    fontWeight: '700', 
+    color: '#1976FF' 
+  },
+  
+  // TabBar styles
+  tabBarStyle: {
+    backgroundColor: 'gray',
+    elevation: 0,
+    shadowOpacity: 0,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E0E0E0',
+  },
+  tabStyle: {
+    width: 'auto',
+    paddingHorizontal: 8,
+  },
+  tabIndicator: {
+    backgroundColor: 'blue',
+    height: 3,
+  },
+  tabLabelContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    minWidth: 80,
+  },
+  tabIcon: {
+    marginBottom: 4,
+  },
+  tabLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  tabLabelActive: {
+    fontWeight: '600',
+  },
+
+  // Loading styles
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: '#666',
+  },
+
+  // List styles
+  emptyContainer: { 
+    flex: 1, 
+    justifyContent: 'center', 
+    alignItems: 'center',
+    paddingTop: 100,
+  },
+  emptyText: { 
+    fontSize: 16, 
+    color: '#999',
+    textAlign: 'center',
+  },
+
+  // Card styles
+  card: { 
+    backgroundColor: '#FFF', 
+    margin: 12, 
+    borderRadius: 8, 
+    padding: 12, 
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+  },
+  cardHeader: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'center', 
+    marginBottom: 8 
+  },
+  shopName: { 
+    fontSize: 15, 
+    fontWeight: '700', 
+    color: '#333' 
+  },
+  statusBadge: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    paddingHorizontal: 8, 
+    paddingVertical: 4, 
+    borderRadius: 12 
+  },
+  statusText: { 
+    marginLeft: 4, 
+    fontSize: 12, 
+    fontWeight: '600' 
+  },
+  productRow: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    marginVertical: 6 
+  },
+  productImg: { 
+    width: 60, 
+    height: 60, 
+    borderRadius: 6, 
+    backgroundColor: '#EEE' 
+  },
+  productInfo: { 
+    flex: 1, 
+    marginLeft: 10 
+  },
+  productName: { 
+    fontSize: 14, 
+    fontWeight: '600', 
+    color: '#333' 
+  },
+  productPrice: { 
+    fontSize: 13, 
+    fontWeight: '700', 
+    color: '#F44336', 
+    marginTop: 4 
+  },
+  productQty: { 
+    fontSize: 13, 
+    color: '#555' 
+  },
+  noProduct: { 
+    textAlign: 'center', 
+    color: '#888', 
+    marginVertical: 8 
+  },
+  cardFooter: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    marginTop: 8 
+  },
+  totalLabel: { 
+    fontSize: 13, 
+    color: '#555' 
+  },
+  totalPrice: { 
+    fontSize: 15, 
+    fontWeight: '700', 
+    color: '#F44336' 
+  },
+  cancelBtn: { 
+    marginTop: 10, 
+    alignSelf: 'flex-end', 
+    paddingHorizontal: 14, 
+    paddingVertical: 6, 
+    borderRadius: 4, 
+    borderWidth: 1, 
+    borderColor: '#F44336' 
+  },
+  cancelText: { 
+    color: '#F44336', 
+    fontWeight: '600' 
+  },
 });

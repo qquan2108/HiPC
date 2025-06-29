@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, ActivityIndicator, StyleSheet, ScrollView, Alert } from 'react-native';
 import axiosInstance from '../utils/AxiosInstance';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 
 const ORDER_STEPS = [
   { key: 'pending', label: 'Chờ xác nhận' },
@@ -28,6 +29,20 @@ const STATUS_TRANSITIONS = {
   refunding: ['refunded'],
   refunded: [],
   cancelled: [],
+};
+
+const STEP_ICONS = {
+  pending: 'clock',
+  confirmed: 'check-circle',
+  packed: 'package',
+  picked: 'cart-arrow-down',
+  shipping: 'truck',
+  delivered: 'check-circle-outline',
+  cancelled: 'cancel',
+  'return_requested': 'arrow-left',
+  'return_approved': 'check',
+  refunding: 'cash-refund',
+  refunded: 'cash',
 };
 
 export default function OrderStatusStepper({ orderId, initialStatus, onStatusChange }) {
@@ -79,10 +94,17 @@ export default function OrderStatusStepper({ orderId, initialStatus, onStatusCha
                 idx < stepIndex && styles.stepCompleted,
                 idx === stepIndex && styles.stepActive
               ]}>
-                <Text style={[
-                  styles.stepText,
-                  (idx < stepIndex || idx === stepIndex) && { color: '#fff' }
-                ]}>{idx + 1}</Text>
+                <MaterialCommunityIcons
+                  name={STEP_ICONS[step.key] || 'checkbox-blank-circle-outline'}
+                  size={18}
+                  color={
+                    idx < stepIndex
+                      ? '#fff'
+                      : idx === stepIndex
+                      ? '#fff'
+                      : '#888'
+                  }
+                />
               </View>
               {idx < ORDER_STEPS.length - 1 && (
                 <View style={[

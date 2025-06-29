@@ -3,10 +3,12 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import {
   Alert,
+  Animated,
   Dimensions,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -14,6 +16,7 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
+  TouchableWithoutFeedback,
   View,
 } from 'react-native';
 import Toast from 'react-native-toast-message';
@@ -30,6 +33,7 @@ const LoginScreen = () => {
   const [password, setPassword] = useState('');
   const [showPass, setShowPass] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const passwordRef = useRef();
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -77,101 +81,127 @@ const LoginScreen = () => {
   return (
     <>
       <StatusBar barStyle="light-content" backgroundColor="#667eea" />
-      <KeyboardAvoidingView 
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
-        style={styles.container}
-      >
-        <LinearGradient
-          colors={['#667eea', '#764ba2', '#f093fb']}
-          style={styles.gradientBackground}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.container}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
         >
-          {/* Header Wave Design */}
-          <View style={styles.headerWave}>
-            <View style={styles.waveShape} />
-          </View>
-
-          <ScrollView 
-            contentContainerStyle={styles.scrollContainer}
-            showsVerticalScrollIndicator={false}
+          <LinearGradient
+            colors={['#667eea', '#764ba2', '#f093fb']}
+            style={styles.gradientBackground}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
           >
-            {/* Logo/Brand Section */}
-            <View style={styles.brandSection}>
-              <View style={styles.logoContainer}>
-                <Ionicons name="cloud" size={40} color="#fff" />
-              </View>
-              <Text style={styles.brandName}>HIPC</Text>
-              <Text style={styles.tagline}>Chào mừng trở lại</Text>
+            {/* Header Wave Design */}
+            <View style={styles.headerWave}>
+              <View style={styles.waveShape} />
             </View>
 
-            {/* Main Content Card */}
-            <View style={styles.contentCard}>
-              <View style={styles.cardHeader}>
-                <Text style={styles.welcomeTitle}>Đăng Nhập</Text>
-                <Text style={styles.welcomeSubtitle}>
-                  Tiếp tục hành trình của bạn
-                </Text>
+            <ScrollView
+              contentContainerStyle={styles.scrollContainer}
+              showsVerticalScrollIndicator={false}
+            >
+              {/* Logo/Brand Section */}
+              <View style={styles.brandSection}>
+                <View style={styles.logoContainer}>
+                  <Ionicons name="cloud" size={40} color="#fff" />
+                </View>
+                <Text style={styles.brandName}>HIPC</Text>
+                <Text style={styles.tagline}>Chào mừng trở lại</Text>
               </View>
 
-              <AuthInput
-                icon={<Ionicons name="mail-outline" size={24} color="#8B5CF6" />}
-                placeholder="Email của bạn"
-                value={email}
-                onChangeText={setEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-              />
+              {/* Main Content Card */}
+              <View style={styles.contentCard}>
+                <View style={styles.cardHeader}>
+                  <Text style={styles.welcomeTitle}>Đăng Nhập</Text>
+                  <Text style={styles.welcomeSubtitle}>
+                    Tiếp tục hành trình của bạn
+                  </Text>
+                </View>
 
-              <AuthInput
-                icon={<Ionicons name="lock-closed-outline" size={24} color="#8B5CF6" />}
-                placeholder="Mật khẩu"
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry={true}
-                showPass={showPass}
-                setShowPass={setShowPass}
-              />
+                <AuthInput
+                  icon={
+                    <Ionicons
+                      name="mail-outline"
+                      size={24}
+                      color="#8B5CF6"
+                    />
+                  }
+                  placeholder="Email của bạn"
+                  value={email}
+                  onChangeText={setEmail}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  returnKeyType="next"
+                  blurOnSubmit={false}
+                  onSubmitEditing={() => passwordRef.current?.focus()}
+                />
 
-              <TouchableOpacity style={styles.forgotButton} onPress={() => router.push('/ForgotPasswordScreen')}>
-                <Text style={styles.forgotText}>Quên mật khẩu?</Text>
-              </TouchableOpacity>
+                <AuthInput
+                  ref={passwordRef}
+                  icon={
+                    <Ionicons
+                      name="lock-closed-outline"
+                      size={24}
+                      color="#8B5CF6"
+                    />
+                  }
+                  placeholder="Mật khẩu"
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry={true}
+                  showPass={showPass}
+                  setShowPass={setShowPass}
+                  returnKeyType="done"
+                />
 
-              <TouchableOpacity 
-                style={[styles.loginButton, isLoading && styles.loginButtonDisabled]} 
-                onPress={handleLogin}
-                disabled={isLoading}
-                activeOpacity={0.8}
-              >
-                <LinearGradient
-                  colors={['#667eea', '#764ba2']}
-                  style={styles.loginButtonGradient}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
+                <TouchableOpacity
+                  style={styles.forgotButton}
+                  onPress={() => router.push('/ForgotPasswordScreen')}
                 >
-                  {isLoading ? (
-                    <View style={styles.loadingContainer}>
-                      <Text style={styles.loginText}>Đang xử lý...</Text>
-                    </View>
-                  ) : (
-                    <Text style={styles.loginText}>Đăng Nhập</Text>
-                  )}
-                </LinearGradient>
-              </TouchableOpacity>
+                  <Text style={styles.forgotText}>Quên mật khẩu?</Text>
+                </TouchableOpacity>
 
-              <View style={styles.dividerContainer}>
-                <View style={styles.dividerLine} />
-                <Text style={styles.dividerText}>Hoặc tiếp tục với</Text>
-                <View style={styles.dividerLine} />
+                <TouchableOpacity
+                  style={[
+                    styles.loginButton,
+                    isLoading && styles.loginButtonDisabled,
+                  ]}
+                  onPress={handleLogin}
+                  disabled={isLoading}
+                  activeOpacity={0.8}
+                >
+                  <LinearGradient
+                    colors={['#667eea', '#764ba2']}
+                    style={styles.loginButtonGradient}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                  >
+                    {isLoading ? (
+                      <View style={styles.loadingContainer}>
+                        <Text style={styles.loginText}>Đang xử lý...</Text>
+                      </View>
+                    ) : (
+                      <Text style={styles.loginText}>Đăng Nhập</Text>
+                    )}
+                  </LinearGradient>
+                </TouchableOpacity>
+
+                <View style={styles.dividerContainer}>
+                  <View style={styles.dividerLine} />
+                  <Text style={styles.dividerText}>Hoặc tiếp tục với</Text>
+                  <View style={styles.dividerLine} />
+                </View>
+
+                <SocialButtons />
+
+                <RegisterPrompt onPress={() => router.push('/SignUpSreen')} />
               </View>
-
-              <SocialButtons />
-
-              <RegisterPrompt onPress={() => router.push('/SignUpSreen')} />
-            </View>
-          </ScrollView>
-        </LinearGradient>
-      </KeyboardAvoidingView>
+            </ScrollView>
+          </LinearGradient>
+        </KeyboardAvoidingView>
+      </TouchableWithoutFeedback>
     </>
   );
 };
