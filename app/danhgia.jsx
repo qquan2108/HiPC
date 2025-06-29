@@ -1,195 +1,286 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  FlatList, 
-  Image, 
-  TouchableOpacity, 
-  ScrollView,
-  Animated,
-  Platform
-} from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useEffect, useRef, useState } from 'react';
+import {
+  Alert,
+  Animated,
+  FlatList, Image,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
+} from 'react-native';
+import axiosInstance from '../utils/AxiosInstance';
 
-const reviews = [
-  {
-    id: '1',
-    user: 'thitit.ba',
-    avatar: require('../assets/images/pc1.png'),
-    rating: 5,
-    date: '20/05/2025',
-    comment: 'Sản phẩm chất lượng, đóng gói cẩn thận, giao hàng nhanh.',
-    images: [
-      require('../assets/images/pc1.png'),
-    ],
-    config: 'i5 12400F, RAM 16GB, SSD 512GB',
-  },
-  {
-    id: '2',
-    user: 'nguyenvana',
-    avatar: require('../assets/images/pc1.png'),
-    rating: 4,
-    date: '18/05/2025',
-    comment: 'Máy chạy ổn, tư vấn nhiệt tình, sẽ ủng hộ lần sau.',
-    images: [],
-    config: 'i5 13400F, RAM 32GB, SSD 1TB',
-  },
-  {
-    id: '3',
-    user: 'phamthib',
-    avatar: require('../assets/images/pc1.png'),
-    rating: 5,
-    date: '15/05/2025',
-    comment: 'Giá tốt, máy đẹp, đúng mô tả.',
-    images: [
-      require('../assets/images/pc1.png'),
-      require('../assets/images/pc1.png'),
-    ],
-    config: 'i5 12600KF, RAM 16GB, SSD 512GB',
-  },
-  {
-    id: '4',
-    user: 'lequangc',
-    avatar: require('../assets/images/pc1.png'),
-    rating: 3,
-    date: '10/05/2025',
-    comment: 'Sản phẩm ổn, giao hàng hơi chậm.',
-    images: [],
-    config: 'i5 14500, RAM 32GB, SSD 1TB',
-  },
-];
-
-function renderStars(star) {
-  let stars = '';
-  for (let i = 1; i <= 5; i++) {
-    stars += i <= star ? '★' : '☆';
-  }
-  return stars;
+function renderStars(star, onPress) {
+  return (
+    <View style={{ flexDirection: 'row', marginVertical: 6 }}>
+      {[1,2,3,4,5].map(i => (
+        <TouchableOpacity key={i} onPress={() => onPress && onPress(i)}>
+          <Text style={{ fontSize: 28, color: i <= star ? '#FFD700' : '#ccc', marginHorizontal: 2 }}>★</Text>
+        </TouchableOpacity>
+      ))}
+    </View>
+  );
 }
 
 export default function DanhGia() {
   const router = useRouter();
-  
+  const { product_id, product_name, product_image, order_id, user_id } = useLocalSearchParams();
+
   // Animation values
   const headerFadeAnim = useRef(new Animated.Value(0)).current;
   const headerSlideAnim = useRef(new Animated.Value(-30)).current;
   const titleScaleAnim = useRef(new Animated.Value(0.9)).current;
 
+  // State cho đánh giá
+  const [star, setStar] = useState(5);
+  const [text, setText] = useState('');
+  const [reviews, setReviews] = useState([]);
+  const [images, setImages] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  // Lấy danh sách đánh giá thật từ API
   useEffect(() => {
-    // Header entrance animation
+    if (!product_id) return; // Không gọi API nếu thiếu product_id
+    fetchReviews();
+    // Header animation
     Animated.sequence([
       Animated.parallel([
-        Animated.timing(headerFadeAnim, {
-          toValue: 1,
-          duration: 500,
-          useNativeDriver: true,
-        }),
-        Animated.timing(headerSlideAnim, {
-          toValue: 0,
-          duration: 400,
-          useNativeDriver: true,
-        }),
+        Animated.timing(headerFadeAnim, { toValue: 1, duration: 500, useNativeDriver: true }),
+        Animated.timing(headerSlideAnim, { toValue: 0, duration: 400, useNativeDriver: true }),
       ]),
-      Animated.spring(titleScaleAnim, {
-        toValue: 1,
-        tension: 120,
-        friction: 7,
-        useNativeDriver: true,
-      }),
+      Animated.spring(titleScaleAnim, { toValue: 1, tension: 120, friction: 7, useNativeDriver: true }),
     ]).start();
-  }, []);
+  }, [product_id]);
+
+  const fetchReviews = async () => {
+    try {
+      setLoading(true);
+      const res = await axiosInstance.get(`/productreviews?product_id=${product_id}`);
+      setReviews(res.data || []);
+    } catch (err) {
+      setReviews([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Gửi đánh giá
+  const submitReview = async () => {
+    if (!text.trim()) {
+      Alert.alert('Lỗi', 'Vui lòng nhập nội dung đánh giá!');
+      return;
+    }
+    try {
+      await axiosInstance.post('/productreviews', {
+        product_id,
+        user_id,
+        order_id,
+        comment: text, // Đúng tên trường backend
+        rating: star,
+        images, // Mảng string (URL)
+      });
+      Alert.alert('Thành công', 'Đã gửi đánh giá!');
+      setText('');
+      setStar(5);
+      setImages([]);
+      fetchReviews();
+    } catch (error) {
+      Alert.alert('Lỗi', 'Không gửi được đánh giá!');
+    }
+  };
+
+  // Chọn ảnh từ thư viện
+  const pickImage = async () => {
+    let result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsMultipleSelection: true,
+      quality: 0.7,
+    });
+    if (!result.canceled) {
+      // Upload từng ảnh lên server, lấy url thực
+      const uploadedUrls = [];
+      for (const asset of result.assets) {
+        try {
+          const url = await uploadImage(asset.uri);
+          uploadedUrls.push(url);
+        } catch (err) {
+          Alert.alert('Lỗi', 'Không thể tải ảnh lên server!');
+        }
+      }
+      setImages([...images, ...uploadedUrls]);
+    }
+  };
+
+  const uploadImage = async (uri) => {
+    try {
+      const filename = uri.split('/').pop() || `image_${Date.now()}.jpg`;
+      const match = /\.(\w+)$/.exec(filename);
+      const type = match ? `image/${match[1]}` : 'image/jpeg';
+
+      const formData = new FormData();
+      formData.append('file', {
+        uri: Platform.OS === 'android' ? uri : uri.replace('file://', ''),
+        name: filename,
+        type: type,
+      });
+
+      const res = await axiosInstance.post('/users/upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: 30000,
+      });
+
+      return res.data.url; // URL tuyệt đối từ server
+    } catch (error) {
+      console.error('Upload image error:', error);
+      throw new Error('Không thể tải ảnh lên server');
+    }
+  };
 
   // Tính điểm trung bình
-  const avgRating = (
-    reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
-  ).toFixed(1);
+  const avgRating = reviews.length
+    ? (reviews.reduce((sum, r) => sum + (r.rating || 0), 0) / reviews.length).toFixed(1)
+    : '0.0';
 
-  return (
-    <View style={styles.container}>
-      {/* MODERN ANIMATED HEADER */}
+  // Header + form đánh giá
+  const renderHeader = () => (
+    <>
+      {/* HEADER */}
       <Animated.View 
         style={[
           styles.modernReviewHeader,
-          {
-            opacity: headerFadeAnim,
-            transform: [{ translateY: headerSlideAnim }]
-          }
+          { opacity: headerFadeAnim, transform: [{ translateY: headerSlideAnim }] }
         ]}
       >
-        {/* Premium Background */}
         <View style={styles.premiumBackground} />
-        
-        {/* Header Content */}
         <View style={styles.reviewHeaderContent}>
-          <TouchableOpacity 
-            style={styles.elegantBackButton}
-            onPress={() => router.back()}
-            activeOpacity={0.8}
-          >
+          <TouchableOpacity style={styles.elegantBackButton} onPress={() => router.back()} activeOpacity={0.8}>
             <View style={styles.backButtonGlow}>
               <Feather name="arrow-left" size={22} color="#fff" />
             </View>
           </TouchableOpacity>
-          
-          <Animated.View 
-            style={[
-              styles.titleSection,
-              { transform: [{ scale: titleScaleAnim }] }
-            ]}
-          >
-            <Text style={styles.elegantTitle}>Product Reviews</Text>
+          <Animated.View style={[styles.titleSection, { transform: [{ scale: titleScaleAnim }] }]}>
+            <Text style={styles.elegantTitle}>Đánh giá sản phẩm</Text>
             <View style={styles.titleAccent} />
+            <Text style={{ color: '#fff', marginTop: 4, fontSize: 13 }}>{product_name}</Text>
           </Animated.View>
-          
           <View style={styles.ratingBadge}>
             <Text style={styles.badgeRating}>{avgRating}</Text>
             <Text style={styles.badgeStar}>★</Text>
           </View>
         </View>
-        
-        {/* Floating Elements */}
         <View style={styles.floatingElement1} />
         <View style={styles.floatingElement2} />
         <View style={styles.floatingElement3} />
       </Animated.View>
 
-      <ScrollView>
-        <View style={styles.summaryBox}>
-          <Text style={styles.avgRating}>{avgRating}</Text>
-          <Text style={styles.stars}>{renderStars(Math.round(avgRating))}</Text>
-          <Text style={styles.totalReviews}>{reviews.length} đánh giá</Text>
-        </View>
-
-        <FlatList
-          data={reviews}
-          keyExtractor={item => item.id}
-          renderItem={({ item }) => (
-            <View style={styles.reviewCard}>
-              <View style={styles.reviewHeader}>
-                <Image source={item.avatar} style={styles.avatar} />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.user}>{item.user}</Text>
-                  <Text style={styles.starsSmall}>{renderStars(item.rating)}</Text>
-                </View>
-                <Text style={styles.date}>{item.date}</Text>
-              </View>
-              <Text style={styles.config}>{item.config}</Text>
-              <Text style={styles.comment}>{item.comment}</Text>
-              {item.images.length > 0 && (
-                <View style={styles.imagesRow}>
-                  {item.images.map((img, idx) => (
-                    <Image key={idx} source={img} style={styles.reviewImg} />
-                  ))}
-                </View>
-              )}
-            </View>
-          )}
-          contentContainerStyle={{ paddingBottom: 24 }}
-          scrollEnabled={false}
+      {/* FORM ĐÁNH GIÁ */}
+      <View style={styles.summaryBox}>
+        <Text style={{ fontWeight: 'bold', fontSize: 16, marginBottom: 6 }}>Đánh giá của bạn</Text>
+        {renderStars(star, setStar)}
+        <TextInput
+          style={{
+            borderWidth: 1, borderColor: '#ddd', borderRadius: 8,
+            padding: 8, width: '100%', marginBottom: 10, minHeight: 60, backgroundColor: '#fafbfc'
+          }}
+          placeholder="Nhập đánh giá của bạn..."
+          multiline
+          value={text}
+          onChangeText={setText}
         />
-      </ScrollView>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+          <TouchableOpacity
+            style={{
+              backgroundColor: '#eee',
+              borderRadius: 8,
+              paddingVertical: 8,
+              paddingHorizontal: 16,
+              marginRight: 10,
+              borderWidth: 1,
+              borderColor: '#ccc'
+            }}
+            onPress={pickImage}
+          >
+            <Text style={{ color: '#2979ff', fontWeight: 'bold' }}>+ Ảnh</Text>
+          </TouchableOpacity>
+          {images.map((uri, idx) => (
+            <Image
+              key={idx}
+              source={{ uri }}
+              style={{ width: 40, height: 40, borderRadius: 6, marginRight: 6 }}
+            />
+          ))}
+        </View>
+        <TouchableOpacity
+          style={{
+            backgroundColor: '#2979ff',
+            borderRadius: 8,
+            paddingVertical: 10,
+            paddingHorizontal: 24,
+            marginBottom: 8,
+            alignSelf: 'center'
+          }}
+          onPress={submitReview}
+        >
+          <Text style={{ color: '#fff', fontWeight: 'bold' }}>Gửi đánh giá</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* TỔNG QUAN ĐÁNH GIÁ */}
+      <View style={styles.summaryBox}>
+        <Text style={styles.avgRating}>{avgRating}</Text>
+        <Text style={styles.stars}>{renderStars(Math.round(avgRating))}</Text>
+        <Text style={styles.totalReviews}>{reviews.length} đánh giá</Text>
+      </View>
+      {loading && (
+        <Text style={{ textAlign: 'center', marginTop: 10 }}>Đang tải đánh giá...</Text>
+      )}
+    </>
+  );
+
+  return (
+    <View style={styles.container}>
+      <FlatList
+        data={reviews}
+        keyExtractor={item => item._id}
+        ListHeaderComponent={renderHeader}
+        renderItem={({ item }) => (
+          <View style={styles.reviewCard}>
+            <View style={styles.reviewHeader}>
+              <Image
+                source={product_image ? { uri: product_image } : require('../assets/images/pc1.png')}
+                style={styles.avatar}
+              />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.user}>
+                  {item.user_id && item.user_id.full_name ? item.user_id.full_name : 'Ẩn danh'}
+                </Text>
+                <Text style={styles.starsSmall}>{renderStars(item.rating)}</Text>
+              </View>
+              <Text style={styles.date}>{item.created_at ? new Date(item.created_at).toLocaleDateString('vi-VN') : ''}</Text>
+            </View>
+            <Text style={styles.comment}>{item.comment}</Text>
+            {item.images && item.images.length > 0 && (
+              <View style={styles.imagesRow}>
+                {item.images.map((img, idx) => (
+                  <Image
+                    key={idx}
+                    source={{ uri: img }}
+                    style={styles.reviewImg}
+                  />
+                ))}
+              </View>
+            )}
+          </View>
+        )}
+        contentContainerStyle={{ paddingBottom: 24 }}
+        showsVerticalScrollIndicator={false}
+      />
     </View>
   );
 }

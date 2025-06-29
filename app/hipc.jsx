@@ -259,17 +259,15 @@ const SplashScreen = () => {
         {/* Loading Indicator */}
         <View style={styles.loadingContainer}>
           <View style={styles.loadingBar}>
-            <Animated.View 
-              style={[
-                styles.loadingProgress,
-                {
-                  width: logoOpacity.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: ['0%', '100%'],
-                  }),
-                },
-              ]} 
-            />
+            <Animated.View
+   style={[
+     styles.loadingProgress,
+     {
+       alignSelf: 'flex-start',       // để scale từ bên trái
+       transform: [{ scaleX: logoOpacity }],
+     }
+   ]}
+ />
           </View>
         </View>
 

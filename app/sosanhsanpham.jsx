@@ -2,87 +2,32 @@ import React from 'react';
 import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 
-// Demo dữ liệu sản phẩm PC để so sánh
-const sampleProducts = [
-  {
-    id: 1,
-    name: 'PC GVN Intel i3-12100F/ VGA RX 6500XT',
-    price: 10490000,
-    oldPrice: 11430000,
-    image: require('../assets/images/pc1.png'),
-    cpu: 'Intel i3-12100F',
-    ram: '16GB DDR4',
-    ssd: '512GB NVMe',
-    vga: 'RX 6500XT',
-    mainboard: 'B660M',
-    psu: '550W',
-    case: 'Xigmatek NYX 3F',
-    weight: '7 kg',
-    origin: 'Việt Nam',
-    warranty: '36 tháng',
-    year: 2024,
-    sold: 1780,
-    rating: 4.5,
-  },
-  {
-    id: 2,
-    name: 'PC GVN Intel i5-12400F/ RTX 3050',
-    price: 15490000,
-    oldPrice: 16490000,
-    image: require('../assets/images/pc1.png'),
-    cpu: 'Intel i5-12400F',
-    ram: '16GB DDR4',
-    ssd: '1TB NVMe',
-    vga: 'RTX 3050',
-    mainboard: 'B660M',
-    psu: '650W',
-    case: 'Xigmatek NYX 3F',
-    weight: '7.5 kg',
-    origin: 'Việt Nam',
-    warranty: '36 tháng',
-    year: 2024,
-    sold: 1200,
-    rating: 4.7,
-  },
-  {
-    id: 3,
-    name: 'PC GVN Intel i7-12700F/ RTX 3060',
-    price: 23490000,
-    oldPrice: 24990000,
-    image: require('../assets/images/pc1.png'),
-    cpu: 'Intel i7-12700F',
-    ram: '32GB DDR4',
-    ssd: '1TB NVMe',
-    vga: 'RTX 3060',
-    mainboard: 'B660M',
-    psu: '750W',
-    case: 'Xigmatek NYX 3F',
-    weight: '8 kg',
-    origin: 'Việt Nam',
-    warranty: '36 tháng',
-    year: 2025,
-    sold: 800,
-    rating: 4.9,
-  },
-];
-
-const specs = [
-  { label: 'CPU', key: 'cpu' },
-  { label: 'RAM', key: 'ram' },
-  { label: 'Ổ cứng SSD', key: 'ssd' },
-  { label: 'Card đồ họa', key: 'vga' },
-  { label: 'Mainboard', key: 'mainboard' },
-  { label: 'Nguồn', key: 'psu' },
-  { label: 'Case', key: 'case' },
-  { label: 'Khối lượng', key: 'weight' },
-  { label: 'Xuất xứ', key: 'origin' },
-  { label: 'Năm ra mắt', key: 'year' },
-  { label: 'Bảo hành', key: 'warranty' },
-];
-
 function formatCurrency(num) {
   if (typeof num !== 'number' || isNaN(num)) return '—';
   return num.toLocaleString('vi-VN') + 'đ';
+}
+
+// Helper để lấy thông số kỹ thuật cho mỗi product
+function extractSpecs(product) {
+  // Nếu truyền thẳng specs/specifications dạng mảng object {key,value}
+  if (Array.isArray(product.specs) && product.specs.length) {
+    return product.specs.map(s => ({
+      key: s.label || s.key,
+      value: s.value,
+    }));
+  }
+  if (Array.isArray(product.specifications) && product.specifications.length) {
+    return product.specifications.map(s => ({
+      key: s.label || s.key,
+      value: s.value,
+    }));
+  }
+  // Nếu truyền flat field (thường chỉ có ở sample hoặc cứng code)
+  const fields = ['cpu', 'ram', 'ssd', 'vga', 'mainboard', 'psu', 'case', 'weight', 'origin', 'year', 'warranty'];
+  return fields.map(k => ({
+    key: k,
+    value: product[k] || '',
+  }));
 }
 
 export default function SoSanhSanPham() {
@@ -97,7 +42,6 @@ export default function SoSanhSanPham() {
     compareProducts = [];
   }
 
-  // Nếu không có dữ liệu truyền sang thì fallback về dữ liệu mẫu hoặc báo lỗi
   if (!compareProducts.length) {
     return (
       <View style={{flex:1, justifyContent:'center', alignItems:'center'}}>
@@ -106,14 +50,46 @@ export default function SoSanhSanPham() {
     );
   }
 
+  // ---- Auto union key spec ----
+  // 1. Gom hết keys specs xuất hiện ở tất cả sp
+  let allSpecs = [];
+  compareProducts.forEach(p => {
+    let specsArr = extractSpecs(p);
+    specsArr.forEach(s => {
+      if (s.key && !allSpecs.find(ax => ax.key === s.key)) {
+        allSpecs.push({ key: s.key, label: s.key });
+      }
+    });
+  });
+
+  // 2. Đặt lại tên hiển thị cho specs phổ biến (nếu key khớp)
+  const labelMap = {
+    cpu: 'CPU',
+    ram: 'RAM',
+    ssd: 'Ổ cứng SSD',
+    vga: 'Card đồ họa',
+    mainboard: 'Mainboard',
+    psu: 'Nguồn',
+    case: 'Case',
+    weight: 'Khối lượng',
+    origin: 'Xuất xứ',
+    year: 'Năm ra mắt',
+    warranty: 'Bảo hành',
+    // nếu muốn auto detect thêm thì add ở đây
+  };
+  allSpecs = allSpecs.map(s => ({
+    ...s,
+    label: labelMap[s.key?.toLowerCase()] || s.label || s.key
+  }));
+
   return (
     <ScrollView style={styles.container}>
       {/* Header sản phẩm */}
       <View style={styles.productRow}>
         {compareProducts.map((p, idx) => (
-          <View style={styles.productCol} key={p.id}>
+          <View style={styles.productCol} key={p.id || idx}>
             <View style={styles.productImgWrap}>
-              <Image source={p.image} style={styles.productImg} />
+              <Image source={p.image || require('../assets/images/pc1.png')} style={styles.productImg} />
             </View>
             <Text style={styles.productName} numberOfLines={2}>{p.name}</Text>
             <View style={styles.priceBox}>
@@ -123,8 +99,8 @@ export default function SoSanhSanPham() {
               </View>
             </View>
             <View style={styles.ratingSoldRow}>
-              <Text style={styles.rating}>★ {p.rating}</Text>
-              <Text style={styles.sold}>Đã bán {p.sold}</Text>
+              <Text style={styles.rating}>★ {p.rating || "—"}</Text>
+              <Text style={styles.sold}>Đã bán {p.sold || "—"}</Text>
             </View>
             <TouchableOpacity style={styles.detailBtn}>
               <Text style={styles.detailBtnText}>XEM CHI TIẾT</Text>
@@ -139,7 +115,7 @@ export default function SoSanhSanPham() {
       {/* Thông số kỹ thuật */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>THÔNG SỐ KỸ THUẬT</Text>
-        {specs.map((spec, idx) => (
+        {allSpecs.map((spec, idx) => (
           <View
             style={[
               styles.specRow,
@@ -148,11 +124,18 @@ export default function SoSanhSanPham() {
             key={spec.key}
           >
             <Text style={styles.specLabel}>{spec.label}</Text>
-            {compareProducts.map((p, i) => (
-              <Text style={styles.specValue} key={p.id + '-' + spec.key}>
-                {p[spec.key] || 'Không có'}
-              </Text>
-            ))}
+            {compareProducts.map((p, i) => {
+              let value = '';
+              // Tìm thông số key này trong specs/specifications hoặc flat object
+              let arr = extractSpecs(p);
+              let found = arr.find(s => (s.key?.toLowerCase?.() === spec.key?.toLowerCase?.()));
+              value = found?.value ?? p[spec.key] ?? '—';
+              return (
+                <Text style={styles.specValue} key={(p.id || i) + '-' + spec.key}>
+                  {value || '—'}
+                </Text>
+              );
+            })}
           </View>
         ))}
       </View>

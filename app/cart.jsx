@@ -1,7 +1,7 @@
-import { Feather } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { Feather } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
+import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Dimensions,
@@ -9,30 +9,31 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  View
-} from 'react-native';
-import Toast from 'react-native-toast-message';
-import { useWishlist } from '../context/WishlistContext';
-import axiosInstance from '../utils/AxiosInstance';
+  View,
+} from "react-native";
+import Toast from "react-native-toast-message";
+import { useWishlist } from "../context/WishlistContext";
+import axiosInstance from "../utils/AxiosInstance";
 
-import CartAddressModal from '../compomentCart/CartAddressModal';
-import CartEmpty from '../compomentCart/CartEmpty';
-import CartProductList from '../compomentCart/CartProductList';
-import CartTotalBar from '../compomentCart/CartTotalBar';
-import CartWishlist from '../compomentCart/CartWishlist';
+import CartAddressModal from "../compomentCart/CartAddressModal";
+import CartEmpty from "../compomentCart/CartEmpty";
+import CartProductList from "../compomentCart/CartProductList";
+import CartTotalBar from "../compomentCart/CartTotalBar";
+import CartWishlist from "../compomentCart/CartWishlist";
+import PayVoucherModal from "../compomentPay/PayVoucherModal";
 
-const { width } = Dimensions.get('window');
+const { width } = Dimensions.get("window");
 const defaultAddresses = [
   {
     id: 1,
-    text: '11 đường Nguyễn Thị A Phường Đông Hưng Thuận Quận 12 Thành Phố Hồ Chí Minh',
+    text: "11 đường Nguyễn Thị A Phường Đông Hưng Thuận Quận 12 Thành Phố Hồ Chí Minh",
     isDefault: true,
   },
 ];
 
 function formatCurrency(num) {
-  if (typeof num !== 'number' || isNaN(num)) return '0 đ';
-  return num.toLocaleString('vi-VN') + ' đ';
+  if (typeof num !== "number" || isNaN(num)) return "0 đ";
+  return num.toLocaleString("vi-VN") + " đ";
 }
 
 export default function CartScreen() {
@@ -40,18 +41,21 @@ export default function CartScreen() {
   const [cart, setCart] = useState([]);
   const [addresses, setAddresses] = useState(defaultAddresses);
   const [showAddressModal, setShowAddressModal] = useState(false);
-  const [newAddress, setNewAddress] = useState('');
+  const [newAddress, setNewAddress] = useState("");
   const [editAddressId, setEditAddressId] = useState(null);
-  const [editAddressText, setEditAddressText] = useState('');
+  const [editAddressText, setEditAddressText] = useState("");
   const [loading, setLoading] = useState(true);
   const [selectedIds, setSelectedIds] = useState([]);
   const router = useRouter();
   const { wishlist } = useWishlist();
   const params = useLocalSearchParams();
+  const [voucherList, setVoucherList] = useState([]);
+  const [selectedVoucher, setSelectedVoucher] = useState(null);
+  const [showVoucher, setShowVoucher] = useState(false);
 
   // Load user ID
   useEffect(() => {
-    AsyncStorage.getItem('user').then(data => {
+    AsyncStorage.getItem("user").then((data) => {
       if (data) {
         const user = JSON.parse(data);
         setUserId(user.id || user._id);
@@ -66,19 +70,23 @@ export default function CartScreen() {
     try {
       const res = await axiosInstance.get(`/orders/user/${userId}`);
       const orders = Array.isArray(res.data) ? res.data : [];
-      const pending = orders.find(o => o.status === 'pending') || { products: [] };
-      const items = (pending.products || []).map(item => ({
-        id: item.productId._id,
-        name: item.productId.name || 'Không có tên',
-        price: item.productId.price ?? 0,
-        image: item.productId.image
-          ? { uri: item.productId.image }
-          : require('../assets/images/pc1.png'),
-        quantity: item.quantity ?? 1,
-      }));
+      const pending = orders.find((o) => o.status === "pending") || {
+        products: [],
+      };
+      const items = (pending.products || [])
+  .filter(item => item.productId && typeof item.productId === "object") // lọc những productId bị null
+  .map((item) => ({
+    id: item.productId._id,
+    name: item.productId.name || "Không có tên",
+    price: item.productId.price ?? 0,
+    image: item.productId.image
+      ? { uri: item.productId.image }
+      : require("../assets/images/pc1.png"),
+    quantity: item.quantity ?? 1,
+  }));
       setCart(items);
     } catch (err) {
-      console.error('Lỗi khi lấy giỏ hàng:', err);
+      console.error("Lỗi khi lấy giỏ hàng:", err);
       setCart([]);
     } finally {
       setLoading(false);
@@ -94,48 +102,50 @@ export default function CartScreen() {
 
   // Change quantity
   const handleQuantity = async (id, delta) => {
-    const prod = cart.find(item => item.id === id);
+    const prod = cart.find((item) => item.id === id);
     if (!prod) return;
     const newQty = Math.max(1, prod.quantity + delta);
     try {
-      const res = await axiosInstance.put('/orders/update-quantity', {
+      await axiosInstance.put("/orders/update-quantity", {
         user_id: userId,
         productId: id,
         quantity: newQty,
       });
-      const updated = res.data.products || [];
-      const items = updated.map(item => ({
-        id: item.productId._id,
-        name: item.productId.name || 'Không có tên',
-        price: item.productId.price ?? 0,
-        image: item.productId.image
-          ? { uri: item.productId.image }
-          : require('../assets/images/pc1.png'),
-        quantity: item.quantity ?? 1,
-      }));
-      setCart(items);
+      // sau khi update xong thì fetch lại giỏ để có đầy đủ image URL
+      await fetchCart();
     } catch (err) {
-      console.error('Lỗi khi cập nhật số lượng:', err);
+      console.error("Lỗi khi cập nhật số lượng:", err);
       Toast.show({
-        type: 'error',
-        text1: 'Có lỗi khi cập nhật số lượng sản phẩm',
-        position: 'top',
+        type: "error",
+        text1: "Có lỗi khi cập nhật số lượng sản phẩm",
+        position: "top",
         visibilityTime: 2000,
       });
     }
   };
 
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await axiosInstance.get("/vouchers");
+        setVoucherList(Array.isArray(res.data) ? res.data : []);
+      } catch (err) {
+        console.error("Lỗi khi lấy voucher:", err);
+      }
+    })();
+  }, []);
+
   // Remove product
-  const handleRemove = async id => {
+  const handleRemove = async (id) => {
     try {
       await axiosInstance.delete(`/orders/remove-product/${userId}/${id}`);
-      setCart(prev => prev.filter(item => item.id !== id));
+      setCart((prev) => prev.filter((item) => item.id !== id));
     } catch (err) {
-      console.error('Lỗi khi xóa sản phẩm:', err);
+      console.error("Lỗi khi xóa sản phẩm:", err);
       Toast.show({
-        type: 'error',
-        text1: 'Có lỗi khi xóa sản phẩm khỏi giỏ hàng',
-        position: 'top',
+        type: "error",
+        text1: "Có lỗi khi xóa sản phẩm khỏi giỏ hàng",
+        position: "top",
         visibilityTime: 2000,
       });
     }
@@ -146,43 +156,77 @@ export default function CartScreen() {
     if (selectedIds.length === 0) return;
     try {
       await Promise.all(
-        selectedIds.map(id =>
+        selectedIds.map((id) =>
           axiosInstance.delete(`/orders/remove-product/${userId}/${id}`)
         )
       );
-      setCart(prev => prev.filter(item => !selectedIds.includes(item.id)));
+      setCart((prev) => prev.filter((item) => !selectedIds.includes(item.id)));
       setSelectedIds([]);
     } catch (err) {
       Toast.show({
-        type: 'error',
-        text1: 'Có lỗi khi xóa sản phẩm đã chọn',
-        position: 'top',
+        type: "error",
+        text1: "Có lỗi khi xóa sản phẩm đã chọn",
+        position: "top",
         visibilityTime: 2000,
       });
     }
   };
 
   // Compute total
-  const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+const selectedProducts = cart.filter(item => selectedIds.includes(item.id));
+
+// 2) Tính tổng tiền của các món được chọn
+const selectedTotal = selectedProducts.reduce(
+  (sum, item) => sum + item.price * item.quantity,
+  0
+);
+
+// 3) Tính discount dựa trên selectedTotal
+let discount = 0;
+if (selectedVoucher) {
+  const dv = selectedVoucher.discount_value;
+  // nếu discount_value < 100, coi như %; còn lại coi như tiền cố định
+  if (dv > 0 && dv < 100) {
+    discount = Math.round((selectedTotal * dv) / 100);
+  } else {
+    discount = dv;
+  }
+}
+
+// 4) Tổng cuối cùng = selectedTotal – discount
+const finalTotal = Math.max(0, selectedTotal - discount);
+
+  // danh sách sản phẩm đã chọn
   const isEmpty = cart.length === 0;
+  const isNothingSelected = selectedProducts.length === 0;
 
   // Address handlers (unchanged)
-  const handleSelectAddress = id => { /* ... */ };
-  const handleAddAddress = () => { /* ... */ };
-  const handleDeleteAddress = id => { /* ... */ };
-  const handleEditAddress = (id, text) => { /* ... */ };
-  const handleSaveEditAddress = () => { /* ... */ };
-  const selectedAddress = addresses.find(addr => addr.isDefault);
+  const handleSelectAddress = (id) => {
+    /* ... */
+  };
+  const handleAddAddress = () => {
+    /* ... */
+  };
+  const handleDeleteAddress = (id) => {
+    /* ... */
+  };
+  const handleEditAddress = (id, text) => {
+    /* ... */
+  };
+  const handleSaveEditAddress = () => {
+    /* ... */
+  };
+  const selectedAddress = addresses.find((addr) => addr.isDefault);
 
   const toggleSelect = (id) => {
-    setSelectedIds(prev =>
-      prev.includes(id) ? prev.filter(_id => _id !== id) : [...prev, id]
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((_id) => _id !== id) : [...prev, id]
     );
   };
 
   const selectAll = () => {
     if (selectedIds.length === cart.length) setSelectedIds([]);
-    else setSelectedIds(cart.map(item => item.id));
+    else setSelectedIds(cart.map((item) => item.id));
   };
 
   useEffect(() => {
@@ -210,7 +254,11 @@ export default function CartScreen() {
           onPress={handleRemoveSelected}
           disabled={selectedIds.length === 0}
         >
-          <Feather name="trash-2" size={22} color={selectedIds.length === 0 ? "#ccc" : "#ff4d4f"} />
+          <Feather
+            name="trash-2"
+            size={22}
+            color={selectedIds.length === 0 ? "#ccc" : "#ff4d4f"}
+          />
         </TouchableOpacity>
         <View style={styles.cartCount}>
           <Text style={styles.cartCountText}>{cart.length}</Text>
@@ -256,44 +304,60 @@ export default function CartScreen() {
       </ScrollView>
 
       <CartTotalBar
-        total={total}
+        total={finalTotal}
         formatCurrency={formatCurrency}
+        selectedIds={selectedIds}
+        discount={discount}
+        allSelected={selectedIds.length === cart.length}
+        onToggleSelectAll={selectAll}
         onCheckout={() => {
-          const selectedProducts = cart.filter(item => selectedIds.includes(item.id));
+          const selectedProducts = cart.filter((item) =>
+            selectedIds.includes(item.id)
+          );
           if (selectedProducts.length === 0) {
             Toast.show({
-              type: 'error',
-              text1: 'Vui lòng chọn sản phẩm để thanh toán!',
-              position: 'top',
+              type: "error",
+              text1: "Vui lòng chọn sản phẩm để thanh toán!",
+              position: "top",
               visibilityTime: 2000,
             });
             return;
           }
           router.push({
-            pathname: './pay',
+            pathname: "./pay",
             params: {
-              selectedProducts: JSON.stringify(selectedProducts)
-            }
+              selectedProducts: JSON.stringify(selectedProducts),
+            },
           });
         }}
-        disabled={isEmpty}
+        
+        onShowVoucher={() => setShowVoucher(true)}
+        onClearVoucher={() => setSelectedVoucher(null)}
+         disabled={isNothingSelected}
+        
+      />
+      {/* Voucher modal vẫn để trong CartScreen */}
+      <PayVoucherModal
+        visible={showVoucher}
+        vouchers={voucherList}
+        selectedVoucher={selectedVoucher}
+        setSelectedVoucher={setSelectedVoucher}
+        setShowVoucher={setShowVoucher}
+        
       />
     </View>
   );
 }
 
-
-
-
 const styles = StyleSheet.create({
-  container: { 
-    flex: 1, 
-    backgroundColor: "#fafbff" 
+  container: {
+    flex: 1,
+    backgroundColor: "#fafbff",
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center'
+    justifyContent: "center",
+    alignItems: "center",
   },
   header: {
     flexDirection: "row",
@@ -332,6 +396,27 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontWeight: "bold",
     fontSize: 14,
+  },
+  selectAllContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 18,
+    paddingVertical: 8,
+    backgroundColor: "#fff",
+  },
+  selectAllButton: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  selectAllText: {
+    marginLeft: 6,
+    fontSize: 14,
+    color: "#222",
+  },
+  selectAllCount: {
+    marginLeft: "auto",
+    fontSize: 14,
+    color: "#888",
   },
   addressBox: {
     flexDirection: "row",

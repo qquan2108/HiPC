@@ -1,497 +1,250 @@
-import { Feather } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons, MaterialIcons, AntDesign } from "@expo/vector-icons";
-import { useEffect, useState } from 'react';
+// screens/DanhMucPCScreen.js
+import { useRouter } from "expo-router";
+import React, { useState, useEffect } from 'react';
 import {
-  Dimensions,
-  Image,
-  ImageBackground,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+  SafeAreaView, View, Text, StyleSheet, Dimensions, TextInput, FlatList, ScrollView, TouchableOpacity, Image
 } from 'react-native';
-import BackgroundImage from '../assets/images/backroundLogin.png';
-import axiosInstance from '../utils/AxiosInstance';
-import Banner from '../compomentHome/Banner'; // Thêm ở đầu file
+import { Feather } from '@expo/vector-icons';
+import axios from '../utils/AxiosInstance';
+import CustomTabBar from '../compomentHome/CustomTabBar';
 
 const { width } = Dimensions.get('window');
+const LEFT_WIDTH = 80;
+const RIGHT_WIDTH = width - LEFT_WIDTH;
 
-const DanhMucPCScreen = () => {
+export default function DanhMucPCScreen() {
   const [categories, setCategories] = useState([]);
+  const [selectedCat, setSelectedCat] = useState(null);
   const [products, setProducts] = useState([]);
-  const [selectedCategory, setSelectedCategory] = useState(null);
+  const router = useRouter();
 
-  // Lấy danh sách danh mục có icon
+  // Bộ lọc mẫu (tuỳ ý)
+  const BRANDS = ['ASUS','MSI','Gigabyte','ASRock','EVGA','Biostar','Colorful'];
+  const PRICES = ['Dưới 2 triệu','2–4 triệu','4–7 triệu','7–13 triệu','Trên 13 triệu'];
+  const HOT = ['RTX 4060','Ryzen 7 7800X','Corsair Vengeance','NZXT H510','Seagate 2TB','WD Blue'];
+
+  // Fetch categories + icon
   useEffect(() => {
-    Promise.all([
-      axiosInstance.get("/category"),
-      axiosInstance.get("/images")
-    ])
-      .then(([catRes, imgRes]) => {
-        const images = imgRes.data;
-        setCategories(
-          catRes.data.map(cat => {
-            // Tìm ảnh có category_id trùng với _id của category
-            const img = images.find(i => i.category_id && i.category_id._id === cat._id);
-            return {
-              ...cat,
-              icon: img ? { uri: img.url } : require("../assets/images/pc.png"),
-            };
-          })
-        );
-      })
-      .catch(() => setCategories([]));
+    (async () => {
+      try {
+        const [catRes, imgRes] = await Promise.all([
+          axios.get('/category'),
+          axios.get('/images')
+        ]);
+        const imgs = imgRes.data;
+        setCategories(catRes.data.map(cat => {
+          const found = imgs.find(i => i.category_id?._id === cat._id);
+          return {
+            _id: cat._id,
+            name: cat.name,
+            icon: found ? { uri: found.url } : require('../assets/images/pc.png'),
+          };
+        }));
+        if (catRes.data[0]) setSelectedCat(catRes.data[0]._id);
+      } catch (e) { console.error(e); }
+    })();
   }, []);
 
-  // Lấy danh sách sản phẩm
+  // Fetch ALL products
   useEffect(() => {
-    axiosInstance.get('/product')
-      .then(res => {
-        // Đảm bảo luôn là mảng
-        const arr = Array.isArray(res.data.products) ? res.data.products : [];
-        setProducts(arr);
-      })
+    axios.get('/product')
+      .then(res => setProducts(res.data.products || []))
       .catch(() => setProducts([]));
   }, []);
 
-  // Lọc sản phẩm theo danh mục
-  const filteredProducts = selectedCategory
-    ? products.filter(p => p.category_id === selectedCategory || p.category_id?._id === selectedCategory)
-    : products;
+  // Tìm object category đang chọn
+  const catObj = categories.find(c => c._id === selectedCat);
+
+  // Lọc sản phẩm theo category đang chọn (category_id có thể là object hoặc string)
+  const filteredProducts = products.filter(p =>
+    (typeof p.category_id === 'string' && p.category_id === selectedCat) ||
+    (typeof p.category_id === 'object' && (p.category_id._id === selectedCat || p.category_id['$oid'] === selectedCat))
+  );
 
   return (
-    <ImageBackground source={BackgroundImage} style={{ flex: 1 }}>
-      <View style={styles.overlay}>
-        <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-          <Text style={styles.title}>Danh Mục PC</Text>
-
-          {/* Category Scroll */}
-          <View style={styles.categoryWrapper}>
-            <Text style={styles.categoryTitle}>Danh mục</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              {categories.map((cat, idx) => (
-                <TouchableOpacity
-                  key={cat._id || idx}
-                  style={[
-                    styles.categoryItem,
-                    selectedCategory === cat._id && { borderColor: '#2979ff', borderWidth: 2 }
-                  ]}
-                  activeOpacity={0.8}
-                  onPress={() => setSelectedCategory(cat._id)}
-                >
-                  <View style={styles.categoryIconWrapper}>
-                    <Image
-                      source={cat.icon}
-                      style={styles.categoryIcon}
-                      resizeMode="cover"
-                    />
-                  </View>
-                  <Text style={styles.categoryLabel} numberOfLines={1}>{cat.name}</Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-
-          {/* Banner đẹp đồng bộ với Home */}
-          <Banner
-            source={require('../assets/images/pc1.png')}
-            title="Khuyến mãi PC cực sốc"
-            subtitle="Giảm giá lên đến 30% cho các dòng PC mới nhất!"
-            badge="HOT"
-            overlayType="gradient"
-          />
-
-          {/* Header */}
-          <View style={styles.productHeader}>
-            <Text style={styles.productTitle}>Sản phẩm nổi bật</Text>
-            <Feather name="sliders" size={20} color="#444" />
-          </View>
-
-          {/* Product List */}
-          <View style={styles.productsContainer}>
-            {filteredProducts.map((product, index) => (
-              <TouchableOpacity
-                key={product._id}
-                style={[styles.productCardNew, { marginLeft: index % 2 === 0 ? 0 : 12 }]}
-                activeOpacity={0.9}
-                // onPress={() => ...} // Thêm nếu muốn click vào sản phẩm
-              >
-                <LinearGradient
-                  colors={['rgba(255,255,255,0.95)', 'rgba(255,255,255,0.8)']}
-                  style={styles.cardGradientNew}
-                >
-                  <View style={styles.imageWrapperNew}>
-                    <Image
-                      source={product.image ? { uri: product.image } : require('../assets/images/pc1.png')}
-                      style={styles.productImageNew}
-                      resizeMode="contain"
-                    />
-                    {/* Badge giảm giá */}
-                    {product.discount > 0 && (
-                      <LinearGradient
-                        colors={['#f093fb', '#f5576c']}
-                        style={styles.discountBadgeNew}
-                      >
-                        <MaterialIcons name="local-offer" size={12} color="#fff" />
-                        <Text style={styles.discountBadgeTextNew}>-{product.discount}%</Text>
-                      </LinearGradient>
-                    )}
-                  </View>
-                  <View style={styles.productInfoNew}>
-                    <Text numberOfLines={2} style={styles.productNameNew}>
-                      {product.name}
-                    </Text>
-                    <Text style={styles.productPriceNew}>
-                      {product.price?.toLocaleString('vi-VN') || product.price}₫
-                    </Text>
-                    {product.oldPrice && (
-                      <Text style={styles.productOldPriceNew}>
-                        {product.oldPrice?.toLocaleString('vi-VN') || product.oldPrice}₫
-                      </Text>
-                    )}
-                    {/* Nút thêm vào giỏ */}
-                    <TouchableOpacity style={styles.addToCartButtonNew}>
-                      <LinearGradient
-                        colors={['#667eea', '#764ba2']}
-                        style={styles.buttonGradientNew}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 0 }}
-                      >
-                        <Ionicons name="cart-outline" size={16} color="#fff" />
-                        <Text style={styles.buttonTextNew}>Thêm vào giỏ</Text>
-                      </LinearGradient>
-                    </TouchableOpacity>
-                  </View>
-                </LinearGradient>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </ScrollView>
-
-        {/* Tab Bar */}
-        <View style={styles.customTabBarContainer}>
-          <View style={styles.customTabBar}>
-            <TabItem icon="home" label="Trang chủ" active />
-            <TabItem icon="heart" label="Yêu thích" />
-            <View style={styles.tabCartWrapperCustom}>
-              <TouchableOpacity style={styles.tabCartBtnCustom}>
-                <Feather name="shopping-cart" size={28} color="#4a90e2" />
-              </TouchableOpacity>
-            </View>
-            <TabItem icon="search" label="Tìm kiếm" />
-            <TabItem icon="settings" label="Cài đặt" />
-          </View>
-        </View>
+    <SafeAreaView style={styles.safe}>
+      {/* HEADER SEARCH */}
+      <View style={styles.header}>
+        <Feather name="search" size={20} color="#888" />
+        <TextInput
+          placeholder="Bạn muốn mua gì hôm nay?"
+          placeholderTextColor="blue"
+          style={styles.searchInput}
+        />
       </View>
-    </ImageBackground>
-  );
-};
 
-// TabItem Component
-const TabItem = ({ icon, label, active = false }) => (
-  <TouchableOpacity style={styles.tabItemCustom}>
-    <Feather name={icon} size={22} color={active ? '#4a90e2' : '#555'} />
-    <Text style={active ? styles.tabLabelActive : styles.tabLabel}>{label}</Text>
-  </TouchableOpacity>
-);
+      <View style={styles.body}>
+        {/* LEFT MENU */}
+        <FlatList
+          data={categories}
+          keyExtractor={i => i._id}
+          style={styles.left}
+          showsVerticalScrollIndicator={false}
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              style={[
+                styles.leftItem,
+                item._id === selectedCat && styles.leftItemActive
+              ]}
+              onPress={() => setSelectedCat(item._id)}
+            >
+              <Image source={item.icon} style={styles.leftIcon} />
+              <Text style={[
+                styles.leftLabel,
+                item._id === selectedCat && styles.leftLabelActive
+              ]}>{item.name}</Text>
+            </TouchableOpacity>
+          )}
+        />
+
+        {/* RIGHT CONTENT */}
+        <ScrollView style={styles.right} showsVerticalScrollIndicator={false}>
+          {/* TITLE + “Xem tất cả” */}
+          <View style={styles.titleRow}>
+            <Text style={styles.titleText}>{catObj?.name || '—'}</Text>
+            <TouchableOpacity>
+              <Text style={styles.viewAll}>Xem tất cả</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* DANH SÁCH SẢN PHẨM */}
+          {filteredProducts.length === 0 ? (
+            <Text style={{ color: '#888', textAlign: 'center', marginTop: 24 }}>
+              Không có sản phẩm nào
+            </Text>
+          ) : (
+            filteredProducts.map(p => (
+              <TouchableOpacity
+                key={p._id || p.id}
+                style={{
+                  backgroundColor: '#fff',
+                  borderRadius: 8,
+                  marginBottom: 12,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  padding: 12,
+                  shadowColor: '#eee',
+                  shadowOffset: { width: 0, height: 1 },
+                  shadowOpacity: 0.2,
+                  shadowRadius: 2,
+                  elevation: 2,
+                }}
+                onPress={() => router.push({ pathname: '/ctsp', params: { id: p._id || p.id } })}
+              >
+                <Image
+                  source={p.image ? { uri: p.image } : require('../assets/images/pc1.png')}
+                  style={{ width: 54, height: 54, borderRadius: 8, marginRight: 12, backgroundColor: '#f2f2f2' }}
+                />
+                <View style={{ flex: 1 }}>
+                  <Text numberOfLines={2} style={{ fontWeight: '700' }}>{p.name}</Text>
+                  <Text style={{ color: '#009688', marginTop: 2 }}>
+                    {Number(p.price).toLocaleString('vi-VN')}₫
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            ))
+          )}
+
+          {/* Các filter */}
+          <FilterSection title="Hãng" data={BRANDS} />
+          <FilterSection title="Phân khúc giá" data={PRICES} />
+          <FilterSection title="HOT ⚡️" data={HOT} />
+          <View style={{ height: 80 }} />
+        </ScrollView>
+      </View>
+      {/* TAB BAR */}
+      <CustomTabBar router={router} style={styles.tabbar} />
+    </SafeAreaView>
+  );
+}
+
+// Component con cho mỗi section filter
+function FilterSection({ title, data }) {
+  return (
+    <View style={styles.sec}>
+      <Text style={styles.secTitle}>{title}</Text>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.filterRow}
+      >
+        {data.map((label, i) => (
+          <TouchableOpacity key={i} style={styles.tag}>
+            <Text style={styles.tagText}>{label}</Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+    </View>
+  );
+}
 
 const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(255,255,255,0.94)',
-  },
-  container: {
-    flex: 1,
-    paddingHorizontal: 16,
-    paddingTop: 24,
-  },
-  title: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#2c3e50',
-    marginBottom: 14,
-  },
-  avatarRow: {
+  safe: { flex: 1, backgroundColor: '#f2f2f2' },
+  header: {
     flexDirection: 'row',
-    marginBottom: 18,
-  },
-  avatarContainer: {
     alignItems: 'center',
-    marginRight: 16,
-    width: 64,
+    backgroundColor: 'blue',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
   },
-  avatarImage: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+  searchInput: {
+    flex: 1,
+    marginLeft: 8,
     backgroundColor: '#fff',
-    marginBottom: 4,
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    height: 36,
+    fontSize: 14,
+  },
+  body: { flex: 1, flexDirection: 'row' },
+  left: {
+    width: LEFT_WIDTH,
+    backgroundColor: '#fff',
+    borderRightWidth: 1,
+    borderRightColor: '#ddd',
+  },
+  leftItem: {
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  leftItemActive: {
+    backgroundColor: '#ffe5e9',
+    borderLeftWidth: 4,
+    borderLeftColor: '#e60023',
+  },
+  leftIcon: { width: 36, height: 36, marginBottom: 4 },
+  leftLabel: { fontSize: 12, color: '#333', textAlign: 'center' },
+  leftLabelActive: { color: '#e60023', fontWeight: '600' },
+  right: {
+    width: RIGHT_WIDTH,
+    paddingHorizontal: 12,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginVertical: 12,
+  },
+  titleText: { fontSize: 18, fontWeight: '700', color: '#111' },
+  viewAll: { color: '#007aff', fontSize: 14 },
+  sec: { marginBottom: 16 },
+  secTitle: { fontSize: 16, fontWeight: '600', marginBottom: 8 },
+  filterRow: { flexWrap: 'wrap' },
+  tag: {
     borderWidth: 1,
     borderColor: '#ccc',
-  },
-  avatarLabel: {
-    fontSize: 12,
-    color: '#333',
-    textAlign: 'center',
-  },
-  bannerWrapper: {
-    width: '100%',
-    height: 140,
     borderRadius: 16,
-    overflow: 'hidden',
-    marginBottom: 20,
-    backgroundColor: '#e3e3e3',
-  },
-  bannerImage: {
-    width: '100%',
-    height: '100%',
-  },
-  productHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  productTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#222',
-  },
-  productsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-  },
-  productCard: {
-    width: '48%',
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    marginBottom: 20,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOpacity: 0.06,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 3,
-  },
-  productCardNew: {
-    width: '48%',
-    marginBottom: 20,
-    borderRadius: 20,
-    overflow: 'hidden',
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.12,
-    shadowRadius: 8,
-    elevation: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    marginRight: 8,
+    marginBottom: 8,
     backgroundColor: '#fff',
   },
-  imageWrapper: {
-    position: 'relative',
-  },
-  imageWrapperNew: {
-    width: '100%',
-    height: 110,
-    borderRadius: 16,
-    backgroundColor: "#f8fafc",
-    marginBottom: 10,
-    justifyContent: "center",
-    alignItems: "center",
-    position: "relative",
-    overflow: "hidden",
-  },
-  productImage: {
-    width: '100%',
-    height: 140,
-  },
-  productImageNew: {
-    width: 90,
-    height: 90,
-    resizeMode: "contain",
-    zIndex: 1,
-  },
-  discountLabel: {
-    position: 'absolute',
-    top: 8,
-    left: 8,
-    backgroundColor: '#ff4d4f',
-    color: '#fff',
-    fontSize: 12,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  discountBadgeNew: {
-    position: 'absolute',
-    top: 8,
-    left: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    backgroundColor: '#f5576c',
-  },
-  discountBadgeTextNew: {
-    color: '#fff',
-    fontSize: 10,
-    fontWeight: '700',
-    marginLeft: 2,
-  },
-  productInfoNew: {
-    alignItems: 'flex-start',
-    marginTop: 2,
-  },
-  productNameNew: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#1a202c",
-    marginBottom: 4,
-    lineHeight: 18,
-  },
-  productPriceNew: {
-    color: "#e53e3e",
-    fontWeight: "800",
-    fontSize: 16,
-  },
-  productOldPriceNew: {
-    fontSize: 12,
-    color: "#a0aec0",
-    fontWeight: '500',
-    textDecorationLine: 'line-through',
-    marginBottom: 4,
-  },
-  customTabBarContainer: {
+  tagText: { fontSize: 14, color: '#333' },
+  tabbar: {
     position: 'absolute',
     left: 0,
     right: 0,
-    bottom: 10,
-    alignItems: 'center',
-    zIndex: 10,
-  },
-  customTabBar: {
-    flexDirection: 'row',
-    backgroundColor: '#ffffff',
-    borderRadius: 40,
-    height: 70,
-    marginHorizontal: 16,
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 22,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.12,
-    shadowRadius: 16,
-    elevation: 12,
-    width: width - 32,
-  },
-  tabItemCustom: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: 1,
-  },
-  tabLabel: {
-    fontSize: 11,
-    color: '#555',
-    marginTop: 2,
-  },
-  tabLabelActive: {
-    fontSize: 11,
-    color: '#4a90e2',
-    fontWeight: 'bold',
-    marginTop: 2,
-  },
-  tabCartWrapperCustom: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: -30,
-    shadowColor: '#ff6b6b',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.18,
-    shadowRadius: 16,
-    elevation: 16,
-    zIndex: 20,
-  },
-  tabCartBtnCustom: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: '#4a90e2',
-  },
-  categoryWrapper: {
-    marginVertical: 18,
-    paddingLeft: 10,
-  },
-  categoryTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#222",
-    marginBottom: 10,
-    marginLeft: 4,
-  },
-  categoryItem: {
-    alignItems: "center",
-    marginRight: 18,
-    width: 80,
-  },
-  categoryIconWrapper: {
-    width: 62,
-    height: 62,
-    borderRadius: 18,
-    backgroundColor: "#fff",
-    elevation: 4,
-    shadowColor: "#4a90e2",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.13,
-    shadowRadius: 6,
-    marginBottom: 7,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  categoryIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
-  },
-  categoryLabel: {
-    fontSize: 14,
-    color: "#333",
-    textAlign: "center",
-    width: 80,
-    fontWeight: "500",
-  },
-  cardGradientNew: {
-    padding: 12,
-    borderRadius: 20,
-  },
-  addToCartButtonNew: {
-    borderRadius: 12,
-    marginTop: 8,
-    alignSelf: 'stretch',
-  },
-  buttonGradientNew: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 8,
-    borderRadius: 12,
-  },
-  buttonTextNew: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '700',
-    marginLeft: 6,
+    bottom: 0,
   },
 });
-
-export default DanhMucPCScreen;
