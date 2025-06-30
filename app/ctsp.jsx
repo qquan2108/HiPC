@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from 'react';
 import { Feather } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ActivityIndicator, Image, Modal, FlatList, StyleSheet, Text, TextInput, TouchableOpacity, View, SafeAreaView, KeyboardAvoidingView, Platform } from 'react-native';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, FlatList, Image, Modal, SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 import Toast from 'react-native-toast-message';
 import axiosInstance from '../utils/AxiosInstance';
@@ -12,7 +12,7 @@ import OptionGroup from '../compomentCTSP/OptionGroup';
 import ProductImage from '../compomentCTSP/ProductImage';
 import ProductPriceRow from '../compomentCTSP/ProductPriceRow';
 import ReviewBox from '../compomentCTSP/ReviewBox';
-import { SectionPopular, SectionLiked } from '../compomentCTSP/SectionBox';
+import { SectionLiked, SectionPopular } from '../compomentCTSP/SectionBox';
 import SpecsBox from '../compomentCTSP/SpecsBox';
 
 // Fetch product detail
@@ -164,7 +164,8 @@ const AddToCart = async prod => {
       return router.replace('/LoginScreen');
     }
     const userObj = JSON.parse(userStr);
-    const userId = userObj._id || userObj.id;  // Ưu tiên _id nếu có
+    const userId = userObj._id || userObj.id;
+    console.log('AddToCart userId:', userId);
 
     // Gửi đúng field user_id mà server Mongoose đang require
     await axiosInstance.post('/orders/add-to-cart', {
@@ -174,7 +175,7 @@ const AddToCart = async prod => {
     });
 
     Toast.show({ type: 'success', text1: 'Đã thêm vào giỏ hàng!', position: 'bottom' });
-    setTimeout(() => router.push('./cart'), 1200);
+    setTimeout(() => router.push({ pathname: './cart', params: { refresh: 1 } }), 1200);
   } catch (err) {
     console.error('add-to-cart error:', err);
     Toast.show({ type: 'error', text1: 'Thêm giỏ hàng thất bại!', position: 'top' });
@@ -284,12 +285,18 @@ const AddToCart = async prod => {
       />
 
       {/* Bottom Bar */}
-      <View style={styles.bottomBar}>
-        <TouchableOpacity style={styles.bottomCartBtn} onPress={() => router.push('./cart')}>
+      <View style={styles.bottomBar}> 
+        <TouchableOpacity
+          style={styles.bottomCartBtn}
+          onPress={() => AddToCart(product)} // Sửa lại dòng này
+        >
           <Feather name="shopping-cart" size={20} color="#1a73e8" />
           <Text style={styles.bottomCartText}>Giỏ hàng</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.bottomBuyBtn} onPress={() => AddToCart(product)}>
+        <TouchableOpacity
+          style={styles.bottomBuyBtn}
+          onPress={() => AddToCart(product)}
+        >
           <Text style={styles.bottomBuyText}>Mua ngay</Text>
         </TouchableOpacity>
       </View>
