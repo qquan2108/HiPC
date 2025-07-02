@@ -1,27 +1,68 @@
 import { AntDesign, Feather, Ionicons } from '@expo/vector-icons';
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef } from 'react';
-import { 
-  Dimensions, 
-  FlatList, 
-  Image, 
-  StyleSheet, 
-  Text, 
-  TouchableOpacity, 
-  View,
+import {
+  ActivityIndicator // <-- Thêm dòng này
+  ,
   Animated,
-  Platform
+  Dimensions,
+  FlatList,
+  Image,
+  Platform,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
+import Toast from 'react-native-toast-message';
 import { useWishlist } from '../context/WishlistContext';
 import axiosInstance from "../utils/AxiosInstance";
-import Toast from 'react-native-toast-message';
 
 const { width } = Dimensions.get('window');
 
 export default function FavoriteScreen() {
   const router = useRouter();
   const { wishlist, removeFromWishlist } = useWishlist();
-  
+
+  // Thêm state kiểm tra đăng nhập
+  const [showLoginDialog, setShowLoginDialog] = React.useState(false);
+  const [loading, setLoading] = React.useState(true);
+
+  // Kiểm tra đăng nhập
+  React.useEffect(() => {
+    AsyncStorage.getItem("token").then((token) => {
+      if (!token) {
+        setShowLoginDialog(true);
+        setLoading(false);
+        return;
+      }
+      AsyncStorage.getItem("user").then((userStr) => {
+        if (!userStr || userStr === "undefined") {
+          setShowLoginDialog(true);
+          setLoading(false);
+          return;
+        }
+        let stored;
+        try {
+          stored = JSON.parse(userStr);
+        } catch (e) {
+          setShowLoginDialog(true);
+          setLoading(false);
+          return;
+        }
+        const userId = stored.id || stored._id;
+        if (!userId) {
+          setShowLoginDialog(true);
+          setLoading(false);
+          return;
+        }
+        setShowLoginDialog(false);
+        setLoading(false);
+      });
+    });
+  }, []);
+
   // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(-20)).current;
@@ -118,6 +159,51 @@ export default function FavoriteScreen() {
       </View>
     </View>
   );
+
+  if (showLoginDialog) {
+    return (
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContent}>
+          <Text style={styles.modalEmoji}>😺</Text>
+          <Text style={styles.modalTitle}>Bạn chưa đăng nhập!</Text>
+          <Text style={styles.modalMessage}>
+            Hãy đăng nhập để sử dụng đầy đủ chức năng của ứng dụng nhé!
+          </Text>
+          <View style={styles.modalButtons}>
+            <TouchableOpacity
+              style={[styles.btn, styles.btnPrimary]}
+              onPress={() => {
+                setShowLoginDialog(false);
+                router.replace("./LoginScreen");
+              }}
+            >
+              <Text style={styles.btnTextWhite}>Đăng nhập ngay</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.btn, styles.btnSecondary]}
+              onPress={() => {
+                setShowLoginDialog(false);
+                setLoading(false);
+                router.replace("/HomeScreen");
+              }}
+            >
+              <Text style={styles.btnTextPrimary}>Để sau</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    );
+  }
+
+  if (loading) {
+    return (
+      <View style={{flex:1, justifyContent:'center', alignItems:'center'}}>
+        <Animated.View style={{opacity:fadeAnim, transform:[{scale:scaleAnim}]}}>
+          <ActivityIndicator size="large" color="#2979ff" />
+        </Animated.View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.bg}>
@@ -433,4 +519,122 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: '#e3edff',
   },
+
+  // ===== LOADING AND DIALOG STYLES =====
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f8faff',
+  },
+  
+  loadingText: {
+    fontSize: 16,
+    color: '#555',
+  },
+  
+  dialogContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+  },
+  
+  dialogContent: {
+    width: '80%',
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 20,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  
+  dialogTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 12,
+  },
+  
+  dialogMessage: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  
+  dialogButton: {
+    backgroundColor: '#1976ff',
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+  },
+  
+  dialogButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+
+  // ===== MODAL STYLES =====
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.7)',
+  },
+  modalContent: {
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    paddingVertical: 32,
+    paddingHorizontal: 28,
+    alignItems: "center",
+    width: 350,
+    shadowColor: "#000",
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 5,
+  },
+  modalEmoji: { fontSize: 48, marginBottom: 12 },
+  modalTitle: {
+    fontWeight: "bold",
+    fontSize: 20,
+    marginBottom: 8,
+    color: "#222",
+    textAlign: "center",
+  },
+  modalMessage: {
+    color: "#444",
+    textAlign: "center",
+    marginBottom: 22,
+    fontSize: 15,
+    lineHeight: 20,
+  },
+  modalButtons: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    width: "100%",
+    marginTop: 8,
+    gap: 8,
+  },
+  btn: {
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 0,
+    flex: 1,
+    marginHorizontal: 4,
+    alignItems: "center",
+  },
+  btnPrimary: { backgroundColor: "#2979ff" },
+  btnSecondary: { backgroundColor: "#f0f4fa" },
+  btnTextWhite: { color: "#fff", fontWeight: "bold", fontSize: 16 },
+  btnTextPrimary: { color: "#2979ff", fontWeight: "bold", fontSize: 16 },
 });

@@ -1,33 +1,19 @@
-import React, { useEffect, useState } from "react";
-import { Feather } from "@expo/vector-icons";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useLocalSearchParams, useRouter } from "expo-router";
-import {
-  ActivityIndicator,
-  useWindowDimensions,
-  Image,
-  Modal,
-  FlatList,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-  SafeAreaView,
-  KeyboardAvoidingView,
-  Platform,
-} from "react-native";
-import Toast from "react-native-toast-message";
-import axiosInstance from "../utils/AxiosInstance";
-import RenderHTML from "react-native-render-html";
-import BuyWithList from "../compomentCTSP/BuyWithList";
-import OptionGroup from "../compomentCTSP/OptionGroup";
-import ProductImage from "../compomentCTSP/ProductImage";
-import ProductPriceRow from "../compomentCTSP/ProductPriceRow";
-import ReviewBox from "../compomentCTSP/ReviewBox";
-import { SectionPopular, SectionLiked } from "../compomentCTSP/SectionBox";
-import SpecsBox from "../compomentCTSP/SpecsBox";
-import ProductDescription from "../compomentCTSP/Description";
+import { Feather } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, FlatList, Image, Modal, SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+
+import Toast from 'react-native-toast-message';
+import axiosInstance from '../utils/AxiosInstance';
+
+import BuyWithList from '../compomentCTSP/BuyWithList';
+import OptionGroup from '../compomentCTSP/OptionGroup';
+import ProductImage from '../compomentCTSP/ProductImage';
+import ProductPriceRow from '../compomentCTSP/ProductPriceRow';
+import ReviewBox from '../compomentCTSP/ReviewBox';
+import { SectionLiked, SectionPopular } from '../compomentCTSP/SectionBox';
+import SpecsBox from '../compomentCTSP/SpecsBox';
 
 // Fetch product detail
 const fetchProductById = async (productId) => {
@@ -46,29 +32,25 @@ const fetchProductById = async (productId) => {
         const joined = idxKeys
           .sort((a, b) => a - b)
           .map((i) => spec[i])
-          .join("");
-        return { label: "", value: joined };
+          .join('');
+        return { label: '', value: joined };
       }
-      return { label: "", value: "" };
+      return { label: '', value: '' };
     });
   }
 
   return {
-    id: product._id,
-    name: product.name,
-    price: product.price,
-    description: product.description,
+    id:       product._id,
+    name:     product.name,
+    price:    product.price,
     oldPrice: product.price,
-    images:
-      Array.isArray(product.images) && product.images.length
-        ? product.images.map((url) => ({ uri: url }))
-        : [require("../assets/images/pc1.png")],
-    image: product.image
-      ? { uri: product.image }
-      : require("../assets/images/pc1.png"),
+    images: Array.isArray(product.images) && product.images.length
+      ? product.images.map((url) => ({ uri: url }))
+      : [require('../assets/images/pc1.png')],
+    image: product.image ? { uri: product.image } : require('../assets/images/pc1.png'),
     rating: product.rating || 4.5,
-    sold: product.sold || 0,
-    origin: product.origin || "Unknown",
+    sold:   product.sold || 0,
+    origin: product.origin || 'Unknown',
     specs: specsArr,
     buyWith: product.relatedProducts || product.buyWith || [],
   };
@@ -77,15 +59,15 @@ const fetchProductById = async (productId) => {
 // Fetch all products
 const fetchAllProducts = async () => {
   try {
-    const { data } = await axiosInstance.get("/product");
-    const list = (data.products || []).map((p) => ({
-      id: p._id,
-      name: p.name,
+    const { data } = await axiosInstance.get('/product');
+    const list = (data.products || []).map(p => ({
+      id:    p._id,
+      name:  p.name,
       price: p.price,
-      image: p.image ? { uri: p.image } : require("../assets/images/pc1.png"),
-      sold: p.sold || 0,
+      image: p.image ? { uri: p.image } : require('../assets/images/pc1.png'),
+      sold:  p.sold || 0,
     }));
-    console.log("allProducts ›", list);
+    console.log('allProducts ›', list);
     return list;
   } catch {
     return [];
@@ -93,37 +75,37 @@ const fetchAllProducts = async () => {
 };
 
 const cpuOptions = [
-  "i5 12400F + Tản nhiệt khí",
-  "i5 12400F + Tản nước AIO 240",
-  "i5 13400F + Tản nhiệt khí",
-  "i5 13400F + Tản nước AIO 240",
-  "i5 12600KF + Tản nhiệt khí",
-  "i5 12600KF + Tản nước AIO 240",
-  "i5 14500 + Tản nhiệt khí",
-  "i5 14500 + Tản nước AIO 240",
+  'i5 12400F + Tản nhiệt khí',
+  'i5 12400F + Tản nước AIO 240',
+  'i5 13400F + Tản nhiệt khí',
+  'i5 13400F + Tản nước AIO 240',
+  'i5 12600KF + Tản nhiệt khí',
+  'i5 12600KF + Tản nước AIO 240',
+  'i5 14500 + Tản nhiệt khí',
+  'i5 14500 + Tản nước AIO 240',
 ];
-const ramOptions = ["RAM 16GB", "RAM 32GB"];
-const ssdOptions = ["SSD 512GB", "SSD 1TB"];
+const ramOptions = ['RAM 16GB', 'RAM 32GB'];
+const ssdOptions = ['SSD 512GB', 'SSD 1TB'];
 
 function formatCurrency(num) {
-  return num.toLocaleString("vi-VN") + "đ";
+  return num.toLocaleString('vi-VN') + 'đ';
 }
 
 export default function CTSP() {
   const router = useRouter();
   const { id: productId } = useLocalSearchParams();
-  const { width } = useWindowDimensions();
+
   const [compareVisible, setCompareVisible] = useState(false);
-  const [selectedCpu, setSelectedCpu] = useState(cpuOptions[0]);
-  const [selectedRam, setSelectedRam] = useState(ramOptions[0]);
-  const [selectedSsd, setSelectedSsd] = useState(ssdOptions[0]);
+  const [selectedCpu, setSelectedCpu]       = useState(cpuOptions[0]);
+  const [selectedRam, setSelectedRam]       = useState(ramOptions[0]);
+  const [selectedSsd, setSelectedSsd]       = useState(ssdOptions[0]);
   const [compareProducts, setCompareProducts] = useState([]);
   const [addModalVisible, setAddModalVisible] = useState(false);
-  const [searchText, setSearchText] = useState("");
-  const [product, setProduct] = useState(null);
-  const [allProducts, setAllProducts] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [searchText, setSearchText]           = useState('');
+  const [product, setProduct]                 = useState(null);
+  const [allProducts, setAllProducts]         = useState([]);
+  const [loading, setLoading]                 = useState(true);
+  const [error, setError]                     = useState(null);
   const [showLoginDialog, setShowLoginDialog] = useState(false);
 
   // Load product & all products
@@ -131,7 +113,7 @@ export default function CTSP() {
     (async () => {
       try {
         setLoading(true);
-        if (!productId) throw new Error("Thiếu ID sản phẩm");
+        if (!productId) throw new Error('Thiếu ID sản phẩm');
         const fetched = await fetchProductById(productId);
         setProduct(fetched);
         setCompareProducts([fetched]);
@@ -146,90 +128,80 @@ export default function CTSP() {
 
   // Filter for compare modal
   const filteredProducts = allProducts.filter(
-    (p) =>
+    p =>
       p.name.toLowerCase().includes(searchText.toLowerCase()) &&
-      !compareProducts.find((item) => item.id === p.id)
+      !compareProducts.find(item => item.id === p.id)
   );
-  console.log("filteredProducts ›", filteredProducts);
+  console.log('filteredProducts ›', filteredProducts);
 
-  const handleAddCompare = (p) => {
-    console.log("Adding to compare:", p);
+  const handleAddCompare = p => {
+    console.log('Adding to compare:', p);
     if (compareProducts.length < 3) {
-      setCompareProducts((cp) => [...cp, p]);
+      setCompareProducts(cp => [...cp, p]);
       setAddModalVisible(false);
-      setSearchText("");
+      setSearchText('');
     }
   };
-  const handleRemoveCompare = (id) =>
-    setCompareProducts((cp) => cp.filter((p) => p.id !== id));
+  const handleRemoveCompare = id =>
+    setCompareProducts(cp => cp.filter(p => p.id !== id));
   const handleClearCompare = () => {
     setCompareProducts([]);
     setAddModalVisible(false);
   };
   const handleGoCompare = () => {
     router.push({
-      pathname: "/sosanhsanpham",
+      pathname: '/sosanhsanpham',
       params: { compare: JSON.stringify(compareProducts) },
     });
   };
 
   // Hàm thêm vào giỏ hàng đúng như bạn yêu cầu
-  const AddToCart = async (prod) => {
-    try {
-      const userStr = await AsyncStorage.getItem("user");
-      if (!userStr) {
-        Toast.show({
-          type: "error",
-          text1: "Vui lòng đăng nhập để mua hàng!",
-          position: "top",
-        });
-        return router.replace("/LoginScreen");
-      }
-      const userObj = JSON.parse(userStr);
-      const userId = userObj._id || userObj.id; // Ưu tiên _id nếu có
-
-      // Gửi đúng field user_id mà server Mongoose đang require
-      await axiosInstance.post("/orders/add-to-cart", {
-        user_id: userId,
-        productId: prod.id,
-        quantity: 1,
-      });
-
-      Toast.show({
-        type: "success",
-        text1: "Đã thêm vào giỏ hàng!",
-        position: "bottom",
-      });
-      setTimeout(() => router.push("./cart"), 1200);
-    } catch (err) {
-      console.error("add-to-cart error:", err);
-      Toast.show({
-        type: "error",
-        text1: "Thêm giỏ hàng thất bại!",
-        position: "top",
-      });
+const AddToCart = async prod => {
+  try {
+    const userStr = await AsyncStorage.getItem('user');
+    if (!userStr) {
+      Toast.show({ type: 'error', text1: 'Vui lòng đăng nhập để mua hàng!', position: 'top' });
+      return router.replace('/LoginScreen');
     }
-  };
+    const userObj = JSON.parse(userStr);
+    const userId = userObj._id || userObj.id;
+    console.log('AddToCart userId:', userId);
+
+    // Gửi đúng field user_id mà server Mongoose đang require
+    await axiosInstance.post('/orders/add-to-cart', {
+      user_id:   userId,
+      productId: prod.id,
+      quantity:  1
+    });
+
+    Toast.show({ type: 'success', text1: 'Đã thêm vào giỏ hàng!', position: 'bottom' });
+    setTimeout(() => router.push({ pathname: './cart', params: { refresh: 1 } }), 1200);
+  } catch (err) {
+    console.error('add-to-cart error:', err);
+    Toast.show({ type: 'error', text1: 'Thêm giỏ hàng thất bại!', position: 'top' });
+  }
+};
+
 
   const handleGoReview = async () => {
     let userId = null;
     try {
-      const userStr = await AsyncStorage.getItem("user");
+      const userStr = await AsyncStorage.getItem('user');
       if (userStr) {
         userId = JSON.parse(userStr).id || JSON.parse(userStr)._id;
       }
     } catch {}
     if (!product?.id) {
-      Toast.show({ type: "error", text1: "Không xác định được sản phẩm!" });
+      Toast.show({ type: 'error', text1: 'Không xác định được sản phẩm!' });
       return;
     }
     router.push({
-      pathname: "/danhgia",
+      pathname: '/danhgia',
       params: {
-        product_id: product.id,
-        product_name: product.name,
-        product_image: product.image?.uri || product.images[0]?.uri || "",
-        user_id: userId,
+        product_id:    product.id,
+        product_name:  product.name,
+        product_image: product.image?.uri || product.images[0]?.uri || '',
+        user_id:       userId,
       },
     });
   };
@@ -245,9 +217,7 @@ export default function CTSP() {
     return (
       <View style={styles.errorContainer}>
         <Text style={styles.errorText}>Lỗi: {error}</Text>
-        <TouchableOpacity
-          onPress={() => router.replace(`/ctsp?id=${productId}`)}
-        >
+        <TouchableOpacity onPress={() => router.replace(`/ctsp?id=${productId}`)}>
           <Text style={styles.retryButton}>Thử lại</Text>
         </TouchableOpacity>
       </View>
@@ -279,61 +249,29 @@ export default function CTSP() {
 
             {/* Image & Info */}
             <ProductImage images={product.images} />
-            <View style={styles.nameWrapper}>
-              <Text
-                style={styles.productName}
-                numberOfLines={2}
-                ellipsizeMode="tail"
-                adjustsFontSizeToFit
-                minimumFontScale={0.85}
-              >
-                {product.name}
-              </Text>
-            </View>
+            <Text style={styles.productName}>{product.name}</Text>
             <ProductPriceRow
               price={formatCurrency(product.price)}
               oldPrice={formatCurrency(product.oldPrice)}
-              onLike={() => alert("Đã thêm vào yêu thích")}
+              onLike={() => alert('Đã thêm vào yêu thích')}
             />
 
             {/* Buy With */}
             <BuyWithList data={product.buyWith} />
-            {/* ==== Mô tả sản phẩm (HTML) ==== */}
-            {product.description ? (
-              <ProductDescription htmlContent={product.description} />
-            ) : null}
 
             {/* Specs & Compare */}
-            <SpecsBox
-              specs={product.specs}
-              onCompare={() => setCompareVisible(true)}
-            />
+            <SpecsBox specs={product.specs} onCompare={() => setCompareVisible(true)} />
 
             {/* Configuration Options */}
             <View style={styles.configContainer}>
               <Text style={styles.configTitle}>Tùy chọn cấu hình</Text>
-              <OptionGroup
-                label="CPU"
-                options={cpuOptions}
-                selected={selectedCpu}
-                onSelect={setSelectedCpu}
-              />
-              <OptionGroup
-                label="RAM"
-                options={ramOptions}
-                selected={selectedRam}
-                onSelect={setSelectedRam}
-              />
-              <OptionGroup
-                label="SSD"
-                options={ssdOptions}
-                selected={selectedSsd}
-                onSelect={setSelectedSsd}
-              />
+              <OptionGroup label="CPU" options={cpuOptions} selected={selectedCpu} onSelect={setSelectedCpu} />
+              <OptionGroup label="RAM" options={ramOptions} selected={selectedRam} onSelect={setSelectedRam} />
+              <OptionGroup label="SSD" options={ssdOptions} selected={selectedSsd} onSelect={setSelectedSsd} />
             </View>
 
             {/* Reviews & Sections */}
-            <ReviewBox product={product} />
+            <ReviewBox />
             <View style={styles.sectionContainer}>
               <Text style={styles.sectionTitle}>Sản phẩm phổ biến</Text>
               <SectionPopular data={allProducts.slice(0, 3)} />
@@ -347,10 +285,10 @@ export default function CTSP() {
       />
 
       {/* Bottom Bar */}
-      <View style={styles.bottomBar}>
+      <View style={styles.bottomBar}> 
         <TouchableOpacity
           style={styles.bottomCartBtn}
-          onPress={() => router.push("./cart")}
+          onPress={() => AddToCart(product)} // Sửa lại dòng này
         >
           <Feather name="shopping-cart" size={20} color="#1a73e8" />
           <Text style={styles.bottomCartText}>Giỏ hàng</Text>
@@ -365,12 +303,12 @@ export default function CTSP() {
 
       {/* Compare Modal */}
       <Modal
-        visible={compareVisible}
-        animationType="slide"
-        transparent
-        presentationStyle="overFullScreen"
-        onRequestClose={() => setCompareVisible(false)}
-      >
+  visible={compareVisible}
+  animationType="slide"
+  transparent
+  presentationStyle="overFullScreen"
+  onRequestClose={() => setCompareVisible(false)}
+>
         <View style={styles.modalOverlay}>
           <View style={styles.bottomSheet}>
             <View style={styles.sheetHeader}>
@@ -385,22 +323,13 @@ export default function CTSP() {
                 return p ? (
                   <View style={styles.compareItem} key={p.id}>
                     <Image source={p.image} style={styles.compareImage} />
-                    <TouchableOpacity
-                      style={styles.compareRemove}
-                      onPress={() => handleRemoveCompare(p.id)}
-                    >
+                    <TouchableOpacity style={styles.compareRemove} onPress={() => handleRemoveCompare(p.id)}>
                       <Feather name="x" size={16} color="#888" />
                     </TouchableOpacity>
-                    <Text style={styles.compareName} numberOfLines={2}>
-                      {p.name}
-                    </Text>
+                    <Text style={styles.compareName} numberOfLines={2}>{p.name}</Text>
                   </View>
                 ) : (
-                  <TouchableOpacity
-                    style={styles.compareEmpty}
-                    key={`empty-${idx}`}
-                    onPress={() => setAddModalVisible(true)}
-                  >
+                  <TouchableOpacity style={styles.compareEmpty} key={`empty-${idx}`} onPress={() => setAddModalVisible(true)}>
                     <Feather name="plus" size={32} color="#bbb" />
                     <Text style={styles.compareAddText}>Thêm sản phẩm</Text>
                   </TouchableOpacity>
@@ -412,10 +341,7 @@ export default function CTSP() {
                 <Text style={styles.clearAll}>Xóa tất cả</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[
-                  styles.compareNowBtn,
-                  compareProducts.length > 1 && styles.compareNowActive,
-                ]}
+                style={[styles.compareNowBtn, compareProducts.length > 1 && styles.compareNowActive]}
                 disabled={compareProducts.length < 2}
                 onPress={handleGoCompare}
               >
@@ -427,12 +353,7 @@ export default function CTSP() {
       </Modal>
 
       {/* Add Compare Modal */}
-      <Modal
-        visible={addModalVisible}
-        animationType="fade"
-        transparent
-        onRequestClose={() => setAddModalVisible(false)}
-      >
+      <Modal visible={addModalVisible} animationType="fade" transparent onRequestClose={() => setAddModalVisible(false)}>
         <View style={styles.addOverlay}>
           <View style={styles.addBox}>
             <Text style={styles.addTitle}>Tìm kiếm sản phẩm</Text>
@@ -445,30 +366,27 @@ export default function CTSP() {
                 onChangeText={setSearchText}
               />
             </View>
-            <View style={{ maxHeight: 250, width: "100%" }}>
-              <FlatList
-                data={filteredProducts}
-                keyExtractor={(item) => item.id}
-                ListEmptyComponent={() => (
-                  <Text style={styles.noResults}>Không tìm thấy sản phẩm</Text>
-                )}
-                renderItem={({ item }) => (
-                  <TouchableOpacity
-                    style={styles.searchItem}
-                    onPress={() => handleAddCompare(item)}
-                  >
-                    <Image source={item.image} style={styles.searchImage} />
-                    <Text numberOfLines={2} style={styles.searchName}>
-                      {item.name}
-                    </Text>
-                  </TouchableOpacity>
-                )}
-              />
-            </View>
-            <TouchableOpacity
-              style={styles.closeSearch}
-              onPress={() => setAddModalVisible(false)}
-            >
+            <View style={{ maxHeight: 250, width: '100%' }}>
+  <FlatList
+    data={filteredProducts}
+    keyExtractor={item => item.id}
+    ListEmptyComponent={() => (
+      <Text style={styles.noResults}>Không tìm thấy sản phẩm</Text>
+    )}
+    renderItem={({ item }) => (
+      <TouchableOpacity
+        style={styles.searchItem}
+        onPress={() => handleAddCompare(item)}
+      >
+        <Image source={item.image} style={styles.searchImage} />
+        <Text numberOfLines={2} style={styles.searchName}>
+          {item.name}
+        </Text>
+      </TouchableOpacity>
+    )}
+  />
+</View>
+            <TouchableOpacity style={styles.closeSearch} onPress={() => setAddModalVisible(false)}>
               <Text style={styles.closeText}>Đóng</Text>
             </TouchableOpacity>
           </View>
@@ -476,12 +394,7 @@ export default function CTSP() {
       </Modal>
 
       {/* Login Prompt Modal */}
-      <Modal
-        visible={showLoginDialog}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowLoginDialog(false)}
-      >
+      <Modal visible={showLoginDialog} transparent animationType="fade" onRequestClose={() => setShowLoginDialog(false)}>
         <View style={styles.loginOverlay}>
           <View style={styles.loginBox}>
             <Text style={styles.loginIcon}>😺</Text>
@@ -492,15 +405,12 @@ export default function CTSP() {
                 style={styles.loginBtn}
                 onPress={() => {
                   setShowLoginDialog(false);
-                  router.replace("./LoginScreen");
+                  router.replace('./LoginScreen');
                 }}
               >
                 <Text style={styles.loginBtnText}>Đăng nhập</Text>
               </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.loginLater}
-                onPress={() => setShowLoginDialog(false)}
-              >
+              <TouchableOpacity style={styles.loginLater} onPress={() => setShowLoginDialog(false)}>
                 <Text style={styles.loginLaterText}>Để sau</Text>
               </TouchableOpacity>
             </View>
@@ -512,261 +422,195 @@ export default function CTSP() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fff" },
-  htmlContainer: {
-    paddingHorizontal: 16,
-    marginBottom: 16,
-    backgroundColor: "#fafafa",
-    borderRadius: 8,
-  },
-  htmlBase: {
-    color: "#333",
-    fontSize: 14,
-  },
+  container: { flex: 1, backgroundColor: '#fff' },
   contentContainer: { paddingBottom: 100 },
 
-  loader: { flex: 1, justifyContent: "center", alignItems: "center" },
-  errorContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
-  errorText: { color: "red", fontSize: 16, marginBottom: 8 },
-  retryButton: { color: "#2979ff", fontSize: 16 },
+  loader: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  errorContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  errorText: { color: 'red', fontSize: 16, marginBottom: 8 },
+  retryButton: { color: '#2979ff', fontSize: 16 },
 
   header: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: "#eee",
+    borderBottomColor: '#eee',
   },
-  headerTitle: {
-    flex: 1,
-    textAlign: "center",
-    fontSize: 18,
-    fontWeight: "bold",
-  },
+  headerTitle: { flex: 1, textAlign: 'center', fontSize: 18, fontWeight: 'bold' },
 
-  nameWrapper: {
-    marginHorizontal: 16,
-    marginTop: 12,
-    marginBottom: 8,
-  },
   productName: {
     fontSize: 20,
     fontWeight: 'bold',
     textAlign: 'center',
+    marginVertical: 12,
     color: '#333',
-    lineHeight: 26,
-    // Giúp text co lại và wrap tốt
-    flexShrink: 1,
-    paddingHorizontal: 8,
   },
 
   configContainer: {
     margin: 16,
     padding: 16,
-    backgroundColor: "#fafafa",
+    backgroundColor: '#fafafa',
     borderRadius: 12,
     elevation: 2,
   },
-  configTitle: { fontSize: 16, fontWeight: "600", marginBottom: 12 },
+  configTitle: { fontSize: 16, fontWeight: '600', marginBottom: 12 },
 
   sectionContainer: { marginVertical: 12, paddingHorizontal: 16 },
-  sectionTitle: { fontSize: 16, fontWeight: "600", marginBottom: 8 },
+  sectionTitle: { fontSize: 16, fontWeight: '600', marginBottom: 8 },
 
   bottomBar: {
-    position: "absolute",
+    position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    flexDirection: "row",
+    flexDirection: 'row',
     padding: 16,
-    backgroundColor: "#fff",
+    backgroundColor: '#fff',
     borderTopWidth: 1,
-    borderTopColor: "#eee",
+    borderTopColor: '#eee',
   },
   bottomCartBtn: {
     flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     padding: 12,
     borderRadius: 8,
-    backgroundColor: "#f0f7ff",
+    backgroundColor: '#f0f7ff',
     marginRight: 8,
   },
-  bottomCartText: {
-    marginLeft: 6,
-    fontSize: 16,
-    color: "#1a73e8",
-    fontWeight: "600",
-  },
+  bottomCartText: { marginLeft: 6, fontSize: 16, color: '#1a73e8', fontWeight: '600' },
   bottomBuyBtn: {
     flex: 1,
     padding: 12,
     borderRadius: 8,
-    backgroundColor: "#2979ff",
-    alignItems: "center",
-    justifyContent: "center",
+    backgroundColor: '#2979ff',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  bottomBuyText: { color: "#fff", fontSize: 16, fontWeight: "600" },
+  bottomBuyText: { color: '#fff', fontSize: 16, fontWeight: '600' },
 
   // Compare modal
-  modalOverlay: {
-    flex: 1,
-    justifyContent: "flex-end",
-    backgroundColor: "rgba(0,0,0,0.3)",
-  },
+  modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.3)' },
   bottomSheet: {
-    backgroundColor: "#fff",
+    backgroundColor: '#fff',
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
     paddingTop: 12,
   },
   sheetHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     paddingHorizontal: 16,
     paddingBottom: 8,
     borderBottomWidth: 1,
-    borderBottomColor: "#eee",
+    borderBottomColor: '#eee',
   },
-  sheetTitle: { fontSize: 16, fontWeight: "600" },
-  compareRow: { flexDirection: "row", padding: 16 },
+  sheetTitle: { fontSize: 16, fontWeight: '600' },
+  compareRow: { flexDirection: 'row', padding: 16 },
   compareItem: {
     width: 100,
-    alignItems: "center",
+    alignItems: 'center',
     marginRight: 12,
-    backgroundColor: "#fafafa",
+    backgroundColor: '#fafafa',
     borderRadius: 8,
     padding: 8,
   },
-  compareImage: {
-    width: 60,
-    height: 60,
-    resizeMode: "contain",
-    marginBottom: 8,
-  },
+  compareImage: { width: 60, height: 60, resizeMode: 'contain', marginBottom: 8 },
   compareRemove: {
-    position: "absolute",
+    position: 'absolute',
     top: 4,
     right: 4,
-    backgroundColor: "#fff",
+    backgroundColor: '#fff',
     borderRadius: 12,
     padding: 2,
   },
-  compareName: { textAlign: "center", fontSize: 12 },
+  compareName: { textAlign: 'center', fontSize: 12 },
   compareEmpty: {
     width: 100,
     height: 100,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#f9f9f9",
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#f9f9f9',
     borderRadius: 8,
     marginRight: 12,
   },
-  compareAddText: {
-    marginTop: 4,
-    fontSize: 12,
-    color: "#888",
-    textAlign: "center",
-  },
+  compareAddText: { marginTop: 4, fontSize: 12, color: '#888', textAlign: 'center' },
   sheetFooter: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     padding: 16,
   },
-  clearAll: { color: "#2979ff", fontWeight: "600" },
+  clearAll: { color: '#2979ff', fontWeight: '600' },
   compareNowBtn: {
     paddingVertical: 10,
     paddingHorizontal: 24,
     borderRadius: 8,
-    backgroundColor: "#ccc",
+    backgroundColor: '#ccc',
   },
-  compareNowActive: { backgroundColor: "#2979ff" },
-  compareNowText: { color: "#fff", fontWeight: "600" },
+  compareNowActive: { backgroundColor: '#2979ff' },
+  compareNowText: { color: '#fff', fontWeight: '600' },
 
   // Add compare modal
-  addOverlay: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "rgba(0,0,0,0.3)",
-  },
+  addOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.3)' },
   addBox: {
-    width: "90%",
-    maxHeight: "80%",
-    backgroundColor: "#fff",
+    width: '90%',
+    maxHeight: '80%',
+    backgroundColor: '#fff',
     borderRadius: 12,
     padding: 16,
   },
-  addTitle: { fontSize: 16, fontWeight: "600", marginBottom: 12 },
+  addTitle: { fontSize: 16, fontWeight: '600', marginBottom: 12 },
   searchBox: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     borderWidth: 1,
-    borderColor: "#ddd",
+    borderColor: '#ddd',
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 6,
     marginBottom: 12,
   },
   searchInput: { flex: 1, marginLeft: 8, height: 40 },
-  searchItem: { flexDirection: "row", alignItems: "center", marginBottom: 12 },
+  searchItem: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
   searchImage: { width: 40, height: 40, borderRadius: 6, marginRight: 12 },
   searchName: { flex: 1, fontSize: 14 },
-  noResults: { textAlign: "center", color: "#888", marginTop: 20 },
-  closeSearch: { alignSelf: "flex-end", padding: 8 },
-  closeText: { color: "#2979ff", fontWeight: "600" },
+  noResults: { textAlign: 'center', color: '#888', marginTop: 20 },
+  closeSearch: { alignSelf: 'flex-end', padding: 8 },
+  closeText: { color: '#2979ff', fontWeight: '600' },
 
   // Login modal
-  loginOverlay: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "rgba(0,0,0,0.3)",
-  },
+  loginOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.3)' },
   loginBox: {
     width: 300,
-    backgroundColor: "#fff",
+    backgroundColor: '#fff',
     borderRadius: 16,
     padding: 24,
-    alignItems: "center",
+    alignItems: 'center',
   },
   loginIcon: { fontSize: 48, marginBottom: 12 },
-  loginTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#1976ff",
-    marginBottom: 8,
-  },
-  loginMsg: {
-    fontSize: 14,
-    color: "#444",
-    textAlign: "center",
-    marginBottom: 16,
-  },
-  loginActions: {
-    flexDirection: "row",
-    width: "100%",
-    justifyContent: "space-between",
-  },
+  loginTitle: { fontSize: 18, fontWeight: '600', color: '#1976ff', marginBottom: 8 },
+  loginMsg: { fontSize: 14, color: '#444', textAlign: 'center', marginBottom: 16 },
+  loginActions: { flexDirection: 'row', width: '100%', justifyContent: 'space-between' },
   loginBtn: {
     flex: 1,
-    backgroundColor: "#1976ff",
+    backgroundColor: '#1976ff',
     paddingVertical: 12,
     borderRadius: 8,
-    alignItems: "center",
+    alignItems: 'center',
     marginRight: 8,
   },
-  loginBtnText: { color: "#fff", fontWeight: "600" },
+  loginBtnText: { color: '#fff', fontWeight: '600' },
   loginLater: {
     flex: 1,
-    backgroundColor: "#f0f4fa",
+    backgroundColor: '#f0f4fa',
     paddingVertical: 12,
     borderRadius: 8,
-    alignItems: "center",
+    alignItems: 'center',
   },
-  loginLaterText: { color: "#1976ff", fontWeight: "600" },
+  loginLaterText: { color: '#1976ff', fontWeight: '600' },
 });
