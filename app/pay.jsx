@@ -62,6 +62,8 @@ export default function PayScreen() {
   const [shippingFee, setShippingFee] = useState(0);
   const [payStatus, setPayStatus] = useState(null);
   const [isLoadingShipping, setIsLoadingShipping] = useState(false);
+  const [showVnPayModal, setShowVnPayModal] = useState(false);
+  const [vnpayData, setVnpayData] = useState(null);
 
   // Calculations
   const subtotal = products.reduce((sum, p) => sum + p.price * p.quantity, 0);
@@ -480,27 +482,38 @@ export default function PayScreen() {
 
       console.log("→ orderData:", orderData);
 
-      const res = await axiosInstance.post("/orders/checkout", orderData, {
-        headers: { "Content-Type": "application/json" },
-      });
-      await AsyncStorage.removeItem("cart");
-      setProducts([]);
-      Toast.show({
-        type: "success",
-        text1: "Đặt hàng thành công!",
-        text2: "Cảm ơn bạn.",
-      });
-      setPayStatus("success");
-      router.push({
-        pathname: "/CheckoutSuccess",
-        params: {
-          orderId: res.data.orderId,
-          total,
-          products: JSON.stringify(products),
-          address: selectedAddress?.address || addressText,
-          paymentMethod: selectedPayment,
-        },
-      });
+        const res = await axiosInstance.post("/orders/checkout", orderData, {
+          headers: { "Content-Type": "application/json" },
+        });
+        await AsyncStorage.removeItem("cart");
+        setProducts([]);
+
+        if (selectedPayment === "vnpay") {
+          setVnpayData({
+            orderId: res.data.orderId,
+            amount: total,
+            orderInfo: `Thanh toán đơn hàng ${res.data.orderId}`,
+          });
+          setShowVnPayModal(true);
+          return;
+        }
+
+        Toast.show({
+          type: "success",
+          text1: "Đặt hàng thành công!",
+          text2: "Cảm ơn bạn.",
+        });
+        setPayStatus("success");
+        router.push({
+          pathname: "/CheckoutSuccess",
+          params: {
+            orderId: res.data.orderId,
+            total,
+            products: JSON.stringify(products),
+            address: selectedAddress?.address || addressText,
+            paymentMethod: selectedPayment,
+          },
+        });
     } catch (err) {
       console.error(err);
       Toast.show({
@@ -508,6 +521,45 @@ export default function PayScreen() {
         text1: "Đặt hàng thất bại!",
         text2: err.message || "Vui lòng thử lại.",
       });
+      setPayStatus("fail");
+    }
+  };
+
+  const handleVnPayClose = async (result) => {
+    setShowVnPayModal(false);
+
+    if (!vnpayData?.orderId) {
+      Toast.show({ type: "error", text1: result?.message || "Thanh toán thất bại" });
+      setPayStatus("fail");
+      return;
+    }
+
+    try {
+      const verifyRes = await axiosInstance.post("/vnpay/verify_payment", {
+        orderId: vnpayData.orderId,
+        code: result?.code,
+      });
+
+      if (verifyRes.data?.success) {
+        Toast.show({ type: "success", text1: "Đặt hàng thành công!" });
+        setPayStatus("success");
+        router.push({
+          pathname: "/CheckoutSuccess",
+          params: {
+            orderId: vnpayData.orderId,
+            total,
+            products: JSON.stringify(products),
+            address: selectedAddress?.address || addressText,
+            paymentMethod: selectedPayment,
+          },
+        });
+      } else {
+        Toast.show({ type: "error", text1: verifyRes.data?.message || "Thanh toán thất bại" });
+        setPayStatus("fail");
+      }
+    } catch (err) {
+      console.error(err);
+      Toast.show({ type: "error", text1: result?.message || "Thanh toán thất bại" });
       setPayStatus("fail");
     }
   };
@@ -663,6 +715,14 @@ export default function PayScreen() {
         onClose={() => setShowCardModal(false)}
         selectedCard={selectedCard}
         onSelectCard={setSelectedCard}
+      />
+
+      <VnPayModal
+        visible={showVnPayModal}
+        orderId={vnpayData?.orderId}
+        amount={vnpayData?.amount}
+        orderInfo={vnpayData?.orderInfo}
+        onClose={handleVnPayClose}
       />
 
       <PayStatusModal
