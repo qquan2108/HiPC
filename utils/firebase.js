@@ -1,7 +1,5 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-// We only use Firebase for authentication. Firestore is removed
-// because user data will be persisted to our MongoDB backend.
 
 const firebaseConfig = {
   apiKey: 'YOUR_FIREBASE_API_KEY',
