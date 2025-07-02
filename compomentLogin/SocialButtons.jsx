@@ -7,11 +7,12 @@ import {
   StyleSheet,
   Text,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+
 import * as WebBrowser from 'expo-web-browser';
 import * as Google from 'expo-auth-session/providers/google';
 import { GoogleAuthProvider, signInWithCredential } from 'firebase/auth';
 import { auth } from '../utils/firebase';
+import axiosInstance from '../utils/AxiosInstance';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -35,7 +36,27 @@ const SocialButtons = () => {
       const credential = GoogleAuthProvider.credential(id_token);
       signInWithCredential(auth, credential)
         .then(async (res) => {
-          await AsyncStorage.setItem('user', JSON.stringify(res.user));
+          const user = res.user;
+          const payload = {
+            firebaseUid: user.uid,
+            full_name: user.displayName,
+            email: user.email,
+            avatarUrl: user.photoURL,
+          };
+          try {
+            const resp = await axiosInstance.post('/users/google-login', payload);
+            if (resp.data?.token) {
+              await AsyncStorage.setItem('token', resp.data.token);
+              await AsyncStorage.setItem(
+                'user',
+                JSON.stringify(resp.data.user)
+              );
+            } else {
+              await AsyncStorage.setItem('user', JSON.stringify(resp.data.user));
+            }
+          } catch (e) {
+            console.log('Error saving user to API:', e);
+          }
           router.replace('/HomeScreen');
         })
         .catch((err) => console.log(err));
