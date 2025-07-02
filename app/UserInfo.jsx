@@ -18,6 +18,8 @@ import {
 import axiosInstance from '../utils/AxiosInstance';
 import UserInfoForm from './components/UserInfoForm';
 import UserInfoHeader from './components/UserInfoHeader';
+import provinces from '../assets/data/province.json';  // chứa danh sách tỉnh/thành phố :contentReference[oaicite:3]{index=3}
+import wards     from '../assets/data/ward.json';      // chứa danh sách xã/phường :contentReference[oaicite:4]{index=4}
 
 // Ảnh mặc định đặt trong assets/images/
 const DEFAULT_AVATAR = require('../assets/images/avatar.png');
@@ -104,47 +106,49 @@ export default function UserInfo() {
     return () => clearTimeout(debounceRef.current);
   }, [addressInput, edit]);
 
-  const fetchAddressSuggestions = async (input) => {
-    try {
-      const resp = await fetch(
-        `https://rsapi.goong.io/Place/AutoComplete?input=${encodeURIComponent(input)}&api_key=${GOONG_API_KEY}&components=country:VN`
-      );
-      const data = await resp.json();
-      setSuggestions(data.predictions || []);
-    } catch (error) {
-      console.error('Address suggestions error:', error);
-      setSuggestions([]);
-    }
-  };
+const fetchAddressSuggestions = (input) => {
+   // chỉ lọc khi tối thiểu 3 ký tự 
+   const q = input.trim().toLowerCase(); 
+   if (q.length < 3) { 
+     setSuggestions([]); 
+     return; 
+   } 
+   // lọc các phường/xã có path chứa chuỗi nhập vào 
+   const wardList = Array.isArray(wards) 
+   ? wards  
+   : Object.values(wards); 
+    const filtered = wardList 
+   .filter(w => w.path.toLowerCase().includes(q)) 
+   .slice(0, 10);
+   
+   const provinceList = Array.isArray(provinces) 
+  ? provinces 
+  : Object.values(provinces);// giới hạn 10 gợi ý 
+ 
+   // chuyển thành format giống Goong để UI không đổi 
+   setSuggestions(filtered.map(w => ({ 
+     description: w.path, 
+     // nếu JSON có trường code, district_id, province_id, map vào form 
+     provinceId: w.province_id, 
+     districtId: w.district_id, 
+     wardCode: w.code, 
+   }))); 
+ };
 
-  const fetchPlaceDetail = async (placeId) => {
-    try {
-      const resp = await fetch(
-        `https://rsapi.goong.io/Place/Detail?place_id=${placeId}&api_key=${GOONG_API_KEY}`
-      );
-      const json = await resp.json();
-      return json.result?.geometry?.location;
-    } catch (error) {
-      console.error('Place detail error:', error);
-      return null;
-    }
-  };
+  
 
-  const selectSuggestion = async (item) => {
-    setAddressInput(item.description);
-    setSuggestions([]);
-    const loc = await fetchPlaceDetail(item.place_id);
-    if (loc) {
-      setForm(prev => ({
-        ...prev,
-        address: item.description,
-        latitude: loc.lat,
-        longitude: loc.lng,
-      }));
-    } else {
-      Alert.alert('Lỗi', 'Không lấy được tọa độ địa chỉ');
-    }
-  };
+  const selectSuggestion = (item) => {
+  setAddressInput(item.description);
+  setSuggestions([]);
+  setForm(prev => ({
+    ...prev,
+    address: item.description,
+    provinceId: item.provinceId,
+    districtId: item.districtId,
+    wardCode: item.wardCode,
+  }));
+};
+
 
   const pickImage = async (field) => {
     if (!edit) setEdit(true);
@@ -245,11 +249,9 @@ export default function UserInfo() {
   };
 
   const handleSave = async () => {
-    if (!form.latitude || !form.longitude) {
-      return Alert.alert(
-        'Địa chỉ chưa hợp lệ',
-        'Vui lòng chọn địa chỉ từ gợi ý để đảm bảo chính xác tọa độ.'
-      );
+    if (!edit) {
+      Alert.alert('Thông báo', 'Bạn cần bật chế độ chỉnh sửa trước khi lưu');
+      return;
     }
 
     setIsUploading(true);
@@ -287,6 +289,9 @@ export default function UserInfo() {
         longitude: form.longitude,
         avatarUrl: avatarUrl || '',
         bannerUrl: bannerUrl || '',
+          provinceId: form.provinceId,
+  districtId: form.districtId,
+  wardCode: form.wardCode,
       };
       await axiosInstance.put(`/users/${user._id}`, payload);
       
@@ -387,6 +392,7 @@ export default function UserInfo() {
         {/* ... */}
         <UserInfoForm
           edit={edit}
+          
           isUploading={isUploading}
           form={form}
           setForm={setForm}
