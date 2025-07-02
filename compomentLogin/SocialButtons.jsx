@@ -1,13 +1,21 @@
 // components/Auth/SocialButtons.jsx
-import React from 'react';
-import { 
-  View, 
-  TouchableOpacity, 
-  Image, 
-  StyleSheet, 
-  Text 
+import React, { useEffect } from 'react';
+import {
+  View,
+  TouchableOpacity,
+  Image,
+  StyleSheet,
+  Text,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as WebBrowser from 'expo-web-browser';
+import * as Google from 'expo-auth-session/providers/google';
+import { GoogleAuthProvider, signInWithCredential } from 'firebase/auth';
+import { auth } from '../utils/firebase';
+import { useRouter } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+WebBrowser.maybeCompleteAuthSession();
 
 const socialIcons = {
   Google: require('../assets/images/Google.png'),
@@ -16,9 +24,28 @@ const socialIcons = {
 };
 
 const SocialButtons = () => {
-  const handleSocialLogin = (platform) => {
-    console.log(`Login with ${platform}`);
-    // Implement social login logic here
+  const router = useRouter();
+  const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
+    clientId: 'YOUR_GOOGLE_CLIENT_ID',
+  });
+
+  useEffect(() => {
+    if (response?.type === 'success') {
+      const { id_token } = response.params;
+      const credential = GoogleAuthProvider.credential(id_token);
+      signInWithCredential(auth, credential)
+        .then(async (res) => {
+          await AsyncStorage.setItem('user', JSON.stringify(res.user));
+          router.replace('/HomeScreen');
+        })
+        .catch((err) => console.log(err));
+    }
+  }, [response]);
+
+  const handleSocialLogin = async (platform) => {
+    if (platform === 'Google') {
+      await promptAsync({ useProxy: true });
+    }
   };
 
   return (
