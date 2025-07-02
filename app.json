@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "Roomify",
-    "slug": "Roomify",
+    "name": "HiPC",
+    "slug": "HiPC",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "roomify",
+    "scheme": "hipc",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
@@ -21,7 +21,8 @@
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "package": "com.roadtogt.HiPC"
     },
     "web": {
       "bundler": "metro",
@@ -42,6 +43,12 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "b3b09f63-21b3-4dd2-9f21-658d8318eb63"
+      }
     }
   }
 }

@@ -10,6 +10,7 @@ import {
 
 import * as WebBrowser from 'expo-web-browser';
 import * as Google from 'expo-auth-session/providers/google';
+import * as AuthSession from 'expo-auth-session'; 
 import { GoogleAuthProvider, signInWithCredential } from 'firebase/auth';
 import { auth } from '../utils/firebase';
 import axiosInstance from '../utils/AxiosInstance';
@@ -24,10 +25,13 @@ const socialIcons = {
   Facebook: require('../assets/images/Facebook.png'),
 };
 
+const redirectUri = AuthSession.makeRedirectUri({ useProxy: true });
+
 const SocialButtons = () => {
   const router = useRouter();
   const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
-    clientId: 'YOUR_GOOGLE_CLIENT_ID',
+    clientId: '625212493169-ptarfq8gddcsl2q9a6mf0ev7560et1d0.apps.googleusercontent.com',
+    redirectUri,
   });
 
   useEffect(() => {
