@@ -69,7 +69,7 @@ const SocialButtons = () => {
 
   const handleSocialLogin = async (platform) => {
     if (platform === 'Google') {
-      await promptAsync({ useProxy: true });
+      await promptAsync();
     }
   };
 
