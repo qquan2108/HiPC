@@ -1,12 +1,12 @@
 // components/Auth/AuthInput.jsx
-import React, { forwardRef } from 'react';
-import { 
-  View, 
-  TextInput, 
-  StyleSheet, 
-  TouchableOpacity
-} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { forwardRef } from 'react';
+import {
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  View
+} from 'react-native';
 
 const AuthInput = forwardRef(({
   icon, 
@@ -31,7 +31,7 @@ const AuthInput = forwardRef(({
         <TextInput
           ref={ref}
           style={styles.input}
-          value={value}
+          value={value ?? ''}
           onChangeText={onChangeText}
           secureTextEntry={secureTextEntry && !showPass}
           keyboardType={keyboardType}
@@ -45,7 +45,7 @@ const AuthInput = forwardRef(({
         />
         {secureTextEntry && (
           <TouchableOpacity 
-            onPress={() => setShowPass && setShowPass(!showPass)}
+            onPress={() => setShowPass(prev => !prev)}
             style={styles.eyeButton}
             activeOpacity={0.7}
           >
