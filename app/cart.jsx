@@ -5,11 +5,12 @@ import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Dimensions,
+  Modal,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 import Toast from "react-native-toast-message";
 import { useWishlist } from "../context/WishlistContext";
@@ -38,6 +39,7 @@ function formatCurrency(num) {
 
 export default function CartScreen() {
   const [userId, setUserId] = useState(null);
+  const [showLoginDialog, setShowLoginDialog] = useState(false); // Thêm state này
   const [cart, setCart] = useState([]);
   const [addresses, setAddresses] = useState(defaultAddresses);
   const [showAddressModal, setShowAddressModal] = useState(false);
@@ -58,14 +60,53 @@ export default function CartScreen() {
     AsyncStorage.getItem("user").then((data) => {
       if (data) {
         const user = JSON.parse(data);
-        setUserId(user.id || user._id);
+        const uid = user.id || user._id;
+        setUserId(uid);
+        console.log('CartScreen userId:', uid);
       }
+    });
+  }, []);
+
+  // Kiểm tra đăng nhập
+  useEffect(() => {
+    AsyncStorage.getItem("token").then((token) => {
+      if (!token) {
+        setShowLoginDialog(true);
+        setLoading(false); 
+        return;
+      }
+      AsyncStorage.getItem("user").then((userStr) => {
+        if (!userStr || userStr === "undefined") {
+          setShowLoginDialog(true);
+          setLoading(false); 
+          return;
+        }
+        let stored;
+        try {
+          stored = JSON.parse(userStr);
+        } catch (e) {
+          setShowLoginDialog(true);
+          setLoading(false); 
+          return;
+        }
+        const userId = stored.id || stored._id;
+        if (!userId) {
+          setShowLoginDialog(true);
+          setLoading(false); // Thêm dòng này
+          return;
+        }
+        setUserId(userId);
+        setShowLoginDialog(false);
+      });
     });
   }, []);
 
   // Fetch cart (pending order only)
   const fetchCart = useCallback(async () => {
-    if (!userId) return;
+    if (!userId) {
+      setLoading(false); // Thêm dòng này để không bị loading mãi
+      return;
+    }
     setLoading(true);
     try {
       const res = await axiosInstance.get(`/orders/user/${userId}`);
@@ -96,8 +137,8 @@ export default function CartScreen() {
   // Reload on focus
   useFocusEffect(
     useCallback(() => {
-      fetchCart();
-    }, [fetchCart])
+      if (userId) fetchCart();
+    }, [fetchCart, userId])
   );
 
   // Change quantity
@@ -229,9 +270,48 @@ const finalTotal = Math.max(0, selectedTotal - discount);
     else setSelectedIds(cart.map((item) => item.id));
   };
 
-  useEffect(() => {
-    fetchCart();
-  }, [fetchCart]);
+  // Đặt showLoginDialog lên trên loading
+  if (showLoginDialog) {
+    return (
+      <Modal
+        visible
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowLoginDialog(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalEmoji}>😺</Text>
+            <Text style={styles.modalTitle}>Bạn chưa đăng nhập!</Text>
+            <Text style={styles.modalMessage}>
+              Hãy đăng nhập để sử dụng đầy đủ chức năng của ứng dụng nhé!
+            </Text>
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.btn, styles.btnPrimary]}
+                onPress={() => {
+                  setShowLoginDialog(false);
+                  router.replace("./LoginScreen");
+                }}
+              >
+                <Text style={styles.btnTextWhite}>Đăng nhập ngay</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.btn, styles.btnSecondary]}
+                onPress={() => {
+                  setShowLoginDialog(false);
+                  setLoading(false); // Đảm bảo không bị loading
+                  router.replace("/HomeScreen"); // Chuyển về trang home
+                }}
+              >
+                <Text style={styles.btnTextPrimary}>Để sau</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    );
+  }
 
   if (loading) {
     return (
@@ -449,4 +529,57 @@ const styles = StyleSheet.create({
     padding: 6,
     marginLeft: 8,
   },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.3)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalContent: {
+    backgroundColor: "#fff",
+      borderRadius: 16,
+    paddingVertical: 32,
+    paddingHorizontal: 28,
+    alignItems: "center",
+    width: 350,
+    shadowColor: "#000",
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 5,
+  },
+  modalEmoji: { fontSize: 48, marginBottom: 12 },
+  modalTitle: {
+    fontWeight: "bold",
+    fontSize: 20,
+    marginBottom: 8,
+    color: "#222",
+    textAlign: "center",
+  },
+  modalMessage: {
+    color: "#444",
+    textAlign: "center",
+    marginBottom: 22,
+    fontSize: 15,
+    lineHeight: 20,
+  },
+  modalButtons: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    width: "100%",
+    marginTop: 8,
+    gap: 8, // nếu không hỗ trợ gap thì dùng marginHorizontal cho btn
+  },
+  btn: {
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 0,
+    flex: 1,
+    marginHorizontal: 4,
+    alignItems: "center",
+  },
+  btnPrimary: { backgroundColor: "#2979ff" },
+  btnSecondary: { backgroundColor: "#f0f4fa" },
+  btnTextWhite: { color: "#fff", fontWeight: "bold", fontSize: 16 },
+  btnTextPrimary: { color: "#2979ff", fontWeight: "bold", fontSize: 16 },
 });
