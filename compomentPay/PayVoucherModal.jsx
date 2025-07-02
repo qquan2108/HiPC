@@ -17,12 +17,12 @@ export default function PayVoucherModal({ visible, vouchers, selectedVoucher, se
                   <Text style={styles.voucherLabel}>Voucher</Text>
                   <Text style={styles.voucherTitle}>{item?.code || ""}</Text>
                   <Text style={styles.voucherDesc}>{item?.description || ""}</Text>
-                  <Text>
-                    {item?.discount_value
-                      ? (item.code === "GIAM5PHANTRAM"
-                          ? `Giảm ${item.discount_value}%`
-                          : `Giảm ${item.discount_value.toLocaleString("vi-VN")}đ`)
-                      : ""}
+                  <Text style={styles.voucherAmount}>
+                    {item?.percent != null 
+                      ? `Giảm ${item.percent}%` 
+                      : item?.value != null 
+                        ? `Giảm ${item.value.toLocaleString("vi-VN")} đ` 
+                        : ""} 
                   </Text>
                 </View>
                 <View style={styles.voucherRight}>
@@ -146,5 +146,10 @@ const styles = StyleSheet.create({
     right: 12,
     padding: 4,
     zIndex: 10,
+  },
+  voucherAmount: {
+    fontWeight: 'bold',
+    color: '#444',
+    marginTop: 4,
   },
 });
