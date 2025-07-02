@@ -2,7 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, Modal, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { Feather } from '@expo/vector-icons';
+import Constants from 'expo-constants';
 import axiosInstance from '../utils/AxiosInstance';
+
+const RETURN_URL =
+  Constants.manifest?.extra?.vnpayReturnUrl ||
+  process.env.EXPO_PUBLIC_VNPAY_RETURNURL ||
+  process.env.VNPAY_RETURNURL;
 
 export default function VnPayModal({ visible, orderId, amount, orderInfo, onClose }) {
   const [paymentUrl, setPaymentUrl] = useState(null);
@@ -25,7 +31,7 @@ export default function VnPayModal({ visible, orderId, amount, orderInfo, onClos
   }, [visible]);
 
   const onNavChange = ({ url }) => {
-    if (url.startsWith(process.env.VNPAY_RETURNURL)) {
+    if (RETURN_URL && url.startsWith(RETURN_URL)) {
       const match = url.match(/vnp_ResponseCode=([^&]+)/);
       const code = match ? match[1] : null;
       onClose({ success: code === '00', code });
