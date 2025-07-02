@@ -1,12 +1,18 @@
+import { Feather } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useRouter } from 'expo-router';
 import React from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
+  Dimensions,
   FlatList,
-  TouchableOpacity,width 
+  Modal,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
-import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
+
+const { width } = Dimensions.get('window');
 
 const notifications = [
   {
@@ -52,6 +58,43 @@ const notifications = [
 ];
 
 const NotificationScreen = () => {
+  const router = useRouter();
+  const [showLoginDialog, setShowLoginDialog] = React.useState(false);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    AsyncStorage.getItem("token").then((token) => {
+      if (!token) {
+        setShowLoginDialog(true);
+        setLoading(false);
+        return;
+      }
+      AsyncStorage.getItem("user").then((userStr) => {
+        if (!userStr || userStr === "undefined") {
+          setShowLoginDialog(true);
+          setLoading(false);
+          return;
+        }
+        let stored;
+        try {
+          stored = JSON.parse(userStr);
+        } catch (e) {
+          setShowLoginDialog(true);
+          setLoading(false);
+          return;
+        }
+        const userId = stored.id || stored._id;
+        if (!userId) {
+          setShowLoginDialog(true);
+          setLoading(false);
+          return;
+        }
+        setShowLoginDialog(false);
+        setLoading(false);
+      });
+    });
+  }, []);
+
   const renderItem = ({ item }) => (
     <TouchableOpacity style={styles.notificationCard}>
       <View style={[styles.iconWrapper, { backgroundColor: item.color + '22' }]}>
@@ -64,6 +107,55 @@ const NotificationScreen = () => {
       </View>
     </TouchableOpacity>
   );
+
+  if (showLoginDialog) {
+    return (
+      <Modal
+        visible
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowLoginDialog(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalEmoji}>😺</Text>
+            <Text style={styles.modalTitle}>Bạn chưa đăng nhập!</Text>
+            <Text style={styles.modalMessage}>
+              Hãy đăng nhập để sử dụng đầy đủ chức năng của ứng dụng nhé!
+            </Text>
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.btn, styles.btnPrimary]}
+                onPress={() => {
+                  setShowLoginDialog(false);
+                  router.replace("./LoginScreen");
+                }}
+              >
+                <Text style={styles.btnTextWhite}>Đăng nhập ngay</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.btn, styles.btnSecondary]}
+                onPress={() => {
+                  setShowLoginDialog(false);
+                  setLoading(false);
+                  router.replace("/HomeScreen");
+                }}
+              >
+                <Text style={styles.btnTextPrimary}>Để sau</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    );
+  }
+  if (loading) {
+    return (
+      <View style={{flex:1, justifyContent:'center', alignItems:'center'}}>
+        <Text>Đang tải...</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -155,7 +247,8 @@ const styles = StyleSheet.create({
   time: {
     fontSize: 12,
     color: '#999',
-  },customTabBar: {
+  },
+  customTabBar: {
     flexDirection: 'row',
     backgroundColor: '#fff',
     borderRadius: 40,
@@ -213,6 +306,59 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#4a90e2',
   },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.7)',
+  },
+  modalContent: {
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    paddingVertical: 32,
+    paddingHorizontal: 28,
+    alignItems: "center",
+    width: 350,
+    shadowColor: "#000",
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 5,
+  },
+  modalEmoji: { fontSize: 48, marginBottom: 12 },
+  modalTitle: {
+    fontWeight: "bold",
+    fontSize: 20,
+    marginBottom: 8,
+    color: "#222",
+    textAlign: "center",
+  },
+  modalMessage: {
+    color: "#444",
+    textAlign: "center",
+    marginBottom: 22,
+    fontSize: 15,
+    lineHeight: 20,
+  },
+  modalButtons: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    width: "100%",
+    marginTop: 8,
+    gap: 8,
+  },
+  btn: {
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 0,
+    flex: 1,
+    marginHorizontal: 4,
+    alignItems: "center",
+  },
+  btnPrimary: { backgroundColor: "#2979ff" },
+  btnSecondary: { backgroundColor: "#f0f4fa" },
+  btnTextWhite: { color: "#fff", fontWeight: "bold", fontSize: 16 },
+  btnTextPrimary: { color: "#2979ff", fontWeight: "bold", fontSize: 16 },
 });
 
 export default NotificationScreen;

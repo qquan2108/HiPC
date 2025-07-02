@@ -1,8 +1,9 @@
 // components/Profile.js
 import { Feather, Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import Constants from "expo-constants";
 import { useFocusEffect, useRouter } from "expo-router";
-import React, { useState, useCallback } from "react";
+import { useCallback, useState } from "react";
 import {
   Alert,
   Image,
@@ -14,7 +15,6 @@ import {
   View,
 } from "react-native";
 import axiosInstance from "../utils/AxiosInstance";
-import Constants from "expo-constants";
 
 // Base URL khớp với axiosInstance.defaults.baseURL
 const API_BASE_URL =
@@ -42,39 +42,49 @@ export default function Profile() {
   const [showLoginDialog, setShowLoginDialog] = useState(false);
 
   // mỗi khi vào Profile, lấy token + storedUser, rồi fetch API /users/:id
-  useFocusEffect(
-    useCallback(() => {
-      AsyncStorage.getItem("token").then((token) => {
-        if (!token) {
+ useFocusEffect(
+  useCallback(() => {
+    AsyncStorage.getItem("token").then((token) => {
+      if (!token) {
+        setShowLoginDialog(true);
+        return;
+      }
+      AsyncStorage.getItem("user").then((userStr) => {
+        if (!userStr || userStr === "undefined") {
           setShowLoginDialog(true);
           return;
         }
-        AsyncStorage.getItem("user").then((userStr) => {
-          if (!userStr) {
-            setShowLoginDialog(true);
-            return;
-          }
-          const stored = JSON.parse(userStr);
-          // có thể lưu dưới key 'id' hoặc '_id'
-          const userId = stored.id || stored._id;
-          if (!userId) {
-            setShowLoginDialog(true);
-            return;
-          }
-          axiosInstance
-            .get(`/users/${userId}`)
-            .then((res) => {
-              setUser(res.data);
-              setShowLoginDialog(false);
-            })
-            .catch((err) => {
-              console.error(err);
-              Alert.alert("Lỗi", "Không tải được thông tin người dùng");
-            });
-        });
+
+        let stored;
+        try {
+          stored = JSON.parse(userStr);
+        } catch (e) {
+          console.error("Lỗi parse user từ AsyncStorage:", e);
+          setShowLoginDialog(true);
+          return;
+        }
+
+        const userId = stored.id || stored._id;
+        if (!userId) {
+          setShowLoginDialog(true);
+          return;
+        }
+
+        axiosInstance
+          .get(`/users/${userId}`)
+          .then((res) => {
+            setUser(res.data);
+            setShowLoginDialog(false);
+          })
+          .catch((err) => {
+            console.error(err);
+            Alert.alert("Lỗi", "Không tải được thông tin người dùng");
+          });
       });
-    }, [])
-  );
+    });
+  }, [])
+);
+
 
   const handleLogout = async () => {
     await AsyncStorage.multiRemove(["token", "user"]);
@@ -110,7 +120,10 @@ export default function Profile() {
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.btn, styles.btnSecondary]}
-                  onPress={() => setShowLoginDialog(false)}
+                  onPress={() => {
+                    setShowLoginDialog(false);
+                    router.replace("/HomeScreen"); // Chuyển về trang HomeScreen
+                  }}
                 >
                   <Text style={styles.btnTextPrimary}>Để sau</Text>
                 </TouchableOpacity>
@@ -254,44 +267,51 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     backgroundColor: "#fff",
-    borderRadius: 18,
-    padding: 28,
+    borderRadius: 16,
+    paddingVertical: 32,
+    paddingHorizontal: 28,
     alignItems: "center",
-    width: 320,
+    width: 350,
     shadowColor: "#000",
     shadowOpacity: 0.15,
     shadowRadius: 10,
     elevation: 5,
   },
-  modalEmoji: { fontSize: 40, marginBottom: 8 },
+  modalEmoji: { fontSize: 48, marginBottom: 12 },
   modalTitle: {
     fontWeight: "bold",
-    fontSize: 18,
+    fontSize: 20,
     marginBottom: 8,
-    color: "#1976ff",
+    color: "#222",
+    textAlign: "center",
   },
   modalMessage: {
     color: "#444",
     textAlign: "center",
-    marginBottom: 18,
+    marginBottom: 22,
+    fontSize: 15,
+    lineHeight: 20,
   },
   modalButtons: {
     flexDirection: "row",
     justifyContent: "center",
+    alignItems: "center",
     width: "100%",
+    marginTop: 8,
+    gap: 8, // Nếu chưa hỗ trợ gap thì giữ marginHorizontal cho btn
   },
   btn: {
     borderRadius: 8,
-    paddingVertical: 10,
-    paddingHorizontal: 22,
+    paddingVertical: 12,
+    paddingHorizontal: 0,
     flex: 1,
     marginHorizontal: 4,
     alignItems: "center",
   },
-  btnPrimary: { backgroundColor: "#1976ff" },
+  btnPrimary: { backgroundColor: "#2979ff" },
   btnSecondary: { backgroundColor: "#f0f4fa" },
-  btnTextWhite: { color: "#fff", fontWeight: "bold" },
-  btnTextPrimary: { color: "#1976ff", fontWeight: "bold" },
+  btnTextWhite: { color: "#fff", fontWeight: "bold", fontSize: 16 },
+  btnTextPrimary: { color: "#2979ff", fontWeight: "bold", fontSize: 16 },
   avatarWrapper: {
     alignItems: "center",
     marginBottom: 18,

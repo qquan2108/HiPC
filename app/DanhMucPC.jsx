@@ -1,12 +1,23 @@
 // screens/DanhMucPCScreen.js
-import { useRouter } from "expo-router";
-import React, { useState, useEffect } from 'react';
-import {
-  SafeAreaView, View, Text, StyleSheet, Dimensions, TextInput, FlatList, ScrollView, TouchableOpacity, Image
-} from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import axios from '../utils/AxiosInstance';
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useRouter } from "expo-router";
+import { useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  Dimensions,
+  FlatList,
+  Image, Modal,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
+} from 'react-native';
 import CustomTabBar from '../compomentHome/CustomTabBar';
+import axios from '../utils/AxiosInstance';
 
 const { width } = Dimensions.get('window');
 const LEFT_WIDTH = 80;
@@ -16,7 +27,43 @@ export default function DanhMucPCScreen() {
   const [categories, setCategories] = useState([]);
   const [selectedCat, setSelectedCat] = useState(null);
   const [products, setProducts] = useState([]);
+  const [showLoginDialog, setShowLoginDialog] = useState(false); // Thêm state này
+  const [loading, setLoading] = useState(true); // Thêm state này
   const router = useRouter();
+
+  // Kiểm tra đăng nhập
+  useEffect(() => {
+    AsyncStorage.getItem("token").then((token) => {
+      if (!token) {
+        setShowLoginDialog(true);
+        setLoading(false);
+        return;
+      }
+      AsyncStorage.getItem("user").then((userStr) => {
+        if (!userStr || userStr === "undefined") {
+          setShowLoginDialog(true);
+          setLoading(false);
+          return;
+        }
+        let stored;
+        try {
+          stored = JSON.parse(userStr);
+        } catch (e) {
+          setShowLoginDialog(true);
+          setLoading(false);
+          return;
+        }
+        const userId = stored.id || stored._id;
+        if (!userId) {
+          setShowLoginDialog(true);
+          setLoading(false);
+          return;
+        }
+        setShowLoginDialog(false);
+        setLoading(false);
+      });
+    });
+  }, []);
 
   // Bộ lọc mẫu (tuỳ ý)
   const BRANDS = ['ASUS','MSI','Gigabyte','ASRock','EVGA','Biostar','Colorful'];
@@ -60,6 +107,57 @@ export default function DanhMucPCScreen() {
     (typeof p.category_id === 'string' && p.category_id === selectedCat) ||
     (typeof p.category_id === 'object' && (p.category_id._id === selectedCat || p.category_id['$oid'] === selectedCat))
   );
+
+  // Đặt showLoginDialog lên trên loading
+  if (showLoginDialog) {
+    return (
+      <Modal
+        visible
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowLoginDialog(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalEmoji}>😺</Text>
+            <Text style={styles.modalTitle}>Bạn chưa đăng nhập!</Text>
+            <Text style={styles.modalMessage}>
+              Hãy đăng nhập để sử dụng đầy đủ chức năng của ứng dụng nhé!
+            </Text>
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.btn, styles.btnPrimary]}
+                onPress={() => {
+                  setShowLoginDialog(false);
+                  router.replace("./LoginScreen");
+                }}
+              >
+                <Text style={styles.btnTextWhite}>Đăng nhập ngay</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.btn, styles.btnSecondary]}
+                onPress={() => {
+                  setShowLoginDialog(false);
+                  setLoading(false);
+                  router.replace("/HomeScreen");
+                }}
+              >
+                <Text style={styles.btnTextPrimary}>Để sau</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    );
+  }
+
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#2979ff" />
+      </View>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -246,5 +344,80 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+  },
+  modalContent: {
+    width: 350,
+    paddingVertical: 32,
+    paddingHorizontal: 28,
+    borderRadius: 16,
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  modalEmoji: {
+    fontSize: 48,
+    marginBottom: 12,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 8,
+    color: '#222',
+    textAlign: 'center',
+  },
+  modalMessage: {
+    fontSize: 15,
+    color: '#444',
+    textAlign: 'center',
+    marginBottom: 22,
+    lineHeight: 20,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: '100%',
+    marginTop: 8,
+    gap: 8, // Nếu chưa hỗ trợ gap thì giữ marginHorizontal cho btn
+  },
+  btn: {
+    flex: 1,
+    borderRadius: 8,
+    paddingVertical: 12,
+    marginHorizontal: 4,
+    alignItems: 'center',
+  },
+  btnPrimary: {
+    backgroundColor: '#2979ff',
+  },
+  btnSecondary: {
+    backgroundColor: '#f2f2f2',
+  },
+  btnTextWhite: {
+    color: '#fff',
+    textAlign: 'center',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  btnTextPrimary: {
+    color: '#2979ff',
+    textAlign: 'center',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });

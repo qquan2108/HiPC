@@ -1,5 +1,7 @@
 import { FontAwesome5, Ionicons, MaterialIcons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -89,6 +91,7 @@ const BUILD_RECOMMENDATIONS = {
 };
 
 export default function PCChatBoxAI() {
+  const router = useRouter();
   const [messages, setMessages] = useState([
     { 
       id: 1,
@@ -104,6 +107,8 @@ export default function PCChatBoxAI() {
   const [dailyCount, setDailyCount] = useState(0);
   const [isTyping, setIsTyping] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState("all");
+  const [showLoginDialog, setShowLoginDialog] = useState(false);
+  const [loginLoading, setLoginLoading] = useState(true);
   const flatListRef = useRef();
   const inputRef = useRef();
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -124,6 +129,39 @@ export default function PCChatBoxAI() {
         useNativeDriver: true,
       }),
     ]).start();
+  }, []);
+
+  useEffect(() => {
+    AsyncStorage.getItem("token").then((token) => {
+      if (!token) {
+        setShowLoginDialog(true);
+        setLoginLoading(false);
+        return;
+      }
+      AsyncStorage.getItem("user").then((userStr) => {
+        if (!userStr || userStr === "undefined") {
+          setShowLoginDialog(true);
+          setLoginLoading(false);
+          return;
+        }
+        let stored;
+        try {
+          stored = JSON.parse(userStr);
+        } catch (e) {
+          setShowLoginDialog(true);
+          setLoginLoading(false);
+          return;
+        }
+        const userId = stored.id || stored._id;
+        if (!userId) {
+          setShowLoginDialog(true);
+          setLoginLoading(false);
+          return;
+        }
+        setShowLoginDialog(false);
+        setLoginLoading(false);
+      });
+    });
   }, []);
 
   const loadDailyCount = async () => {
