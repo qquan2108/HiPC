@@ -327,6 +327,7 @@ const finalTotal = Math.max(0, selectedTotal - discount);
             pathname: "./pay",
             params: {
               selectedProducts: JSON.stringify(selectedProducts),
+              selectedVoucher: JSON.stringify(selectedVoucher),
             },
           });
         }}

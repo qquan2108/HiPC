@@ -33,7 +33,7 @@ export default function UserInfoForm({
                 <ScrollView style={styles.suggestionScroll} nestedScrollEnabled>
                   {suggestions.map(s => (
                     <TouchableOpacity
-                      key={s.place_id}
+                      key={s.wardCode}
                       style={styles.suggestionItem}
                       onPress={() => selectSuggestion(s)}
                       disabled={isUploading}

@@ -1,17 +1,29 @@
 import { Feather } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Picker } from "@react-native-picker/picker";
-import { useEffect, useState } from "react";
-import { FlatList, Modal, Text, TextInput, TouchableOpacity, View } from "react-native";
+import React, { useEffect, useState } from "react";
+import {
+  FlatList,
+  Modal,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+  StyleSheet,
+} from "react-native";
 import Toast from "react-native-toast-message";
 import axiosInstance from "../utils/AxiosInstance";
 
 const GHN_TOKEN = "08749195-4da3-11f0-bf1c-e283f3defbd9";
 const GHN_SHOP_ID = "196957";
-const SHOP_DISTRICT_ID = 1461; // Mã quận/huyện của shop
 
 export default function AddressModal({
-  visible, addressList, setAddressList, selectedAddress, setSelectedAddress, onClose
+  visible,
+  addressList,
+  selectedAddress,
+  onSelectAddress,
+  onAddressAdded,
+  onClose,
 }) {
   const [showAdd, setShowAdd] = useState(false);
   const [label, setLabel] = useState("");
@@ -23,7 +35,6 @@ export default function AddressModal({
   const [districts, setDistricts] = useState([]);
   const [wards, setWards] = useState([]);
 
-  // Lấy danh sách tỉnh khi mở modal
   useEffect(() => {
     if (showAdd) {
       fetchProvinces();
@@ -31,232 +42,274 @@ export default function AddressModal({
   }, [showAdd]);
 
   const fetchProvinces = async () => {
-    const res = await axiosInstance.post(
-      "https://dev-online-gateway.ghn.vn/shiip/public-api/master-data/province",
-      {},
-      { headers: { Token: GHN_TOKEN, ShopId: GHN_SHOP_ID } }
-    );
-    setProvinces(res.data.data || []);
+    try {
+      const res = await axiosInstance.post(
+        "https://dev-online-gateway.ghn.vn/shiip/public-api/master-data/province",
+        {},
+        { headers: { Token: GHN_TOKEN, ShopId: GHN_SHOP_ID } }
+      );
+      setProvinces(res.data.data || []);
+    } catch (error) {
+      console.error(error);
+    }
   };
 
-  const fetchDistricts = async (provinceId) => {
-    const res = await axiosInstance.post(
-      "https://dev-online-gateway.ghn.vn/shiip/public-api/master-data/district",
-      { province_id: Number(provinceId) },
-      { headers: { Token: GHN_TOKEN, ShopId: GHN_SHOP_ID } }
-    );
-    setDistricts(res.data.data || []);
+  const fetchDistricts = async (pid) => {
+    try {
+      const res = await axiosInstance.post(
+        "https://dev-online-gateway.ghn.vn/shiip/public-api/master-data/district",
+        { province_id: Number(pid) },
+        { headers: { Token: GHN_TOKEN, ShopId: GHN_SHOP_ID } }
+      );
+      setDistricts(res.data.data || []);
+    } catch (error) {
+      console.error(error);
+    }
   };
 
-  const fetchWards = async (districtId) => {
-    const res = await axiosInstance.post(
-      "https://dev-online-gateway.ghn.vn/shiip/public-api/master-data/ward",
-      { district_id: Number(districtId) },
-      { headers: { Token: GHN_TOKEN, ShopId: GHN_SHOP_ID } }
-    );
-    setWards(res.data.data || []);
+  const fetchWards = async (did) => {
+    try {
+      const res = await axiosInstance.post(
+        "https://dev-online-gateway.ghn.vn/shiip/public-api/master-data/ward",
+        { district_id: Number(did) },
+        { headers: { Token: GHN_TOKEN, ShopId: GHN_SHOP_ID } }
+      );
+      setWards(res.data.data || []);
+    } catch (error) {
+      console.error(error);
+    }
   };
 
   const handleAdd = async () => {
-    const userStr = await AsyncStorage.getItem("user");
-    if (!userStr) return;
-    const user = JSON.parse(userStr);
-    const res = await axiosInstance.post(`/users/${user.id || user._id}/addresses`, {
-      label, address, provinceId, districtId, wardCode
-    });
-    setAddressList(res.data);
-    const def = res.data.find((a) => a.isDefault) || res.data[0];
-    setSelectedAddress(def || null);
-    setShowAdd(false);
+    if (!label || !address || !provinceId || !districtId || !wardCode) {
+      Toast.show({ type: "error", text1: "Vui lòng điền đầy đủ thông tin" });
+      return;
+    }
+    try {
+      const userStr = await AsyncStorage.getItem("user");
+      if (!userStr) return;
+      const user = JSON.parse(userStr);
+      const res = await axiosInstance.post(
+       `/users/${user.id || user._id}/addresses`, 
+       { label, address, provinceId, districtId, wardCode } 
+     ); 
+     const newAddress = res.data; 
+     // Cho parent reload lại toàn bộ, sẽ giữ các địa chỉ cũ và thêm địa chỉ mới 
+     onAddressAdded(newAddress); 
+      resetForm();
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const handleDelete = async (id) => {
+    try {
+      const userStr = await AsyncStorage.getItem("user");
+      if (!userStr) return;
+      const user = JSON.parse(userStr);
+      const res = await axiosInstance.delete(
+        `/users/${user.id || user._id}/addresses/${id}`
+      );
+      const addresses = res.data;
+      const def = addresses.find((a) => a.isDefault) || addresses[0] || null;
+      onAddressAdded(def);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const resetForm = () => {
     setLabel("");
     setAddress("");
+    setProvinceId("");
+    setDistrictId("");
+    setWardCode("");
+    setDistricts([]);
+    setWards([]);
+    setShowAdd(false);
   };
 
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <View style={{ flex: 1, backgroundColor: "#0005", justifyContent: "center" }}>
-        <View style={{ backgroundColor: "#fff", margin: 20, borderRadius: 12, padding: 16 }}>
-          <Text style={{ fontWeight: "bold", fontSize: 18, marginBottom: 10 }}>Sổ địa chỉ</Text>
+    <Modal
+      visible={visible}
+      animationType="slide"
+      transparent
+      onRequestClose={onClose}
+    >
+      <View style={styles.overlay}>
+        <View style={styles.container}>
+          <Text style={styles.title}>Sổ địa chỉ</Text>
+
+          {/* Address List */}
           <FlatList
             data={addressList}
-            keyExtractor={item => item.id}
+            keyExtractor={(item) => item.id.toString()}
             renderItem={({ item }) => (
               <TouchableOpacity
-                style={{
-                  padding: 12,
-                  backgroundColor: selectedAddress?.id === item.id ? "#eaf3ff" : "#fff",
-                  borderRadius: 8,
-                  marginBottom: 8,
-                  flexDirection: "row",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  opacity: item.provinceId && item.districtId && item.wardCode ? 1 : 0.5
-                }}
+                style={[
+                  styles.item,
+                  selectedAddress?.id === item.id && styles.selectedItem,
+                  !(item.provinceId && item.districtId && item.wardCode) && styles.invalidItem,
+                ]}
                 onPress={() => {
                   if (item.provinceId && item.districtId && item.wardCode) {
-                    setSelectedAddress(item);
+                    onSelectAddress(item);
                     onClose();
                   } else {
                     Toast.show({
                       type: "error",
-                      text1: "Địa chỉ này chưa đủ thông tin để tính phí vận chuyển!",
-                      text2: "Vui lòng chọn địa chỉ khác hoặc cập nhật lại."
+                      text1: "Địa chỉ chưa đủ thông tin",
+                      text2: "Vui lòng cập nhật hoặc chọn địa chỉ khác",
                     });
                   }
                 }}
                 disabled={!(item.provinceId && item.districtId && item.wardCode)}
               >
-                <Text>
-                  {`${item.label}: ${item.address}`}
-                  {!(item.provinceId && item.districtId && item.wardCode) && " (thiếu thông tin)"}
-                </Text>
-                <TouchableOpacity
-                  onPress={async () => {
-                    const userStr = await AsyncStorage.getItem("user");
-                    if (!userStr) return;
-                    const user = JSON.parse(userStr);
-                    const res = await axiosInstance.delete(`/users/${user.id || user._id}/addresses/${item.id}`);
-                    setAddressList(res.data);
-                    const def = res.data.find((a) => a.isDefault) || res.data[0];
-                    setSelectedAddress(def || null);
-                  }}
-                >
+                <Text>{`${item.label}: ${item.address}`}</Text>
+                <TouchableOpacity onPress={() => handleDelete(item.id)}>
                   <Feather name="trash-2" size={18} color="#ff4444" />
                 </TouchableOpacity>
               </TouchableOpacity>
             )}
+            style={styles.list}
           />
+
+          {/* Add New */}
           {showAdd ? (
-            <View style={{ backgroundColor: "#f5f6fa", borderRadius: 10, padding: 12, marginTop: 10 }}>
-              <Text style={{ fontWeight: "bold", marginBottom: 6 }}>Thêm địa chỉ mới</Text>
-              <Text style={{ marginBottom: 2 }}>Tên địa chỉ (Nhà riêng, Công ty...)</Text>
+            <View style={styles.form}>
+              <Text style={styles.label}>Thêm địa chỉ mới</Text>
               <TextInput
                 placeholder="Tên địa chỉ"
                 value={label}
                 onChangeText={setLabel}
-                style={{
-                  borderWidth: 1,
-                  borderColor: "#ddd",
-                  borderRadius: 6,
-                  marginBottom: 10,
-                  padding: 8,
-                  backgroundColor: "#fff"
-                }}
+                style={styles.input}
               />
-              <Text style={{ marginBottom: 2 }}>Địa chỉ chi tiết</Text>
               <TextInput
-                placeholder="Số nhà, tên đường..."
+                placeholder="Địa chỉ chi tiết"
                 value={address}
                 onChangeText={setAddress}
-                style={{
-                  borderWidth: 1,
-                  borderColor: "#ddd",
-                  borderRadius: 6,
-                  marginBottom: 10,
-                  padding: 8,
-                  backgroundColor: "#fff"
-                }}
+                style={styles.input}
               />
-              <Text style={{ marginBottom: 2 }}>Tỉnh/Thành phố</Text>
-              <View style={{ borderWidth: 1, borderColor: "#ddd", borderRadius: 6, marginBottom: 10, backgroundColor: "#fff", minHeight: 44 }}>
-                <Picker
-                  selectedValue={provinceId}
-                  onValueChange={(value) => {
-                    setProvinceId(value);
-                    setDistrictId("");
-                    setWardCode("");
-                    fetchDistricts(value);
-                  }}
-                  style={{ color: "#222", height: 44 }}
-                  itemStyle={{ color: "#222", fontSize: 16 }}
-                >
-                  <Picker.Item label="Chọn tỉnh/thành" value="" />
-                  {provinces.map((p) => (
-                    <Picker.Item key={p.ProvinceID} label={p.ProvinceName} value={p.ProvinceID} />
-                  ))}
-                </Picker>
-              </View>
-              <Text style={{ marginBottom: 2 }}>Quận/Huyện</Text>
-              <View style={{ borderWidth: 1, borderColor: "#ddd", borderRadius: 6, marginBottom: 10, backgroundColor: "#fff", minHeight: 44 }}>
-                <Picker
-                  selectedValue={districtId}
-                  onValueChange={(value) => {
-                    setDistrictId(value);
-                    setWardCode("");
-                    fetchWards(value);
-                  }}
-                  enabled={!!provinceId}
-                >
-                  <Picker.Item label="Chọn quận/huyện" value="" />
-                  {districts.map((d) => (
-                    <Picker.Item key={d.DistrictID} label={d.DistrictName} value={d.DistrictID} />
-                  ))}
-                </Picker>
-              </View>
-              <Text style={{ marginBottom: 2 }}>Phường/Xã</Text>
-              <View style={{ borderWidth: 1, borderColor: "#ddd", borderRadius: 6, marginBottom: 16, backgroundColor: "#fff", minHeight: 44 }}>
-                <Picker
-                  selectedValue={wardCode}
-                  onValueChange={setWardCode}
-                  enabled={!!districtId}
-                >
-                  <Picker.Item label="Chọn phường/xã" value="" />
-                  {wards.map((w) => (
-                    <Picker.Item key={w.WardCode} label={w.WardName} value={w.WardCode} />
-                  ))}
-                </Picker>
-              </View>
-              <TouchableOpacity
-                style={{
-                  backgroundColor: (!label || !address || !provinceId || !districtId || !wardCode) ? "#ccc" : "#2979ff",
-                  borderRadius: 8,
-                  padding: 12,
-                  alignItems: "center"
-                }}
-                onPress={async () => {
-                  const userStr = await AsyncStorage.getItem("user");
-                  if (!userStr) return;
-                  const user = JSON.parse(userStr);
-                  // Giữ địa chỉ cũ, chỉ thêm mới
-                  const res = await axiosInstance.post(`/users/${user.id || user._id}/addresses`, {
-                    label, address, provinceId, districtId, wardCode
-                  });
-                  setAddressList(res.data); // Backend đã trả về toàn bộ danh sách mới
-                  const def = res.data.find((a) => a.isDefault) || res.data[0];
-                  setSelectedAddress(def || null);
-                  setShowAdd(false);
-                  setLabel("");
-                  setAddress("");
-                  setProvinceId("");
+              <Picker
+                selectedValue={provinceId}
+                onValueChange={(v) => {
+                  setProvinceId(v);
                   setDistrictId("");
                   setWardCode("");
-                  setDistricts([]);
-                  setWards([]);
+                  fetchDistricts(v);
                 }}
-                disabled={!label || !address || !provinceId || !districtId || !wardCode}
+                style={styles.picker}
               >
-                <Text style={{ color: "#fff", fontWeight: "bold" }}>Thêm địa chỉ</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => setShowAdd(false)} style={{ marginTop: 10, alignItems: "center" }}>
-                <Text style={{ color: "#2979ff" }}>Hủy</Text>
+                <Picker.Item label="Chọn tỉnh/thành" value="" />
+                {provinces.map((p) => (
+                  <Picker.Item
+                    key={p.ProvinceID}
+                    label={p.ProvinceName}
+                    value={p.ProvinceID.toString()}
+                  />
+                ))}
+              </Picker>
+              <Picker
+                selectedValue={districtId}
+                onValueChange={(v) => {
+                  setDistrictId(v);
+                  setWardCode("");
+                  fetchWards(v);
+                }}
+                style={styles.picker}
+                enabled={!!provinceId}
+              >
+                <Picker.Item label="Chọn quận/huyện" value="" />
+                {districts.map((d) => (
+                  <Picker.Item
+                    key={d.DistrictID}
+                    label={d.DistrictName}
+                    value={d.DistrictID.toString()}
+                  />
+                ))}
+              </Picker>
+              <Picker
+                selectedValue={wardCode}
+                onValueChange={setWardCode}
+                style={styles.picker}
+                enabled={!!districtId}
+              >
+                <Picker.Item label="Chọn phường/xã" value="" />
+                {wards.map((w) => (
+                  <Picker.Item
+                    key={w.WardCode}
+                    label={w.WardName}
+                    value={w.WardCode}
+                  />
+                ))}
+              </Picker>
+
+              <TouchableOpacity style={styles.addBtn} onPress={handleAdd}>
+                <Text style={styles.addText}>Lưu địa chỉ</Text>
               </TouchableOpacity>
             </View>
           ) : (
             <TouchableOpacity
-              style={{ marginTop: 10, alignSelf: "flex-end" }}
+              style={styles.showAddBtn}
               onPress={() => setShowAdd(true)}
             >
-              <Text style={{ color: "#2979ff", fontWeight: "bold" }}>+ Thêm địa chỉ mới</Text>
+              <Feather name="plus-circle" size={20} />
+              <Text style={styles.showAddText}>Thêm địa chỉ mới</Text>
             </TouchableOpacity>
           )}
-          <TouchableOpacity
-            style={{ marginTop: 10, alignSelf: "flex-end" }}
-            onPress={onClose}
-          >
-            <Text style={{ color: "#2979ff", fontWeight: "bold" }}>Đóng</Text>
+
+          {/* Close */}
+          <TouchableOpacity style={styles.closeBtn} onPress={onClose}>
+            <Text style={styles.closeText}>Đóng</Text>
           </TouchableOpacity>
         </View>
       </View>
     </Modal>
   );
 }
+
+const styles = StyleSheet.create({
+  overlay: { flex: 1, backgroundColor: "#0005", justifyContent: "center" },
+  container: { backgroundColor: "#fff", margin: 20, borderRadius: 12, padding: 16 },
+  title: { fontWeight: "bold", fontSize: 18, marginBottom: 10 },
+  list: { maxHeight: 200, marginBottom: 10 },
+  item: {
+    padding: 12,
+    backgroundColor: "#fff",
+    borderRadius: 8,
+    marginBottom: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  selectedItem: { backgroundColor: "#eaf3ff" },
+  invalidItem: { opacity: 0.5 },
+  form: { backgroundColor: "#f5f6fa", borderRadius: 10, padding: 12, marginTop: 10 },
+  label: { fontWeight: "bold", marginBottom: 6 },
+  input: {
+    borderWidth: 1,
+    borderColor: "#ddd",
+    borderRadius: 6,
+    marginBottom: 10,
+    padding: 8,
+    backgroundColor: "#fff",
+  },
+  picker: {
+    borderWidth: 1,
+    borderColor: "#ddd",
+    borderRadius: 6,
+    marginBottom: 10,
+    backgroundColor: "#fff",
+  },
+  showAddBtn: { flexDirection: "row", alignItems: "center", marginBottom: 10 },
+  showAddText: { marginLeft: 6 },
+  addBtn: {
+    backgroundColor: "#2979ff",
+    borderRadius: 6,
+    padding: 10,
+    alignItems: "center",
+  },
+  addText: { color: "#fff", fontWeight: "bold" },
+  closeBtn: { marginTop: 10, alignSelf: "center" },
+  closeText: { color: "#2979ff", fontWeight: "bold" },
+});
