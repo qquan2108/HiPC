@@ -3,8 +3,21 @@ import { Stack } from "expo-router";
 import Toast from "react-native-toast-message";
 import { WishlistProvider } from "../context/WishlistContext";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
+import { useEffect } from "react";
+import {
+  Ionicons,
+  MaterialCommunityIcons,
+  FontAwesome,
+  AntDesign,
+} from "@expo/vector-icons";
 
 export default function RootLayout() {
+  useEffect(() => {
+    Ionicons.loadFont();
+    MaterialCommunityIcons.loadFont();
+    FontAwesome.loadFont();
+    AntDesign.loadFont();
+  }, []);
   return (
     <WishlistProvider>
       <SafeAreaProvider>
@@ -21,3 +34,4 @@ export default function RootLayout() {
     </WishlistProvider>
   );
 }
+
