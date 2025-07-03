@@ -4,6 +4,7 @@ import { useRouter } from "expo-router";
 import { Feather } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+export default function ReviewBox({ product = {} }) {
 export default function ReviewBox({ product = {}}) {
   const router = useRouter();
   const handleViewAllReviews = async () => {
@@ -17,7 +18,7 @@ export default function ReviewBox({ product = {}}) {
         params: {
           product_id: product.id,
           product_name: product.name,
-          product_image: product.image?.uri || product.images[0]?.uri || '',
+          product_image: product.image?.uri || product.images?.[0]?.uri || '',
           user_id: user ? (user._id || user.id) : '', // Thêm user_id nếu có
           order_id: '', // Có thể thêm order_id sau nếu cần
         }
@@ -30,7 +31,7 @@ export default function ReviewBox({ product = {}}) {
         params: {
           product_id: product.id,
           product_name: product.name,
-          product_image: product.image?.uri || product.images[0]?.uri || '',
+          product_image: product.image?.uri || product.images?.[0]?.uri || '',
           user_id: '',
           order_id: '',
         }
