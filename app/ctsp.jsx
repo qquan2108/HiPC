@@ -271,7 +271,7 @@ const AddToCart = async prod => {
             </View>
 
             {/* Reviews & Sections */}
-            <ReviewBox />
+            <ReviewBox product={product} />
             <View style={styles.sectionContainer}>
               <Text style={styles.sectionTitle}>Sản phẩm phổ biến</Text>
               <SectionPopular data={allProducts.slice(0, 3)} />
