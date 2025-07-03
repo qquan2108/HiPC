@@ -31,7 +31,14 @@ console.log({ redirectUri });
 const SocialButtons = () => {
   const router = useRouter();
   const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
-    clientId: '625212493169-ptarfq8gddcsl2q9a6mf0ev7560et1d0.apps.googleusercontent.com',
+    expoClientId:
+      '625212493169-ptarfq8gddcsl2q9a6mf0ev7560et1d0.apps.googleusercontent.com',
+    androidClientId:
+      '625212493169-ptarfq8gddcsl2q9a6mf0ev7560et1d0.apps.googleusercontent.com',
+    iosClientId:
+      '625212493169-ptarfq8gddcsl2q9a6mf0ev7560et1d0.apps.googleusercontent.com',
+    webClientId:
+      '625212493169-ptarfq8gddcsl2q9a6mf0ev7560et1d0.apps.googleusercontent.com',
     redirectUri,
     projectNameForProxy: "@quocquan21/HiPC",
   });
