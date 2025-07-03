@@ -200,6 +200,17 @@ export default function Profile() {
                 onPress: () => {},
               },
               {
+                icon: (
+                  <Ionicons
+                    name="ticket-outline"
+                    size={22}
+                    color="#1976ff"
+                  />
+                ),
+                label: "voucher",
+                onPress: () => router.push("./VoucherList"),
+              },
+              {
                 icon: <Feather name="settings" size={22} color="#1976ff" />,
                 label: "Cài đặt",
                 onPress: () => {},

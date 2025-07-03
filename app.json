@@ -48,7 +48,9 @@
       "router": {},
       "eas": {
         "projectId": "b3b09f63-21b3-4dd2-9f21-658d8318eb63"
-      }
-    }
+      },
+      "vnpayReturnUrl": "hipc://vnpay-return"
+    },
+    "owner":"quocquan21"
   }
 }

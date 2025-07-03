@@ -482,38 +482,38 @@ export default function PayScreen() {
 
       console.log("→ orderData:", orderData);
 
-        const res = await axiosInstance.post("/orders/checkout", orderData, {
-          headers: { "Content-Type": "application/json" },
-        });
-        await AsyncStorage.removeItem("cart");
-        setProducts([]);
+      const res = await axiosInstance.post("/orders/checkout", orderData, {
+        headers: { "Content-Type": "application/json" },
+      });
+      await AsyncStorage.removeItem("cart");
+      setProducts([]);
 
-        if (selectedPayment === "vnpay") {
-          setVnpayData({
-            orderId: res.data.orderId,
-            amount: total,
-            orderInfo: `Thanh toán đơn hàng ${res.data.orderId}`,
-          });
-          setShowVnPayModal(true);
-          return;
-        }
+      if (selectedPayment === "vnpay") {
+        setVnpayData({
+          orderId: res.data.orderId,
+          amount: total,
+          orderInfo: `Thanh toán đơn hàng ${res.data.orderId}`,
+        });
+        setShowVnPayModal(true);
+        return;
+      }
 
-        Toast.show({
-          type: "success",
-          text1: "Đặt hàng thành công!",
-          text2: "Cảm ơn bạn.",
-        });
-        setPayStatus("success");
-        router.push({
-          pathname: "/CheckoutSuccess",
-          params: {
-            orderId: res.data.orderId,
-            total,
-            products: JSON.stringify(products),
-            address: selectedAddress?.address || addressText,
-            paymentMethod: selectedPayment,
-          },
-        });
+      Toast.show({
+        type: "success",
+        text1: "Đặt hàng thành công!",
+        text2: "Cảm ơn bạn.",
+      });
+      setPayStatus("success");
+      router.push({
+        pathname: "/CheckoutSuccess",
+        params: {
+          orderId: res.data.orderId,
+          total,
+          products: JSON.stringify(products),
+          address: selectedAddress?.address || addressText,
+          paymentMethod: selectedPayment,
+        },
+      });
     } catch (err) {
       console.error(err);
       Toast.show({
@@ -529,7 +529,10 @@ export default function PayScreen() {
     setShowVnPayModal(false);
 
     if (!vnpayData?.orderId) {
-      Toast.show({ type: "error", text1: result?.message || "Thanh toán thất bại" });
+      Toast.show({
+        type: "error",
+        text1: result?.message || "Thanh toán thất bại",
+      });
       setPayStatus("fail");
       return;
     }
@@ -554,12 +557,18 @@ export default function PayScreen() {
           },
         });
       } else {
-        Toast.show({ type: "error", text1: verifyRes.data?.message || "Thanh toán thất bại" });
+        Toast.show({
+          type: "error",
+          text1: verifyRes.data?.message || "Thanh toán thất bại",
+        });
         setPayStatus("fail");
       }
     } catch (err) {
       console.error(err);
-      Toast.show({ type: "error", text1: result?.message || "Thanh toán thất bại" });
+      Toast.show({
+        type: "error",
+        text1: result?.message || "Thanh toán thất bại",
+      });
       setPayStatus("fail");
     }
   };
