@@ -4,7 +4,7 @@ import { useRouter } from "expo-router";
 import { Feather } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-export default function ReviewBox({ product }) {
+export default function ReviewBox({ product = {}}) {
   const router = useRouter();
   const handleViewAllReviews = async () => {
     try {

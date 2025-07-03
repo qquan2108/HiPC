@@ -111,20 +111,35 @@ export default function CartScreen() {
     try {
       const res = await axiosInstance.get(`/orders/user/${userId}`);
       const orders = Array.isArray(res.data) ? res.data : [];
+      console.log("Fetched orders:", orders);
       const pending = orders.find((o) => o.status === "pending") || {
         products: [],
       };
       const items = (pending.products || [])
-  .filter(item => item.productId && typeof item.productId === "object") // lọc những productId bị null
-  .map((item) => ({
-    id: item.productId._id,
-    name: item.productId.name || "Không có tên",
-    price: item.productId.price ?? 0,
-    image: item.productId.image
-      ? { uri: item.productId.image }
-      : require("../assets/images/pc1.png"),
-    quantity: item.quantity ?? 1,
-  }));
+  .filter(item => item.productId && typeof item.productId === "object")
+  .map((item) => {
+    let imageUri = require("../assets/images/pc1.png"); // default image
+
+    // Xử lý nhiều trường hợp image
+    const img = item.productId.image;
+    if (img) {
+      if (typeof img === "string") {
+        imageUri = { uri: img };
+      } else if (Array.isArray(img) && img.length > 0) {
+        imageUri = { uri: img[0] }; // lấy ảnh đầu tiên nếu là mảng
+      } else if (typeof img === "object" && img.uri) {
+        imageUri = { uri: img.uri };
+      }
+    }
+
+    return {
+      id: item.productId._id,
+      name: item.productId.name || "Không có tên",
+      price: item.productId.price ?? 0,
+      image: imageUri,
+      quantity: item.quantity ?? 1,
+    };
+  });
       setCart(items);
     } catch (err) {
       console.error("Lỗi khi lấy giỏ hàng:", err);
@@ -180,7 +195,7 @@ export default function CartScreen() {
   const handleRemove = async (id) => {
     try {
       await axiosInstance.delete(`/orders/remove-product/${userId}/${id}`);
-      setCart((prev) => prev.filter((item) => item.id !== id));
+      setCart((prev) => prev.filter((item) => item.productId !== id));
     } catch (err) {
       console.error("Lỗi khi xóa sản phẩm:", err);
       Toast.show({
