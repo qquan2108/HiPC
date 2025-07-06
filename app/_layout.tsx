@@ -10,6 +10,7 @@ import {
   FontAwesome,
   AntDesign,
 } from "@expo/vector-icons";
+import { StripeProvider } from "@stripe/stripe-react-native";
 
 export default function RootLayout() {
   useEffect(() => {
@@ -23,11 +24,16 @@ export default function RootLayout() {
       <SafeAreaProvider>
         {/* SafeAreaView sẽ tự động padding bên trên để khỏi bị che */}
         <SafeAreaView style={{ flex: 1 }}>
-          <Stack
-            screenOptions={{
-              headerShown: false,  // tắt hết header mặc định
-            }}
-          />
+          <StripeProvider
+            publishableKey="pk_test_51RgeVG4drE7VMTu3y19cSIlHqr0RqAlwpr0IsCm5dgw6wKyWbPRAL1JdyHvq1kKOX1zn1Pcx3ja16OoYERv2pxWT00ZODfs9px"
+            merchantIdentifier="merchant.com.yourapp"
+          >
+            <Stack
+              screenOptions={{
+                headerShown: false, // tắt hết header mặc định
+              }}
+            />
+          </StripeProvider>
           <Toast />
         </SafeAreaView>
       </SafeAreaProvider>

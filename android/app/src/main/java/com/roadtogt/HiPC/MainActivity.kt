@@ -1,4 +1,4 @@
-package com.anonymous.Roomify
+package com.roadtogt.HiPC
 import expo.modules.splashscreen.SplashScreenManager
 
 import android.os.Build

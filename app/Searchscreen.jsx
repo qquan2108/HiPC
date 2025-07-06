@@ -17,7 +17,7 @@ import {
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { BlurView } from "expo-blur";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import SearchChip from "../compomentSearch/SearchChip";
 import axiosInstance from "../utils/AxiosInstance";
 import CustomTabBar from "../compomentHome/CustomTabBar";
@@ -36,7 +36,8 @@ export default function SearchScreen() {
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [fadeAnim] = useState(new Animated.Value(0));
   const [slideAnim] = useState(new Animated.Value(50));
-  
+  const { id } = useLocalSearchParams();
+
   const router = useRouter();
 
   // Animation on mount
@@ -58,15 +59,18 @@ export default function SearchScreen() {
   // Load products + categories + images
   useEffect(() => {
     // products
-    axiosInstance.get("/product")
-      .then(res => {
+    axiosInstance
+      .get("/product")
+      .then((res) => {
         const arr = Array.isArray(res.data.products) ? res.data.products : [];
-        const mapped = arr.map(p => ({
+        const mapped = arr.map((p) => ({
           ...p,
           id: p._id,
           name: p.name,
           price: p.price,
-          image: p.image ? { uri: p.image } : require("../assets/images/pc1.png"),
+          image: p.image
+            ? { uri: p.image }
+            : require("../assets/images/pc1.png"),
         }));
         setProducts(mapped);
         setFilteredProducts(mapped);
@@ -74,25 +78,22 @@ export default function SearchScreen() {
       .catch(() => setProducts([]));
 
     // categories + icons
-    Promise.all([
-      axiosInstance.get("/category"),
-      axiosInstance.get("/images")
-    ]).then(([catRes, imgRes]) => {
-      const imgs = imgRes.data;
-      const cats = catRes.data.map(cat => {
-        const found = imgs.find(i =>
-          i.category_id?._id === cat._id
-        );
-        return {
-          _id: cat._id,
-          name: cat.name,
-          icon: found
-            ? { uri: found.url }
-            : require("../assets/images/pc.png"),
-        };
-      });
-      setCategories(cats);
-    }).catch(() => setCategories([]));
+    Promise.all([axiosInstance.get("/category"), axiosInstance.get("/images")])
+      .then(([catRes, imgRes]) => {
+        const imgs = imgRes.data;
+        const cats = catRes.data.map((cat) => {
+          const found = imgs.find((i) => i.category_id?._id === cat._id);
+          return {
+            _id: cat._id,
+            name: cat.name,
+            icon: found
+              ? { uri: found.url }
+              : require("../assets/images/pc.png"),
+          };
+        });
+        setCategories(cats);
+      })
+      .catch(() => setCategories([]));
   }, []);
 
   // typing filter
@@ -102,7 +103,7 @@ export default function SearchScreen() {
     } else {
       const kw = search.toLowerCase();
       setFilteredProducts(
-        products.filter(p => p.name.toLowerCase().includes(kw))
+        products.filter((p) => p.name.toLowerCase().includes(kw))
       );
     }
   }, [search, products]);
@@ -113,26 +114,68 @@ export default function SearchScreen() {
     }
     const kw = search.trim().toLowerCase();
     setFilteredProducts(
-      products.filter(p => p.name.toLowerCase().includes(kw))
+      products.filter((p) => p.name.toLowerCase().includes(kw))
     );
     setIsSearchFocused(false);
   }, [search, searchHistory, products]);
 
-  const handleRemoveHistory = useCallback(item =>
-    setSearchHistory(h => h.filter(x => x !== item))
-  , []);
-  
-  const handleClearHistory = useCallback(() => setSearchHistory([]), []);
-  
-  const handleHistoryPress = useCallback(item => {
-    setSearch(item);
-    setFilteredProducts(
-      products.filter(p => p.name.toLowerCase().includes(item.toLowerCase()))
-    );
-    setIsSearchFocused(false);
-  }, [products]);
+  const handleRemoveHistory = useCallback(
+    (item) => setSearchHistory((h) => h.filter((x) => x !== item)),
+    []
+  );
 
-  useEffect(() => setShowProductDropdown(!!search && isSearchFocused), [search, isSearchFocused]);
+  const handleClearHistory = useCallback(() => setSearchHistory([]), []);
+
+  const handleHistoryPress = useCallback(
+    (item) => {
+      setSearch(item);
+      setFilteredProducts(
+        products.filter((p) =>
+          p.name.toLowerCase().includes(item.toLowerCase())
+        )
+      );
+      setIsSearchFocused(false);
+    },
+    [products]
+  );
+
+  // Fix: Handle product press with proper navigation
+  const handleProductPress = useCallback(async (item) => {
+    console.log("Product pressed:", item.id, typeof item.id);
+    
+    // Clear search and hide dropdown first
+    setSearch("");
+    setIsSearchFocused(false);
+    
+    // Navigate to product details
+    // Make sure the id is properly formatted
+    const productId = item.id || item._id;
+    if (productId) {
+      try {
+        // Use setTimeout to ensure state updates complete first
+        setTimeout(() => {
+console.log("Navigating to:", `/ctsp?id=${productId}`);
+    router.push(`/ctsp?id=${productId}`);
+        }, 100);
+      } catch (error) {
+        console.error("Navigation error:", error);
+        // Fallback navigation method
+        setTimeout(() => {
+          router.push({
+            pathname: "/ctsp/[id]",
+            params: { id: productId }
+          });
+        }, 100);
+      }
+    } else {
+      console.error("Product ID not found:", item);
+    }
+  }, [router]);
+
+  useEffect(
+    () => setShowProductDropdown(!!search && isSearchFocused),
+    [search, isSearchFocused]
+  );
 
   const renderCategory = ({ item, index }) => (
     <Animated.View
@@ -140,13 +183,15 @@ export default function SearchScreen() {
         styles.categoryContainer,
         {
           opacity: fadeAnim,
-          transform: [{
-            translateY: slideAnim.interpolate({
-              inputRange: [0, 50],
-              outputRange: [0, index * 10],
-            })
-          }]
-        }
+          transform: [
+            {
+              translateY: slideAnim.interpolate({
+                inputRange: [0, 50],
+                outputRange: [0, index * 10],
+              }),
+            },
+          ],
+        },
       ]}
     >
       <TouchableOpacity
@@ -171,7 +216,7 @@ export default function SearchScreen() {
   );
 
   const renderPopularSearch = ({ item }) => (
-    <TouchableOpacity 
+    <TouchableOpacity
       style={styles.popularSearchItem}
       onPress={() => handleHistoryPress(item)}
     >
@@ -180,7 +225,13 @@ export default function SearchScreen() {
     </TouchableOpacity>
   );
 
-  const popularSearches = ["Laptop Gaming", "iPhone", "MacBook", "Gaming PC", "Tai nghe"];
+  const popularSearches = [
+    "Laptop Gaming",
+    "iPhone",
+    "MacBook",
+    "Gaming PC",
+    "Tai nghe",
+  ];
 
   return (
     <View style={styles.container}>
@@ -201,11 +252,18 @@ export default function SearchScreen() {
 
       {/* Enhanced Search Bar */}
       <View style={styles.searchSection}>
-        <View style={[
-          styles.searchContainer,
-          isSearchFocused && styles.searchContainerFocused
-        ]}>
-          <Feather name="search" size={20} color="#9ca3af" style={styles.searchIcon} />
+        <View
+          style={[
+            styles.searchContainer,
+            isSearchFocused && styles.searchContainerFocused,
+          ]}
+        >
+          <Feather
+            name="search"
+            size={20}
+            color="#9ca3af"
+            style={styles.searchIcon}
+          />
           <TextInput
             style={styles.searchInput}
             placeholder="Tìm kiếm sản phẩm, thương hiệu..."
@@ -213,7 +271,10 @@ export default function SearchScreen() {
             onChangeText={setSearch}
             onSubmitEditing={handleSearchSubmit}
             onFocus={() => setIsSearchFocused(true)}
-            onBlur={() => setTimeout(() => setIsSearchFocused(false), 200)}
+            onBlur={() => {
+              // Delay hiding results to allow for touch events
+              setTimeout(() => setIsSearchFocused(false), 300);
+            }}
             placeholderTextColor="#9ca3af"
           />
           {search ? (
@@ -231,43 +292,48 @@ export default function SearchScreen() {
         </View>
       </View>
 
-      {/* Fullscreen Search Overlay */}
-{/* Fullscreen Search Overlay */}
-{search.length > 0 && isSearchFocused && (
-  <FlatList
-    data={filteredProducts}
-    keyExtractor={item => item.id}
-    renderItem={({ item }) => (
-      <TouchableOpacity
-        style={styles.resultItem}
-        onPress={() => {         
-         setSearch("");
-         // Điều hướng tới trang chi tiết sản phẩm với dynamic route [id].js
-         router.push({
-  pathname: '/ctsp',
-  params: { id: item.id },
-});
-        }}
-        activeOpacity={0.7}
-      >
-        <Image source={item.image} style={styles.resultImage} />
-        <View style={styles.resultContent}>
-          <Text numberOfLines={1} style={styles.resultTitle}>
-            {item.name}
-          </Text>
-          <Text style={styles.resultPrice}>
-            {item.price?.toLocaleString("vi-VN")}₫
-          </Text>
+      {/* Search Results Overlay - Fixed */}
+      {search.length > 0 && isSearchFocused && (
+        <View style={styles.searchOverlay}>
+          <FlatList
+            data={filteredProducts}
+            keyExtractor={(item) => String(item.id || item._id)}
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                style={styles.resultItem}
+                onPress={() => handleProductPress(item)}
+                activeOpacity={0.7}
+                delayPressIn={0}
+                delayPressOut={0}
+              >
+                <Image source={item.image} style={styles.resultImage} />
+                <View style={styles.resultContent}>
+                  <Text numberOfLines={1} style={styles.resultTitle}>
+                    {item.name}
+                  </Text>
+                  <Text style={styles.resultPrice}>
+                    {item.price?.toLocaleString("vi-VN")}₫
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            )}
+            showsVerticalScrollIndicator={false}
+            style={styles.resultList}
+            contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 8 }}
+            ListEmptyComponent={
+              <View style={styles.noResultsContainer}>
+                <Text style={styles.noResultsText}>Không tìm thấy sản phẩm</Text>
+                <Text style={styles.noResultsSubtext}>
+                  Thử tìm kiếm với từ khóa khác
+                </Text>
+              </View>
+            }
+            keyboardShouldPersistTaps="handled"
+          />
         </View>
-      </TouchableOpacity>
-    )}
-    showsVerticalScrollIndicator={false}
-    style={styles.resultList}
-    contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 8 }}
-  />
-)}
+      )}
 
-      <ScrollView 
+      <ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
@@ -277,19 +343,19 @@ export default function SearchScreen() {
           <Animated.View style={[styles.section, { opacity: fadeAnim }]}>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>Tìm kiếm gần đây</Text>
-              <TouchableOpacity 
+              <TouchableOpacity
                 onPress={handleClearHistory}
                 style={styles.clearAllButton}
               >
                 <Text style={styles.clearAllText}>Xóa tất cả</Text>
               </TouchableOpacity>
             </View>
-            <ScrollView 
-              horizontal 
+            <ScrollView
+              horizontal
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.historyScroll}
             >
-              {searchHistory.map(item => (
+              {searchHistory.map((item) => (
                 <SearchChip
                   key={item}
                   item={item}
@@ -318,7 +384,7 @@ export default function SearchScreen() {
           <Text style={styles.sectionTitle}>Danh mục nổi bật</Text>
           <FlatList
             data={categories}
-            keyExtractor={c => c._id}
+            keyExtractor={(c) => c._id}
             numColumns={NUM_COLUMNS}
             renderItem={renderCategory}
             scrollEnabled={false}
@@ -340,67 +406,67 @@ export default function SearchScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    backgroundColor: "#ffffff",
   },
 
   // Header Styles
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingHorizontal: 20,
-    paddingTop: Platform.OS === 'ios' ? 50 : StatusBar.currentHeight + 10,
+    paddingTop: Platform.OS === "ios" ? 50 : StatusBar.currentHeight + 10,
     paddingBottom: 20,
-    backgroundColor: '#ffffff',
+    backgroundColor: "#ffffff",
   },
   headerContent: {
     flex: 1,
   },
   headerTitle: {
     fontSize: 32,
-    fontWeight: '800',
-    color: '#111827',
+    fontWeight: "800",
+    color: "#111827",
     letterSpacing: -0.5,
   },
   headerSubtitle: {
     fontSize: 16,
-    color: '#6b7280',
+    color: "#6b7280",
     marginTop: 4,
-    fontWeight: '400',
+    fontWeight: "400",
   },
   profileButton: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#f3f4f6',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "#f3f4f6",
+    justifyContent: "center",
+    alignItems: "center",
   },
 
   // Search Styles
   searchSection: {
     paddingHorizontal: 20,
     paddingBottom: 16,
-    backgroundColor: '#ffffff',
+    backgroundColor: "#ffffff",
   },
   searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f9fafb',
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#f9fafb",
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: "#e5e7eb",
     paddingHorizontal: 16,
     height: 52,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 2,
     elevation: 1,
   },
   searchContainerFocused: {
-    borderColor: '#6366f1',
-    backgroundColor: '#ffffff',
+    borderColor: "#6366f1",
+    backgroundColor: "#ffffff",
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 3,
@@ -411,8 +477,8 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 16,
-    color: '#111827',
-    fontWeight: '500',
+    color: "#111827",
+    fontWeight: "500",
   },
   clearButton: {
     padding: 8,
@@ -421,112 +487,68 @@ const styles = StyleSheet.create({
   filterButton: {
     padding: 8,
     borderRadius: 8,
-    backgroundColor: '#f3f4f6',
+    backgroundColor: "#f3f4f6",
   },
 
-  // Fullscreen Overlay Styles
-  fullscreenOverlay: {
-    position: 'absolute',
-    top: 0,
+  // Search Overlay Styles - Fixed
+  searchOverlay: {
+    position: "absolute",
+    top: Platform.OS === "ios" ? 140 : 120, // Adjust based on header height
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: '#ffffff',
+    backgroundColor: "#ffffff",
     zIndex: 1000,
-    paddingTop: Platform.OS === 'ios' ? 50 : StatusBar.currentHeight + 10,
+    borderTopWidth: 1,
+    borderTopColor: "#f3f4f6",
   },
-  overlayHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+  resultList: {
+    flex: 1,
+    backgroundColor: "#fff",
+  },
+  resultItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
-    backgroundColor: '#ffffff',
+    borderBottomColor: "#f3f4f6",
   },
-  overlayTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#111827',
-  },
-  closeButton: {
-    padding: 4,
-  },
-  overlayContent: {
-    flex: 1,
-    backgroundColor: '#f9fafb',
-  },
-  overlayScrollContent: {
-    paddingVertical: 8,
-  },
-  fullscreenItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#ffffff',
-    marginHorizontal: 16,
-    marginVertical: 4,
-    borderRadius: 12,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  fullscreenImage: {
-    width: 60,
-    height: 60,
+  resultImage: {
+    width: 48,
+    height: 48,
     borderRadius: 8,
-    backgroundColor: '#f3f4f6',
-    marginRight: 16,
+    marginRight: 12,
+    backgroundColor: "#f3f4f6",
   },
-  fullscreenContent: {
+  resultContent: {
     flex: 1,
   },
-  fullscreenText: {
-    fontSize: 16,
-    color: '#111827',
-    fontWeight: '500',
-    lineHeight: 20,
-    marginBottom: 8,
+  resultTitle: {
+    fontSize: 15,
+    color: "#111",
+    marginBottom: 4,
+    fontWeight: "500",
   },
-  priceContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  fullscreenPrice: {
-    color: '#dc2626',
-    fontWeight: '700',
-    fontSize: 16,
-    marginRight: 8,
-  },
-  originalPrice: {
-    color: '#9ca3af',
-    fontSize: 13,
-    textDecorationLine: 'line-through',
-  },
-  favoriteButton: {
-    padding: 8,
-    borderRadius: 8,
-    backgroundColor: '#f9fafb',
-  },
-  noResultsSubtext: {
+  resultPrice: {
     fontSize: 14,
-    color: '#6b7280',
-    marginTop: 4,
-    textAlign: 'center',
+    color: "#059669",
+    fontWeight: "600",
   },
   noResultsContainer: {
-    alignItems: 'center',
+    alignItems: "center",
     paddingVertical: 60,
     paddingHorizontal: 20,
   },
   noResultsText: {
     fontSize: 18,
-    color: '#374151',
-    marginTop: 16,
-    fontWeight: '500',
+    color: "#374151",
+    fontWeight: "500",
+  },
+  noResultsSubtext: {
+    fontSize: 14,
+    color: "#6b7280",
+    marginTop: 4,
+    textAlign: "center",
   },
 
   // Scroll Content
@@ -543,27 +565,27 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 16,
   },
   sectionTitle: {
     fontSize: 20,
-    fontWeight: '700',
-    color: '#111827',
+    fontWeight: "700",
+    color: "#111827",
     letterSpacing: -0.3,
   },
   clearAllButton: {
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 8,
-    backgroundColor: '#f3f4f6',
+    backgroundColor: "#f3f4f6",
   },
   clearAllText: {
     fontSize: 14,
-    color: '#6b7280',
-    fontWeight: '500',
+    color: "#6b7280",
+    fontWeight: "500",
   },
 
   // History Scroll
@@ -573,20 +595,20 @@ const styles = StyleSheet.create({
 
   // Popular Search Items
   popularSearchItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingVertical: 12,
     paddingHorizontal: 4,
   },
   popularSearchText: {
     fontSize: 16,
-    color: '#374151',
+    color: "#374151",
     marginLeft: 12,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   separator: {
     height: 1,
-    backgroundColor: '#f3f4f6',
+    backgroundColor: "#f3f4f6",
     marginLeft: 32,
   },
 
@@ -595,77 +617,47 @@ const styles = StyleSheet.create({
     paddingTop: 8,
   },
   categoryRow: {
-    justifyContent: 'space-between',
+    justifyContent: "space-between",
   },
   categoryContainer: {
     width: ITEM_SIZE,
   },
   categoryCard: {
-    backgroundColor: '#ffffff',
+    backgroundColor: "#ffffff",
     borderRadius: 16,
     padding: 16,
-    alignItems: 'center',
-    shadowColor: '#000',
+    alignItems: "center",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 8,
     elevation: 3,
     borderWidth: 1,
-    borderColor: '#f3f4f6',
+    borderColor: "#f3f4f6",
   },
   categoryImageContainer: {
     width: ITEM_SIZE * 0.6,
     height: ITEM_SIZE * 0.6,
     borderRadius: 12,
-    backgroundColor: '#f9fafb',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "#f9fafb",
+    justifyContent: "center",
+    alignItems: "center",
     marginBottom: 12,
   },
   categoryImage: {
-    width: '80%',
-    height: '80%',
+    width: "80%",
+    height: "80%",
     borderRadius: 8,
   },
   categoryLabel: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#374151',
-    textAlign: 'center',
+    fontWeight: "600",
+    color: "#374151",
+    textAlign: "center",
     lineHeight: 18,
   },
 
   bottomSpacer: {
     height: 20,
   },
-  resultList: {
-  flex: 1,
-  backgroundColor: "#fff",
-},
-resultItem: {
-  flexDirection: "row",
-  alignItems: "center",
-  paddingVertical: 12,
-  borderBottomWidth: 1,
-  borderBottomColor: "#f3f4f6",
-},
-resultImage: {
-  width: 48,
-  height: 48,
-  borderRadius: 8,
-  marginRight: 12,
-},
-resultContent: {
-  flex: 1,
-},
-resultTitle: {
-  fontSize: 15,
-  color: "#111",
-  marginBottom: 4,
-},
-resultPrice: {
-  fontSize: 14,
-  color: "#059669",
-  fontWeight: "600",
-},
 });
