@@ -17,6 +17,7 @@ import PayCardModal from "../compomentPay/PayCardModal";
 import PayProductList from "../compomentPay/PayProductList";
 import PayStatusModal from "../compomentPay/PayStatusModal";
 import AddressModal from "./AddressModal";
+import StripeModal from "../compomentPay/StripeModal";
 
 // GHN credentials
 const GHN_TOKEN = "08749195-4da3-11f0-bf1c-e283f3defbd9";
@@ -29,6 +30,7 @@ const paymentMethods = [
   { key: "cod", label: "Thanh toán khi nhận hàng" },
   { key: "bank", label: "Thanh toán bằng thẻ ngân hàng" },
   { key: "vnpay", label: "Thanh toán qua VNPAY" },
+  { key: "stripe", label: "Thanh toán bằng Stripe" },
 ];
 
 function formatCurrency(num) {
@@ -50,6 +52,7 @@ export default function PayScreen() {
   const [selectedPayment, setSelectedPayment] = useState(paymentMethods[0].key);
   const [showCardModal, setShowCardModal] = useState(false);
   const [selectedCard, setSelectedCard] = useState(null);
+  const [showStripe, setShowStripe] = useState(false);
 
   const [provinces, setProvinces] = useState([]);
   const [districts, setDistricts] = useState([]);
@@ -64,6 +67,8 @@ export default function PayScreen() {
   const [isLoadingShipping, setIsLoadingShipping] = useState(false);
   const [showVnPayModal, setShowVnPayModal] = useState(false);
   const [vnpayData, setVnpayData] = useState(null);
+  const [orderId, setOrderId] = useState(null);
+  const [orderAmount, setOrderAmount] = useState(0);
 
   // Calculations
   const subtotal = products.reduce((sum, p) => sum + p.price * p.quantity, 0);
@@ -498,6 +503,13 @@ export default function PayScreen() {
         return;
       }
 
+      if (selectedPayment === "stripe") {
+        setOrderId(res.data.orderId);
+        setOrderAmount(total);
+        setShowStripe(true);
+        return;
+      }
+
       Toast.show({
         type: "success",
         text1: "Đặt hàng thành công!",
@@ -732,6 +744,37 @@ export default function PayScreen() {
         amount={vnpayData?.amount}
         orderInfo={vnpayData?.orderInfo}
         onClose={handleVnPayClose}
+      />
+
+      <StripeModal
+        visible={showStripe}
+        amount={orderAmount}
+        orderId={orderId}
+        onClose={(result) => {
+          setShowStripe(false);
+          if (result?.success) {
+            Toast.show({
+              type: "success",
+              text1: "Thanh toán thành công!",
+            });
+            router.push({
+              pathname: "/CheckoutSuccess",
+              params: {
+                orderId,
+                total: orderAmount,
+                products: JSON.stringify(products),
+                address: selectedAddress?.address || addressText,
+                paymentMethod: "stripe",
+              },
+            });
+          } else if (result?.message) {
+            Toast.show({
+              type: "error",
+              text1: "Thanh toán thất bại!",
+              text2: result.message,
+            });
+          }
+        }}
       />
 
       <PayStatusModal

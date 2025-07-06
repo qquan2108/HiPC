@@ -5,8 +5,8 @@ import { Platform } from 'react-native';
 
 const baseURL =
   Platform.OS === 'ios' || Platform.OS === 'android'
-    ? 'https://hipc-sever.onrender.com' // IP LAN cho thiết bị thật
-    : 'https://hipc-sever.onrender.com';      // Cho web hoặc máy tính
+    ? 'https://5996-2001-ee0-1b3d-207-61fe-682-add4-1ad.ngrok-free.app' // IP LAN cho thiết bị thật
+    : 'https://5996-2001-ee0-1b3d-207-61fe-682-add4-1ad.ngrok-free.app';      // Cho web hoặc máy tính
 
 // Tạo instance
 const axiosInstance = axios.create({

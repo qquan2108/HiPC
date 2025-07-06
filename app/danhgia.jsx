@@ -6,6 +6,7 @@ import {
   Alert,
   Animated,
   FlatList, Image,
+  KeyboardAvoidingView,
   Platform,
   ScrollView,
   StyleSheet,
@@ -416,17 +417,21 @@ export default function DanhGia() {
   );
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView
+      style={{ flex: 1, backgroundColor: '#fafbfc' }}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 24}
+    >
       <FlatList
         data={reviews}
         keyExtractor={item => item._id}
         ListHeaderComponent={renderHeader}
         renderItem={({ item }) => (
           <View style={[
-    styles.reviewCard,
-    (item.user_id?._id === user_id || item.user_id?.id === user_id || item.user_id === user_id) && 
-    styles.currentUserReview
-  ]}>
+            styles.reviewCard,
+            (item.user_id?._id === user_id || item.user_id?.id === user_id || item.user_id === user_id) && 
+            styles.currentUserReview
+          ]}>
             <View style={styles.reviewHeader}>
               <Image
                 source={product_image ? { uri: product_image } : require('../assets/images/pc1.png')}
@@ -456,8 +461,9 @@ export default function DanhGia() {
         )}
         contentContainerStyle={{ paddingBottom: 24 }}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       />
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 

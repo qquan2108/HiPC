@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator, StyleSheet, ScrollView, Alert } from 'react-native';
-import axiosInstance from '../utils/AxiosInstance';
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import axiosInstance from '../utils/AxiosInstance';
 
 const ORDER_STEPS = [
   { key: 'pending', label: 'Chờ xác nhận' },
@@ -17,20 +17,6 @@ const ORDER_STEPS = [
   { key: 'cancelled', label: 'Đã huỷ' },
 ];
 
-const STATUS_TRANSITIONS = {
-  pending: ['confirmed', 'cancelled'],
-  confirmed: ['packed', 'cancelled'],
-  packed: ['picked', 'cancelled'],
-  picked: ['shipping', 'cancelled'],
-  shipping: ['delivered', 'cancelled'],
-  delivered: ['return_requested'],
-  return_requested: ['return_approved'],
-  return_approved: ['refunding'],
-  refunding: ['refunded'],
-  refunded: [],
-  cancelled: [],
-};
-
 const STEP_ICONS = {
   pending: 'clock',
   confirmed: 'check-circle',
@@ -45,11 +31,11 @@ const STEP_ICONS = {
   refunded: 'cash',
 };
 
-export default function OrderStatusStepper({ orderId, initialStatus, onStatusChange }) {
+export default function OrderStatusStepper({ orderId, initialStatus, onStatusChange, isUser = true }) {
   const [currentStatus, setCurrentStatus] = useState(initialStatus);
   const [statusHistory, setStatusHistory] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [nextStatuses, setNextStatuses] = useState([]);
+  const [isStockReturned, setIsStockReturned] = useState(false);
 
   useEffect(() => {
     let ignore = false;
@@ -59,26 +45,51 @@ export default function OrderStatusStepper({ orderId, initialStatus, onStatusCha
         if (ignore) return;
         setCurrentStatus(res.data.status);
         setStatusHistory(res.data.statusHistory || []);
-        setNextStatuses(STATUS_TRANSITIONS[res.data.status] || []);
+        setIsStockReturned(res.data.isStockReturned || false);
       })
       .catch(() => {})
       .finally(() => setLoading(false));
     return () => { ignore = true; };
   }, [orderId]);
 
-  const handleChangeStatus = async (newStatus) => {
+  // Hàm gọi API hoàn kho
+  const handleReturnStock = async () => {
     setLoading(true);
     try {
-      await axiosInstance.put(`/orders/${orderId}/status`, { status: newStatus });
-      setCurrentStatus(newStatus);
-      setStatusHistory(h => [...h, { status: newStatus, changedAt: new Date() }]);
-      setNextStatuses(STATUS_TRANSITIONS[newStatus] || []);
-      onStatusChange && onStatusChange(newStatus);
-      Alert.alert('Thành công', 'Cập nhật trạng thái thành công!');
+      await axiosInstance.put(`/orders/${orderId}/cancel`);
+      setIsStockReturned(true);
+      Alert.alert('Thành công', res.data.message || 'Đã hoàn lại kho!');
     } catch (err) {
-      Alert.alert('Lỗi', err?.response?.data?.error || 'Lỗi cập nhật trạng thái');
+      Alert.alert('Lỗi', err?.response?.data?.error || 'Lỗi hoàn kho');
     }
     setLoading(false);
+  };
+
+  // Hàm gọi API hủy đơn hàng
+  const handleCancelOrder = async () => {
+    Alert.alert(
+      'Xác nhận',
+      'Bạn có chắc muốn hủy đơn hàng này?',
+      [
+        { text: 'Không' },
+        {
+          text: 'Hủy đơn',
+          style: 'destructive',
+          onPress: async () => {
+            setLoading(true);
+            try {
+              await axiosInstance.put(`/orders/${orderId}/cancel`);
+              setCurrentStatus('cancelled');
+              Alert.alert('Thành công', 'Đơn hàng đã được hủy.');
+              if (onStatusChange) onStatusChange('cancelled'); // Gọi callback để reload danh sách
+            } catch (err) {
+              Alert.alert('Lỗi', err?.response?.data?.error || 'Không thể hủy đơn hàng');
+            }
+            setLoading(false);
+          }
+        }
+      ]
+    );
   };
 
   const stepIndex = ORDER_STEPS.findIndex(s => s.key === currentStatus);
@@ -132,22 +143,28 @@ export default function OrderStatusStepper({ orderId, initialStatus, onStatusCha
           </Text>
         ))}
       </View>
-      {/* Chuyển trạng thái */}
-      {nextStatuses.length > 0 && (
-        <View style={{ flexDirection: 'row', marginTop: 10 }}>
-          <Text style={{ fontSize: 13, fontWeight: 'bold' }}>Chuyển trạng thái: </Text>
-          {nextStatuses.map(status => (
-            <TouchableOpacity
-              key={status}
-              style={[styles.statusBtn, loading && { opacity: 0.5 }]}
-              disabled={loading}
-              onPress={() => handleChangeStatus(status)}
-            >
-              <Text style={{ color: '#fff', fontWeight: 'bold' }}>
-                {ORDER_STEPS.find(s => s.key === status)?.label || status}
-              </Text>
-            </TouchableOpacity>
-          ))}
+      {/* Nút hoàn kho chỉ hiện khi đơn đã hủy, chưa hoàn kho, và là user
+      {isUser && currentStatus === 'cancelled' && !isStockReturned && (
+        <View style={{ marginTop: 16, alignItems: 'center' }}>
+          <TouchableOpacity
+            style={styles.statusBtn}
+            disabled={loading}
+            onPress={handleReturnStock}
+          >
+            <Text style={{ color: '#fff', fontWeight: 'bold' }}>Hoàn lại kho</Text>
+          </TouchableOpacity>
+        </View>
+      )} */}
+      {/* Nút hủy đơn hàng chỉ hiện khi đơn còn trong trạng thái chờ xác nhận hoặc chờ lấy hàng, và là user */}
+      {isUser && ['pending', 'confirmed'].includes(currentStatus) && (
+        <View style={{ marginTop: 16, alignItems: 'center' }}>
+          <TouchableOpacity
+            style={[styles.statusBtn, { backgroundColor: '#FF5252' }]}
+            disabled={loading}
+            onPress={handleCancelOrder}
+          >
+            <Text style={{ color: '#fff', fontWeight: 'bold' }}>Hủy đơn hàng</Text>
+          </TouchableOpacity>
         </View>
       )}
       {loading && <ActivityIndicator style={{ marginTop: 10 }} color="#1976FF" />}
@@ -173,7 +190,7 @@ const styles = StyleSheet.create({
     width: 24, height: 3, backgroundColor: '#eee'
   },
   statusBtn: {
-    backgroundColor: '#1976FF', paddingHorizontal: 12, paddingVertical: 6,
-    borderRadius: 6, marginLeft: 8
+    backgroundColor: '#1976FF', paddingHorizontal: 20, paddingVertical: 10,
+    borderRadius: 8, marginTop: 8
   }
 });

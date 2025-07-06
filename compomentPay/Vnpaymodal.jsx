@@ -1,14 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Modal, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Text, Modal, TouchableOpacity, ActivityIndicator, StyleSheet, Platform } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { Feather } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 import axiosInstance from '../utils/AxiosInstance';
 
-const RETURN_URL =
-  Constants.manifest?.extra?.vnpayReturnUrl ||
-  process.env.EXPO_PUBLIC_VNPAY_RETURNURL ||
-  process.env.VNPAY_RETURNURL;
+const RETURN_URL = 'hipc://vnpay_return'; // Phải giống hệt backend
 
 export default function VnPayModal({ visible, orderId, amount, orderInfo, onClose }) {
   const [paymentUrl, setPaymentUrl] = useState(null);
@@ -32,6 +29,7 @@ export default function VnPayModal({ visible, orderId, amount, orderInfo, onClos
 
   const onNavChange = ({ url }) => {
     if (RETURN_URL && url.startsWith(RETURN_URL)) {
+      console.log('VNPAY return url:', url); // Log để kiểm tra
       const match = url.match(/vnp_ResponseCode=([^&]+)/);
       const code = match ? match[1] : null;
       onClose({ success: code === '00', code });
@@ -46,10 +44,15 @@ export default function VnPayModal({ visible, orderId, amount, orderInfo, onClos
         </TouchableOpacity>
         <Text style={styles.title}>Thanh toán VNPAY</Text>
       </View>
-      {loading && <ActivityIndicator style={{ flex: 1 }} size='large' />}
-      {!loading && paymentUrl && (
+      {Platform.OS === 'web' ? (
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <Text>Thanh toán VNPAY không hỗ trợ trên nền tảng web.</Text>
+        </View>
+      ) : loading ? (
+        <ActivityIndicator style={{ flex: 1 }} size='large' />
+      ) : paymentUrl ? (
         <WebView source={{ uri: paymentUrl }} onNavigationStateChange={onNavChange} startInLoadingState />
-      )}
+      ) : null}
     </Modal>
   );
 }

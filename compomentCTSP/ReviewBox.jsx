@@ -1,10 +1,8 @@
-import React from "react";
-import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
-import { useRouter } from "expo-router";
 import { Feather } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useRouter } from "expo-router";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
-export default function ReviewBox({ product = {} }) {
 export default function ReviewBox({ product = {}}) {
   const router = useRouter();
   const handleViewAllReviews = async () => {

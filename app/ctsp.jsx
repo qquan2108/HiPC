@@ -14,6 +14,7 @@ import ProductPriceRow from '../compomentCTSP/ProductPriceRow';
 import ReviewBox from '../compomentCTSP/ReviewBox';
 import { SectionLiked, SectionPopular } from '../compomentCTSP/SectionBox';
 import SpecsBox from '../compomentCTSP/SpecsBox';
+import ProductDescription from '../compomentCTSP/Description';
 
 // Fetch product detail
 const fetchProductById = async (productId) => {
@@ -43,6 +44,7 @@ const fetchProductById = async (productId) => {
     id:       product._id,
     name:     product.name,
     price:    product.price,
+    description: product.description,
     oldPrice: product.price,
     images: Array.isArray(product.images) && product.images.length
       ? product.images.map((url) => ({ uri: url }))
@@ -259,6 +261,11 @@ const AddToCart = async prod => {
             {/* Buy With */}
             <BuyWithList data={product.buyWith} />
 
+            {/* ==== Mô tả sản phẩm (HTML) ==== */}
+            {product.description ? (
+              <ProductDescription htmlContent={product.description} />
+            ) : null}
+
             {/* Specs & Compare */}
             <SpecsBox specs={product.specs} onCompare={() => setCompareVisible(true)} />
 
@@ -280,6 +287,9 @@ const AddToCart = async prod => {
               <Text style={styles.sectionTitle}>Có thể bạn thích</Text>
               <SectionLiked data={allProducts.slice(3, 7)} />
             </View>
+
+            {/* Description */}
+           
           </>
         )}
       />
