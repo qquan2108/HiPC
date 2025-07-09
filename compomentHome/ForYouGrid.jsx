@@ -1,4 +1,5 @@
 import { AntDesign, Ionicons, MaterialIcons } from "@expo/vector-icons";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
   Dimensions,
@@ -8,7 +9,9 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import Toast from 'react-native-toast-message';
 import { useWishlist } from "../context/WishlistContext";
+import axiosInstance from "../utils/AxiosInstance";
 
 const { width } = Dimensions.get("window");
 
@@ -47,10 +50,22 @@ export default function ForYouGrid({
 
   const { wishlist, addToWishlist, removeFromWishlist } = useWishlist();
 
-  const handleAddToCart = (product) => {
-    if (!isLoggedIn) return onRequireLogin();
-    // Thêm vào giỏ hàng
-  };
+  const handleAddToCart = async (product) => {
+  if (!isLoggedIn) return onRequireLogin();
+  try {
+    const userStr = await AsyncStorage.getItem('user');
+    if (!userStr) {
+      Toast.show({ type:'error', text1:'Vui lòng đăng nhập để mua hàng!', position:'top' });
+      return router.push('/LoginScreen');
+    }
+    const userObj = JSON.parse(userStr);
+    const userId = userObj._id || userObj.id; // Ưu tiên _id
+    await axiosInstance.post('/orders/add-to-cart', { user_id: userId, productId: product.id, quantity: 1 });
+    Toast.show({ type:'success', text1:'Đã thêm vào giỏ hàng!', position:'bottom' });
+  } catch {
+    Toast.show({ type:'error', text1:'Thêm giỏ hàng thất bại!', position:'top' });
+  }
+};
 
   return (
     <View style={styles.container}>

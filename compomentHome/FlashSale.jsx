@@ -1,3 +1,6 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import Toast from 'react-native-toast-message';
+import axiosInstance from "../utils/AxiosInstance";
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Dimensions, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
@@ -6,10 +9,22 @@ const { width } = Dimensions.get('window');
 
 const FlashSale = ({ flashSale, renderDiscountBadge, renderHotBadge, isLoggedIn, onRequireLogin, router }) => {
   // Khi bấm nút thêm giỏ hàng
-  const handleAddToCart = (product) => {
-    if (!isLoggedIn) return onRequireLogin();
-    // Thực hiện thêm vào giỏ hàng
-  };
+  const handleAddToCart = async (product) => {
+  if (!isLoggedIn) return onRequireLogin();
+  try {
+    const userStr = await AsyncStorage.getItem('user');
+    if (!userStr) {
+      Toast.show({ type:'error', text1:'Vui lòng đăng nhập để mua hàng!', position:'top' });
+      return router.push('/LoginScreen');
+    }
+    const userObj = JSON.parse(userStr);
+    const userId = userObj._id || userObj.id; // Ưu tiên _id
+    await axiosInstance.post('/orders/add-to-cart', { user_id: userId, productId: product.id, quantity: 1 });
+    Toast.show({ type:'success', text1:'Đã thêm vào giỏ hàng!', position:'bottom' });
+  } catch {
+    Toast.show({ type:'error', text1:'Thêm giỏ hàng thất bại!', position:'top' });
+  }
+};
 
   const handleBuyNow = (product) => {
     if (!isLoggedIn) return onRequireLogin();
@@ -162,6 +177,7 @@ const FlashSale = ({ flashSale, renderDiscountBadge, renderHotBadge, isLoggedIn,
                   onPress={() => handleBuyNow(item)}
                   style={styles.buyNowButton}
                 >
+                  <Ionicons name="cart" size={16} color="#FFFFFF" />
                   <Text style={styles.buttonText}>Mua ngay</Text>
                 </TouchableOpacity>
               </View>
@@ -298,16 +314,18 @@ const styles = StyleSheet.create({
   },
   flashSaleCard: {
     width: 130,
+    height: 210, // Giới hạn chiều cao card, bạn có thể thử 190-220 tùy ý
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
     marginHorizontal: 4,
-    padding: 8,
+    padding: 6, // giảm padding
     position: 'relative',
     elevation: 6,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.15,
     shadowRadius: 6,
+    justifyContent: 'flex-start',
   },
   discountBadge: {
     position: 'absolute',
@@ -350,48 +368,53 @@ const styles = StyleSheet.create({
   },
   imageContainer: {
     backgroundColor: '#F8F9FA',
-    borderRadius: 12,
-    padding: 8,
-    marginTop: 8,
-    marginBottom: 8,
+    borderRadius: 10,
+    padding: 4, // giảm padding
+    marginTop: 4,
+    marginBottom: 4,
+    alignItems: 'center',
+    height: 60, // giảm chiều cao ảnh
+    justifyContent: 'center',
   },
   flashSaleImage: {
     width: '100%',
-    height: 70,
+    height: 50, // giảm chiều cao ảnh
     borderRadius: 8,
     resizeMode: 'contain',
   },
   productInfo: {
     flex: 1,
+    justifyContent: 'flex-start',
   },
   productNameSmall: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
     color: '#2D3436',
-    marginBottom: 6,
+    marginBottom: 2,
     textAlign: 'left',
-    lineHeight: 16,
+    lineHeight: 14,
+    minHeight: 28,
   },
   priceSection: {
-    marginTop: 4,
+    marginTop: 2,
   },
   priceRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 6,
+    marginBottom: 2,
   },
   productPriceSmall: {
     color: '#FF4757',
     fontWeight: '800',
-    fontSize: 14,
+    fontSize: 13,
   },
   originalPriceContainer: {
     position: 'relative',
     alignItems: 'center',
   },
   originalPriceSmall: {
-    fontSize: 10,
+    fontSize: 9,
     color: '#95A5A6',
     fontWeight: '500',
   },
@@ -404,7 +427,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#95A5A6',
   },
   soldContainer: {
-    marginTop: 4,
+    marginTop: 2,
   },
   progressBar: {
     height: 4,
@@ -418,7 +441,7 @@ const styles = StyleSheet.create({
     borderRadius: 2,
   },
   soldText: {
-    fontSize: 9,
+    fontSize: 8,
     color: '#74B9FF',
     fontWeight: '600',
     textAlign: 'center',
@@ -463,39 +486,35 @@ const styles = StyleSheet.create({
   buttonContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 8,
+    alignItems: 'center', // thêm dòng này
+    marginTop: 2,         // giảm margin
+    gap: 2,               // nếu dùng React Native >= 0.71, giúp nút không dính nhau
   },
   addToCartButton: {
     flex: 1,
     backgroundColor: '#FF6B6B',
-    borderRadius: 12,
-    paddingVertical: 8,
-    marginRight: 4,
+    borderRadius: 8,         // giảm radius
+    paddingVertical: 4,      // giảm padding
+    marginRight: 1,          // giảm margin
     alignItems: 'center',
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
+    elevation: 1,            // giảm shadow
+    minWidth: 0,             // đảm bảo không bị co giãn quá mức
   },
   buyNowButton: {
     flex: 1,
     backgroundColor: '#FFD700',
-    borderRadius: 12,
-    paddingVertical: 8,
-    marginLeft: 4,
+    borderRadius: 8,
+    paddingVertical: 4,
+    marginLeft: 1,
     alignItems: 'center',
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
+    elevation: 1,
+    minWidth: 0,
   },
   buttonText: {
     color: '#FFFFFF',
     fontWeight: '700',
-    fontSize: 12,
-    marginLeft: 4,
+    fontSize: 10,           // giảm font size
+    marginLeft: 2,
   },
 });
 

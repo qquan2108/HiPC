@@ -1,73 +1,69 @@
-import React from "react";
-import { View, Text, Image, TouchableOpacity, ScrollView, StyleSheet } from "react-native";
+import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 const CategoryList = ({ categories, router }) => (
-  <View style={styles.wrapper}>
-    <Text style={styles.title}>Danh mục</Text>
-    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-      {categories.map((cat, idx) => (
-        <TouchableOpacity
-          key={cat.key || idx}
-          style={styles.item}
-          activeOpacity={0.8}
-          onPress={() => router.push(`/DanhMucPC`)}
-        >
-          <View style={styles.iconWrapper}>
-            <Image
-              source={cat.icon}
-              style={styles.icon}
-              resizeMode="cover"
-            />
-          </View>
-          <Text style={styles.label} numberOfLines={1}>{cat.label}</Text>
-        </TouchableOpacity>
-      ))}
-    </ScrollView>
+  <View style={styles.grid}>
+    {categories.map((cat, idx) => (
+      <TouchableOpacity
+        key={cat.key}
+        style={styles.item}
+        activeOpacity={0.75}
+        onPress={() => {
+          if (cat.isMore) {
+            router.push("./DanhMucPC");
+          } else {
+            router.push({ pathname: "./DanhMucPC", params: { category: cat.label } });
+          }
+        }}
+      >
+        <View style={[
+          styles.iconWrap,
+          cat.isMore && { backgroundColor: "#eaf3ff" }
+        ]}>
+          <Image
+            source={cat.icon}
+            style={{ width: 34, height: 34, resizeMode: "contain" }}
+          />
+        </View>
+        <Text style={styles.label} numberOfLines={2}>{cat.label}</Text>
+      </TouchableOpacity>
+    ))}
   </View>
 );
 
 const styles = StyleSheet.create({
-  wrapper: {
-    marginVertical: 18,
-    paddingLeft: 10,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#222",
-    marginBottom: 10,
-    marginLeft: 4,
+  grid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginHorizontal: 6,
+    marginBottom: 2,
   },
   item: {
+    width: "23%",
     alignItems: "center",
-    marginRight: 18,
-    width: 80,
+    marginVertical: 10,
   },
-  iconWrapper: {
+  iconWrap: {
     width: 62,
     height: 62,
-    borderRadius: 18,
-    backgroundColor: "#fff",
-    elevation: 4,
-    shadowColor: "#4a90e2",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.13,
-    shadowRadius: 6,
-    marginBottom: 7,
-    justifyContent: "center",
+    borderRadius: 31,
+    backgroundColor: "#f3f6fa",
     alignItems: "center",
-  },
-  icon: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
+    justifyContent: "center",
+    marginBottom: 7,
+    shadowColor: "#000",
+    shadowOpacity: 0.07,
+    shadowRadius: 6,
+    elevation: 3,
   },
   label: {
-    fontSize: 14,
-    color: "#333",
+    fontSize: 13,
+    color: "#222",
     textAlign: "center",
-    width: 80,
+    marginTop: 2,
     fontWeight: "500",
+    letterSpacing: 0.1,
   },
 });
 

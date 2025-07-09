@@ -1,196 +1,469 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  FlatList, 
-  Image, 
-  TouchableOpacity, 
-  ScrollView,
-  Animated,
-  Platform
-} from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useEffect, useRef, useState } from 'react';
+import {
+  Alert,
+  Animated,
+  FlatList, Image,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
+} from 'react-native';
+import axiosInstance from '../utils/AxiosInstance';
 
-const reviews = [
-  {
-    id: '1',
-    user: 'thitit.ba',
-    avatar: require('../assets/images/pc1.png'),
-    rating: 5,
-    date: '20/05/2025',
-    comment: 'Sản phẩm chất lượng, đóng gói cẩn thận, giao hàng nhanh.',
-    images: [
-      require('../assets/images/pc1.png'),
-    ],
-    config: 'i5 12400F, RAM 16GB, SSD 512GB',
-  },
-  {
-    id: '2',
-    user: 'nguyenvana',
-    avatar: require('../assets/images/pc1.png'),
-    rating: 4,
-    date: '18/05/2025',
-    comment: 'Máy chạy ổn, tư vấn nhiệt tình, sẽ ủng hộ lần sau.',
-    images: [],
-    config: 'i5 13400F, RAM 32GB, SSD 1TB',
-  },
-  {
-    id: '3',
-    user: 'phamthib',
-    avatar: require('../assets/images/pc1.png'),
-    rating: 5,
-    date: '15/05/2025',
-    comment: 'Giá tốt, máy đẹp, đúng mô tả.',
-    images: [
-      require('../assets/images/pc1.png'),
-      require('../assets/images/pc1.png'),
-    ],
-    config: 'i5 12600KF, RAM 16GB, SSD 512GB',
-  },
-  {
-    id: '4',
-    user: 'lequangc',
-    avatar: require('../assets/images/pc1.png'),
-    rating: 3,
-    date: '10/05/2025',
-    comment: 'Sản phẩm ổn, giao hàng hơi chậm.',
-    images: [],
-    config: 'i5 14500, RAM 32GB, SSD 1TB',
-  },
-];
-
-function renderStars(star) {
-  let stars = '';
-  for (let i = 1; i <= 5; i++) {
-    stars += i <= star ? '★' : '☆';
-  }
-  return stars;
+function renderStars(star, onPress) {
+  return (
+    <View style={{ flexDirection: 'row', marginVertical: 6 }}>
+      {[1,2,3,4,5].map(i => (
+        <TouchableOpacity key={i} onPress={() => onPress && onPress(i)}>
+          <Text style={{ fontSize: 28, color: i <= star ? '#FFD700' : '#ccc', marginHorizontal: 2 }}>★</Text>
+        </TouchableOpacity>
+      ))}
+    </View>
+  );
 }
 
 export default function DanhGia() {
   const router = useRouter();
-  
+  const [edit, setEdit] = useState(false);
+  const {
+    product_id,
+    product_name,
+    product_image,
+    order_id,
+    user_id
+  } = useLocalSearchParams();
+
+  const [existingReview, setExistingReview] = useState(null);
+  const [isEditing, setIsEditing] = useState(false);
   // Animation values
   const headerFadeAnim = useRef(new Animated.Value(0)).current;
   const headerSlideAnim = useRef(new Animated.Value(-30)).current;
   const titleScaleAnim = useRef(new Animated.Value(0.9)).current;
 
+  // State cho đánh giá
+  const [star, setStar] = useState(5);
+  const [text, setText] = useState('');
+  const [reviews, setReviews] = useState([]);
+  const [images, setImages] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false); // Thêm state để tránh gửi nhiều lần
+
+  // Lấy danh sách đánh giá thật từ API
   useEffect(() => {
-    // Header entrance animation
+    if (!product_id) return; // Không gọi API nếu thiếu product_id
+    fetchReviews();
+    // Header animation
     Animated.sequence([
       Animated.parallel([
-        Animated.timing(headerFadeAnim, {
-          toValue: 1,
-          duration: 500,
-          useNativeDriver: true,
-        }),
-        Animated.timing(headerSlideAnim, {
-          toValue: 0,
-          duration: 400,
-          useNativeDriver: true,
-        }),
+        Animated.timing(headerFadeAnim, { toValue: 1, duration: 500, useNativeDriver: true }),
+        Animated.timing(headerSlideAnim, { toValue: 0, duration: 400, useNativeDriver: true }),
       ]),
-      Animated.spring(titleScaleAnim, {
-        toValue: 1,
-        tension: 120,
-        friction: 7,
-        useNativeDriver: true,
-      }),
+      Animated.spring(titleScaleAnim, { toValue: 1, tension: 120, friction: 7, useNativeDriver: true }),
     ]).start();
-  }, []);
+  }, [product_id]);
+
+  const fetchReviews = async () => {
+    try {
+      setLoading(true);
+      const res = await axiosInstance.get('/productreviews', {
+        params: { 
+          product_id, 
+           
+          order_id, 
+        } 
+      });
+      
+      setReviews(res.data || []);
+      
+      // Tìm đánh giá của user hiện tại
+      if (user_id) {
+      const userReview = res.data.find(review => 
+        (review.user_id?._id === user_id) || 
+        (review.user_id?.id === user_id) ||
+        (review.user_id === user_id)
+      );
+      
+      if (userReview) {
+        setExistingReview(userReview);
+        setStar(userReview.rating);
+        setText(userReview.comment);
+        setImages(userReview.images || []);
+        setIsEditing(true);
+      }
+    }
+  } catch (err) {
+    console.error('Error fetching reviews:', err);
+    setReviews([]);
+  } finally {
+    setLoading(false);
+  }
+};
+
+  // Cập nhật hàm submitReview
+  const submitReview = async () => {
+    if (submitting) return;
+    
+    if (!text.trim()) {
+      Alert.alert('Lỗi', 'Vui lòng nhập nội dung đánh giá!');
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      
+      const payload = {
+        product_id: product_id.toString(),
+        user_id: user_id.toString(),
+        comment: text.trim(),
+        rating: Number(star),
+        images: images || []
+      };
+
+      if (order_id) {
+        payload.order_id = order_id.toString();
+      }
+
+      const response = await axiosInstance.post('/productreviews', payload);
+      
+      Alert.alert(
+        'Thành công', 
+        isEditing ? 'Đã cập nhật đánh giá!' : 'Đã gửi đánh giá!'
+      );
+      
+      await fetchReviews(); // Tải lại danh sách
+      setIsEditing(true); // Chuyển sang chế độ chỉnh sửa
+
+    } catch (error) {
+      console.error('Error submitting review:', error);
+      Alert.alert(
+        'Lỗi', 
+        error.response?.data?.error || 'Không gửi được đánh giá!'
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const selectImageFromLibrary = async () => {
+    try {
+      // launch the image library
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        quality: 0.8, // Giảm chất lượng để tránh file quá lớn
+        allowsEditing: true, // Cho phép chỉnh sửa
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const uri = result.assets[0].uri;
+        console.log('Selected image URI:', uri); // Debug log
+        
+        const uploadedUrl = await uploadImage(uri);
+        console.log('Uploaded URL:', uploadedUrl); // Debug log
+        
+        setImages(prev => [...prev, uploadedUrl]);
+      }
+    } catch (error) {
+      console.error('Library pick error:', error);
+      Alert.alert('Lỗi', 'Không thể tải ảnh từ thư viện');
+    }
+  };
+
+  // helper: take a new picture
+  const takePicture = async () => {
+    try {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Quyền truy cập bị từ chối', 'Cần quyền sử dụng camera');
+        return;
+      }
+      
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        quality: 0.8, // Giảm chất lượng
+        allowsEditing: true,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const uri = result.assets[0].uri;
+        console.log('Camera image URI:', uri); // Debug log
+        
+        const uploadedUrl = await uploadImage(uri);
+        console.log('Uploaded URL:', uploadedUrl); // Debug log
+        
+        setImages(prev => [...prev, uploadedUrl]);
+      }
+    } catch (error) {
+      console.error('Camera error:', error);
+      Alert.alert('Lỗi', 'Không thể chụp ảnh');
+    }
+  };
+
+  // Chọn ảnh từ thư viện
+  const pickImage = async () => {
+  if (!edit) {
+    setEdit(true);
+  }
+  console.log('pickImage called');
+  
+  try {
+    // Kiểm tra quyền truy cập thư viện ảnh.
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert(
+        'Quyền truy cập bị từ chối',
+        'Cần quyền truy cập để chọn hình ảnh.'
+      );
+      return;
+    }
+
+    // Hiển thị tùy chọn: chọn ảnh từ thư viện hoặc chụp ảnh.
+    Alert.alert(
+      'Chọn ảnh',
+      'Bạn muốn chọn ảnh từ đâu?',
+      [
+        { text: 'Hủy', style: 'cancel' },
+        { text: 'Thư viện', onPress: selectImageFromLibrary },
+        { text: 'Chụp ảnh', onPress: takePicture },
+      ]
+    );
+  } catch (error) {
+    console.error('Pick image error:', error);
+    Alert.alert('Lỗi', 'Không thể chọn ảnh.');
+  }
+};
+
+
+  const uploadImage = async (uri) => {
+    try {
+      console.log('Uploading image from URI:', uri); // Debug log
+      
+      const filename = uri.split('/').pop() || `image_${Date.now()}.jpg`;
+      const match = /\.(\w+)$/.exec(filename);
+      const type = match ? `image/${match[1]}` : 'image/jpeg';
+
+      const formData = new FormData();
+      formData.append('file', {
+        uri: Platform.OS === 'android' ? uri : uri.replace('file://', ''),
+        name: filename,
+        type: type,
+      });
+
+      console.log('FormData created:', formData); // Debug log
+
+      const res = await axiosInstance.post('/users/upload', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+        timeout: 30000, // 30 seconds timeout
+      });
+
+      console.log('Upload response:', res.data); // Debug log
+
+      if (!res.data.url) {
+        throw new Error('Server không trả về URL ảnh');
+      }
+
+      return res.data.url;
+    } catch (error) {
+      console.error('Upload image error:', error);
+      
+      if (error.response) {
+        console.error('Upload error response:', error.response.data);
+      }
+      
+      throw new Error('Không thể tải ảnh lên server');
+    }
+  };
+
+  // Xóa ảnh khỏi danh sách
+  const removeImage = (index) => {
+    setImages(prev => prev.filter((_, i) => i !== index));
+  };
 
   // Tính điểm trung bình
-  const avgRating = (
-    reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
-  ).toFixed(1);
+  const avgRating = reviews.length
+    ? (reviews.reduce((sum, r) => sum + (r.rating || 0), 0) / reviews.length).toFixed(1)
+    : '0.0';
 
-  return (
-    <View style={styles.container}>
-      {/* MODERN ANIMATED HEADER */}
+  // Header + form đánh giá
+  const renderHeader = () => (
+    <>
+      {/* HEADER */}
       <Animated.View 
         style={[
           styles.modernReviewHeader,
-          {
-            opacity: headerFadeAnim,
-            transform: [{ translateY: headerSlideAnim }]
-          }
+          { opacity: headerFadeAnim, transform: [{ translateY: headerSlideAnim }] }
         ]}
       >
-        {/* Premium Background */}
         <View style={styles.premiumBackground} />
-        
-        {/* Header Content */}
         <View style={styles.reviewHeaderContent}>
-          <TouchableOpacity 
-            style={styles.elegantBackButton}
-            onPress={() => router.back()}
-            activeOpacity={0.8}
-          >
+          <TouchableOpacity style={styles.elegantBackButton} onPress={() => router.back()} activeOpacity={0.8}>
             <View style={styles.backButtonGlow}>
               <Feather name="arrow-left" size={22} color="#fff" />
             </View>
           </TouchableOpacity>
-          
-          <Animated.View 
-            style={[
-              styles.titleSection,
-              { transform: [{ scale: titleScaleAnim }] }
-            ]}
-          >
-            <Text style={styles.elegantTitle}>Product Reviews</Text>
+          <Animated.View style={[styles.titleSection, { transform: [{ scale: titleScaleAnim }] }]}>
+            <Text style={styles.elegantTitle}>Đánh giá sản phẩm</Text>
             <View style={styles.titleAccent} />
+            <Text style={{ color: '#fff', marginTop: 4, fontSize: 13 }}>{product_name}</Text>
           </Animated.View>
-          
           <View style={styles.ratingBadge}>
             <Text style={styles.badgeRating}>{avgRating}</Text>
             <Text style={styles.badgeStar}>★</Text>
           </View>
         </View>
-        
-        {/* Floating Elements */}
         <View style={styles.floatingElement1} />
         <View style={styles.floatingElement2} />
         <View style={styles.floatingElement3} />
       </Animated.View>
 
-      <ScrollView>
-        <View style={styles.summaryBox}>
-          <Text style={styles.avgRating}>{avgRating}</Text>
-          <Text style={styles.stars}>{renderStars(Math.round(avgRating))}</Text>
-          <Text style={styles.totalReviews}>{reviews.length} đánh giá</Text>
-        </View>
-
-        <FlatList
-          data={reviews}
-          keyExtractor={item => item.id}
-          renderItem={({ item }) => (
-            <View style={styles.reviewCard}>
-              <View style={styles.reviewHeader}>
-                <Image source={item.avatar} style={styles.avatar} />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.user}>{item.user}</Text>
-                  <Text style={styles.starsSmall}>{renderStars(item.rating)}</Text>
-                </View>
-                <Text style={styles.date}>{item.date}</Text>
-              </View>
-              <Text style={styles.config}>{item.config}</Text>
-              <Text style={styles.comment}>{item.comment}</Text>
-              {item.images.length > 0 && (
-                <View style={styles.imagesRow}>
-                  {item.images.map((img, idx) => (
-                    <Image key={idx} source={img} style={styles.reviewImg} />
-                  ))}
-                </View>
-              )}
-            </View>
-          )}
-          contentContainerStyle={{ paddingBottom: 24 }}
-          scrollEnabled={false}
+      {/* FORM ĐÁNH GIÁ */}
+      <View style={styles.summaryBox}>
+        <Text style={{ fontWeight: 'bold', fontSize: 16, marginBottom: 6 }}>
+          {isEditing ? 'Chỉnh sửa đánh giá của bạn' : 'Đánh giá của bạn'}
+        </Text>
+        {isEditing && (
+          <Text style={{ color: '#4CAF50', marginBottom: 8 }}>
+            Bạn đã đánh giá sản phẩm này
+          </Text>
+        )}
+        {renderStars(star, setStar)}
+        <TextInput
+          style={{
+            borderWidth: 1, borderColor: '#ddd', borderRadius: 8,
+            padding: 8, width: '100%', marginBottom: 10, minHeight: 60, backgroundColor: '#fafbfc'
+          }}
+          placeholder="Nhập đánh giá của bạn..."
+          multiline
+          value={text}
+          onChangeText={setText}
         />
-      </ScrollView>
-    </View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10, flexWrap: 'wrap' }}>
+          <TouchableOpacity
+            style={{
+              backgroundColor: '#eee',
+              borderRadius: 8,
+              paddingVertical: 8,
+              paddingHorizontal: 16,
+              marginRight: 10,
+              marginBottom: 6,
+              borderWidth: 1,
+              borderColor: '#ccc'
+            }}
+            onPress={pickImage}
+          >
+            <Text style={{ color: '#2979ff', fontWeight: 'bold' }}>+ Ảnh</Text>
+          </TouchableOpacity>
+          {images.map((uri, idx) => (
+            <View key={idx} style={{ position: 'relative', marginRight: 6, marginBottom: 6 }}>
+              <Image
+                source={{ uri }}
+                style={{ width: 40, height: 40, borderRadius: 6 }}
+              />
+              <TouchableOpacity
+                style={{
+                  position: 'absolute',
+                  top: -5,
+                  right: -5,
+                  backgroundColor: 'red',
+                  borderRadius: 10,
+                  width: 20,
+                  height: 20,
+                  justifyContent: 'center',
+                  alignItems: 'center'
+                }}
+                onPress={() => removeImage(idx)}
+              >
+                <Text style={{ color: 'white', fontSize: 12, fontWeight: 'bold' }}>×</Text>
+              </TouchableOpacity>
+            </View>
+          ))}
+        </View>
+        <TouchableOpacity
+          style={{
+            backgroundColor: submitting ? '#ccc' : '#2979ff',
+            borderRadius: 8,
+            paddingVertical: 10,
+            paddingHorizontal: 24,
+            marginBottom: 8,
+            alignSelf: 'center'
+          }}
+          onPress={submitReview}
+          disabled={submitting}
+        >
+          <Text style={{ color: '#fff', fontWeight: 'bold' }}>
+            {submitting ? 'Đang xử lý...' : isEditing ? 'Cập nhật đánh giá' : 'Gửi đánh giá'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* TỔNG QUAN ĐÁNH GIÁ */}
+      <View style={styles.summaryBox}>
+        <Text style={styles.avgRating}>{avgRating}</Text>
+        <Text style={styles.stars}>{renderStars(Math.round(avgRating))}</Text>
+        <Text style={styles.totalReviews}>{reviews.length} đánh giá</Text>
+      </View>
+      {loading && (
+        <Text style={{ textAlign: 'center', marginTop: 10 }}>Đang tải đánh giá...</Text>
+      )}
+    </>
+  );
+
+  return (
+    <KeyboardAvoidingView
+      style={{ flex: 1, backgroundColor: '#fafbfc' }}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 24}
+    >
+      <FlatList
+        data={reviews}
+        keyExtractor={item => item._id}
+        ListHeaderComponent={renderHeader}
+        renderItem={({ item }) => (
+          <View style={[
+            styles.reviewCard,
+            (item.user_id?._id === user_id || item.user_id?.id === user_id || item.user_id === user_id) && 
+            styles.currentUserReview
+          ]}>
+            <View style={styles.reviewHeader}>
+              <Image
+                source={product_image ? { uri: product_image } : require('../assets/images/pc1.png')}
+                style={styles.avatar}
+              />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.user}>
+                  {item.user_id && item.user_id.full_name ? item.user_id.full_name : 'Ẩn danh'}
+                </Text>
+                <Text style={styles.starsSmall}>{renderStars(item.rating)}</Text>
+              </View>
+              <Text style={styles.date}>{item.created_at ? new Date(item.created_at).toLocaleDateString('vi-VN') : ''}</Text>
+            </View>
+            <Text style={styles.comment}>{item.comment}</Text>
+            {item.images && item.images.length > 0 && (
+              <View style={styles.imagesRow}>
+                {item.images.map((img, idx) => (
+                  <Image
+                    key={idx}
+                    source={{ uri: img }}
+                    style={styles.reviewImg}
+                  />
+                ))}
+              </View>
+            )}
+          </View>
+        )}
+        contentContainerStyle={{ paddingBottom: 24 }}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      />
+    </KeyboardAvoidingView>
   );
 }
 
@@ -448,4 +721,18 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#e0e0e0',
   },
+  currentUserReview: {
+    borderColor: '#2979ff',
+    borderWidth: 1,
+    backgroundColor: '#f5f9ff'
+  },
+  yourReviewBadge: {
+    backgroundColor: '#2979ff',
+    color: 'white',
+    padding: 4,
+    borderRadius: 4,
+    alignSelf: 'flex-start',
+    marginTop: 8,
+    fontSize: 12
+  }
 });

@@ -8,7 +8,7 @@ export default function ProductPriceRow({ price, oldPrice, onLike }) {
       <Text style={styles.productPrice}>{price}</Text>
       <Text style={styles.productOldPrice}>{oldPrice}</Text>
       <TouchableOpacity style={{ marginLeft: 8 }} onPress={onLike}>
-        <Feather name="heart" size={25} color="#f55858" />
+        <Feather name="heart" size={24} color="#f55858" />
       </TouchableOpacity>
     </View>
   );

@@ -1,631 +1,663 @@
-// Searchscreen.jsx
-import React, { useState, useCallback, useEffect, useRef } from "react";
+// SearchScreen.jsx
+import React, { useState, useCallback, useEffect } from "react";
 import {
   View,
   Text,
   StyleSheet,
   TextInput,
-  FlatList,
   ScrollView,
   TouchableOpacity,
   Dimensions,
-  Animated,
   StatusBar,
-  Platform,
   Image,
+  FlatList,
+  Animated,
+  Platform,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
-import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
-import { useRouter } from "expo-router";
+import { LinearGradient } from "expo-linear-gradient";
+import { BlurView } from "expo-blur";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import SearchChip from "../compomentSearch/SearchChip";
-import SuggestionChip from "../compomentSearch/SuggestionChip";
-import ProductCard from "../compomentSearch/ProductCard";
-import CustomTabBar from "../compomentSearch/CustomTabBar";
 import axiosInstance from "../utils/AxiosInstance";
+import CustomTabBar from "../compomentHome/CustomTabBar";
 
 const { width, height } = Dimensions.get("window");
-
-const searchHistoryInit = ["PC chơi game", "Ram"];
-const suggestions = ["PC", "SSD", "RAM", "VGA", "Mainboard"];
-
-// Splash Screen Component
-const SplashScreen = ({ onFinish }) => {
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const scaleAnim = useRef(new Animated.Value(0.3)).current;
-  const slideAnim = useRef(new Animated.Value(50)).current;
-
-  useEffect(() => {
-    const animationSequence = Animated.sequence([
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 800,
-          useNativeDriver: true,
-        }),
-        Animated.spring(scaleAnim, {
-          toValue: 1,
-          tension: 50,
-          friction: 3,
-          useNativeDriver: true,
-        }),
-        Animated.timing(slideAnim, {
-          toValue: 0,
-          duration: 600,
-          useNativeDriver: true,
-        }),
-      ]),
-      Animated.delay(1200),
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 0,
-          duration: 400,
-          useNativeDriver: true,
-        }),
-        Animated.timing(scaleAnim, {
-          toValue: 1.1,
-          duration: 400,
-          useNativeDriver: true,
-        }),
-      ]),
-    ]);
-
-    animationSequence.start(() => {
-      setTimeout(onFinish, 100);
-    });
-  }, []);
-
-  return (
-    <View style={styles.splashContainer}>
-      <LinearGradient
-        colors={['#667eea', '#764ba2', '#f093fb']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.splashGradient}
-      >
-        <Animated.View
-          style={[
-            styles.splashContent,
-            {
-              opacity: fadeAnim,
-              transform: [
-                { scale: scaleAnim },
-                { translateY: slideAnim }
-              ],
-            },
-          ]}
-        >
-          <View style={styles.logoContainer}>
-            <LinearGradient
-              colors={['#ffffff', '#f8fafc']}
-              style={styles.logoCircle}
-            >
-              <Feather name="search" size={40} color="#667eea" />
-            </LinearGradient>
-          </View>
-          <Text style={styles.splashTitle}>Tìm Kiếm AI</Text>
-          <Text style={styles.splashSubtitle}>Khám phá công nghệ tương lai</Text>
-        </Animated.View>
-      </LinearGradient>
-    </View>
-  );
-};
+const NUM_COLUMNS = 2;
+const ITEM_SIZE = (width - 60) / NUM_COLUMNS - 8;
 
 export default function SearchScreen() {
   const [search, setSearch] = useState("");
-  const [searchHistory, setSearchHistory] = useState(searchHistoryInit);
+  const [searchHistory, setSearchHistory] = useState([]);
   const [products, setProducts] = useState([]);
   const [filteredProducts, setFilteredProducts] = useState([]);
-  const [showSplash, setShowSplash] = useState(true);
-  const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [showProductDropdown, setShowProductDropdown] = useState(false);
+  const [categories, setCategories] = useState([]);
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const [fadeAnim] = useState(new Animated.Value(0));
+  const [slideAnim] = useState(new Animated.Value(50));
+  const { id } = useLocalSearchParams();
+
   const router = useRouter();
 
-  // Animation refs
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(30)).current;
-  const searchScaleAnim = useRef(new Animated.Value(1)).current;
-  const headerOpacity = useRef(new Animated.Value(0)).current;
-
-  // Load sản phẩm từ API
+  // Animation on mount
   useEffect(() => {
-    axiosInstance.get("/product")
-      .then(res => {
-        const mapped = res.data.map(p => ({
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 600,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
+
+  // Load products + categories + images
+  useEffect(() => {
+    // products
+    axiosInstance
+      .get("/product")
+      .then((res) => {
+        const arr = Array.isArray(res.data.products) ? res.data.products : [];
+        const mapped = arr.map((p) => ({
           ...p,
           id: p._id,
           name: p.name,
           price: p.price,
-          image: p.image ? { uri: p.image } : require("../assets/images/pc1.png"),
+          image: p.image
+            ? { uri: p.image }
+            : require("../assets/images/pc1.png"),
         }));
         setProducts(mapped);
         setFilteredProducts(mapped);
       })
       .catch(() => setProducts([]));
+
+    // categories + icons
+    Promise.all([axiosInstance.get("/category"), axiosInstance.get("/images")])
+      .then(([catRes, imgRes]) => {
+        const imgs = imgRes.data;
+        const cats = catRes.data.map((cat) => {
+          const found = imgs.find((i) => i.category_id?._id === cat._id);
+          return {
+            _id: cat._id,
+            name: cat.name,
+            icon: found
+              ? { uri: found.url }
+              : require("../assets/images/pc.png"),
+          };
+        });
+        setCategories(cats);
+      })
+      .catch(() => setCategories([]));
   }, []);
 
-  // Khi search thay đổi, tự động lọc (dành cho typing)
+  // typing filter
   useEffect(() => {
     if (!search) {
       setFilteredProducts(products);
     } else {
-      const keyword = search.toLowerCase();
+      const kw = search.toLowerCase();
       setFilteredProducts(
-        products.filter(
-          p =>
-            p.name?.toLowerCase().includes(keyword) ||
-            (p.desc && p.desc.toLowerCase().includes(keyword))
-        )
+        products.filter((p) => p.name.toLowerCase().includes(kw))
       );
     }
   }, [search, products]);
 
-  // Hiệu ứng khi Splash kết thúc
-  useEffect(() => {
-    if (!showSplash) {
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 600,
-          useNativeDriver: true,
-        }),
-        Animated.timing(slideAnim, {
-          toValue: 0,
-          duration: 600,
-          useNativeDriver: true,
-        }),
-        Animated.timing(headerOpacity, {
-          toValue: 1,
-          duration: 800,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    }
-  }, [showSplash]);
-
-  // Xử lý khi nhấn submit trên bàn phím
   const handleSearchSubmit = useCallback(() => {
     if (search && !searchHistory.includes(search)) {
-      setSearchHistory([search, ...searchHistory]);
+      setSearchHistory([search, ...searchHistory.slice(0, 9)]); // Limit to 10 items
     }
-    const keyword = search.trim().toLowerCase();
+    const kw = search.trim().toLowerCase();
     setFilteredProducts(
-      products.filter(
-        p =>
-          p.name?.toLowerCase().includes(keyword) ||
-          (p.desc && p.desc.toLowerCase().includes(keyword))
-      )
+      products.filter((p) => p.name.toLowerCase().includes(kw))
     );
-    Animated.sequence([
-      Animated.timing(searchScaleAnim, {
-        toValue: 0.95,
-        duration: 100,
-        useNativeDriver: true,
-      }),
-      Animated.timing(searchScaleAnim, {
-        toValue: 1,
-        duration: 100,
-        useNativeDriver: true,
-      }),
-    ]).start();
+    setIsSearchFocused(false);
   }, [search, searchHistory, products]);
 
-  // Xóa 1 mục lịch sử
   const handleRemoveHistory = useCallback(
-    (item) => {
-      setSearchHistory(searchHistory.filter(h => h !== item));
-    },
-    [searchHistory]
+    (item) => setSearchHistory((h) => h.filter((x) => x !== item)),
+    []
   );
 
-  // Xóa hết lịch sử
-  const handleClearHistory = useCallback(() => {
-    setSearchHistory([]);
-  }, []);
+  const handleClearHistory = useCallback(() => setSearchHistory([]), []);
 
-  // Nhấn vào ô gõ tìm kiếm
-  const handleSearchFocus = () => {
-    setIsSearchFocused(true);
-    setShowProductDropdown(true);
-    Animated.timing(searchScaleAnim, {
-      toValue: 1.02,
-      duration: 200,
-      useNativeDriver: true,
-    }).start();
-  };
+  const handleHistoryPress = useCallback(
+    (item) => {
+      setSearch(item);
+      setFilteredProducts(
+        products.filter((p) =>
+          p.name.toLowerCase().includes(item.toLowerCase())
+        )
+      );
+      setIsSearchFocused(false);
+    },
+    [products]
+  );
 
-  const handleSearchBlur = () => {
+  // Fix: Handle product press with proper navigation
+  const handleProductPress = useCallback(async (item) => {
+    console.log("Product pressed:", item.id, typeof item.id);
+    
+    // Clear search and hide dropdown first
+    setSearch("");
     setIsSearchFocused(false);
-    // setShowProductDropdown(false); // Nếu muốn ẩn khi blur
-    Animated.timing(searchScaleAnim, {
-      toValue: 1,
-      duration: 200,
-      useNativeDriver: true,
-    }).start();
-  };
-
-  // Nhấn vào 1 item lịch sử
-  const handleHistoryPress = useCallback((item) => {
-    setSearch(item);
-    const keyword = item.toLowerCase();
-    setFilteredProducts(
-      products.filter(
-        p =>
-          p.name?.toLowerCase().includes(keyword) ||
-          (p.desc && p.desc.toLowerCase().includes(keyword))
-      )
-    );
-  }, [products]);
-
-  // Nhấn vào 1 suggestion
-  const handleSuggestionPress = useCallback((item) => {
-    setSearch(item);
-    const keyword = item.toLowerCase();
-    setFilteredProducts(
-      products.filter(
-        p =>
-          p.name?.toLowerCase().includes(keyword) ||
-          (p.desc && p.desc.toLowerCase().includes(keyword))
-      )
-    );
-    if (!searchHistory.includes(item)) {
-      setSearchHistory([item, ...searchHistory]);
+    
+    // Navigate to product details
+    // Make sure the id is properly formatted
+    const productId = item.id || item._id;
+    if (productId) {
+      try {
+        // Use setTimeout to ensure state updates complete first
+        setTimeout(() => {
+console.log("Navigating to:", `/ctsp?id=${productId}`);
+    router.push(`/ctsp?id=${productId}`);
+        }, 100);
+      } catch (error) {
+        console.error("Navigation error:", error);
+        // Fallback navigation method
+        setTimeout(() => {
+          router.push({
+            pathname: "/ctsp/[id]",
+            params: { id: productId }
+          });
+        }, 100);
+      }
+    } else {
+      console.error("Product ID not found:", item);
     }
-  }, [products, searchHistory]);
+  }, [router]);
 
-  useEffect(() => {
-    if (search.length === 0) setShowProductDropdown(false);
-    else setShowProductDropdown(true);
-  }, [search]);
+  useEffect(
+    () => setShowProductDropdown(!!search && isSearchFocused),
+    [search, isSearchFocused]
+  );
 
-  if (showSplash) {
-    return <SplashScreen onFinish={() => setShowSplash(false)} />;
-  }
+  const renderCategory = ({ item, index }) => (
+    <Animated.View
+      style={[
+        styles.categoryContainer,
+        {
+          opacity: fadeAnim,
+          transform: [
+            {
+              translateY: slideAnim.interpolate({
+                inputRange: [0, 50],
+                outputRange: [0, index * 10],
+              }),
+            },
+          ],
+        },
+      ]}
+    >
+      <TouchableOpacity
+        style={styles.categoryCard}
+        onPress={() =>
+          router.push({ pathname: "/DanhMucPC", params: { id: item._id } })
+        }
+        activeOpacity={0.7}
+      >
+        <View style={styles.categoryImageContainer}>
+          <Image
+            source={item.icon}
+            style={styles.categoryImage}
+            resizeMode="cover"
+          />
+        </View>
+        <Text style={styles.categoryLabel} numberOfLines={2}>
+          {item.name}
+        </Text>
+      </TouchableOpacity>
+    </Animated.View>
+  );
+
+  const renderPopularSearch = ({ item }) => (
+    <TouchableOpacity
+      style={styles.popularSearchItem}
+      onPress={() => handleHistoryPress(item)}
+    >
+      <Feather name="trending-up" size={16} color="#6366f1" />
+      <Text style={styles.popularSearchText}>{item}</Text>
+    </TouchableOpacity>
+  );
+
+  const popularSearches = [
+    "Laptop Gaming",
+    "iPhone",
+    "MacBook",
+    "Gaming PC",
+    "Tai nghe",
+  ];
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
 
-      {/* Header Gradient */}
-      <LinearGradient
-        colors={['#667eea', '#764ba2']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-        style={styles.headerGradient}
-      >
-        <Animated.View style={[styles.header, { opacity: headerOpacity }]}>
-          <View style={styles.headerContent}>
-            <Text style={styles.headerTitle}>Khám phá</Text>
-            <Text style={styles.headerSubtitle}>Tìm kiếm sản phẩm công nghệ</Text>
-          </View>
-          <TouchableOpacity style={styles.profileButton}>
-            <LinearGradient
-              colors={['rgba(255,255,255,0.2)', 'rgba(255,255,255,0.1)']}
-              style={styles.profileGradient}
+      {/* Modern Header */}
+      <View style={styles.header}>
+        <View style={styles.headerContent}>
+          <Text style={styles.headerTitle}>Khám phá</Text>
+          <Text style={styles.headerSubtitle}>
+            Tìm kiếm sản phẩm công nghệ tốt nhất
+          </Text>
+        </View>
+        <TouchableOpacity style={styles.profileButton}>
+          <Feather name="user" size={24} color="#6366f1" />
+        </TouchableOpacity>
+      </View>
+
+      {/* Enhanced Search Bar */}
+      <View style={styles.searchSection}>
+        <View
+          style={[
+            styles.searchContainer,
+            isSearchFocused && styles.searchContainerFocused,
+          ]}
+        >
+          <Feather
+            name="search"
+            size={20}
+            color="#9ca3af"
+            style={styles.searchIcon}
+          />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Tìm kiếm sản phẩm, thương hiệu..."
+            value={search}
+            onChangeText={setSearch}
+            onSubmitEditing={handleSearchSubmit}
+            onFocus={() => setIsSearchFocused(true)}
+            onBlur={() => {
+              // Delay hiding results to allow for touch events
+              setTimeout(() => setIsSearchFocused(false), 300);
+            }}
+            placeholderTextColor="#9ca3af"
+          />
+          {search ? (
+            <TouchableOpacity
+              onPress={() => setSearch("")}
+              style={styles.clearButton}
             >
-              <Feather name="user" size={20} color="#fff" />
-            </LinearGradient>
-          </TouchableOpacity>
-        </Animated.View>
-      </LinearGradient>
+              <Feather name="x" size={18} color="#6b7280" />
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity style={styles.filterButton}>
+              <Feather name="sliders" size={18} color="#6366f1" />
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
 
-      {/* Search Box */}
-      <Animated.View
-        style={[
-          styles.searchContainer,
-          {
-            opacity: fadeAnim,
-            transform: [
-              { translateY: slideAnim },
-              { scale: searchScaleAnim }
-            ],
-          },
-        ]}
-      >
-        <BlurView intensity={20} tint="light" style={styles.searchBlur}>
-          <LinearGradient
-            colors={['rgba(255,255,255,0.9)', 'rgba(255,255,255,0.7)']}
-            style={styles.searchGradient}
-          >
-            <View style={styles.searchInputBox}>
-              <Feather name="search" size={20} color="#667eea" style={styles.searchIcon} />
-              <TextInput
-                style={styles.searchInput}
-                placeholder="Tìm kiếm sản phẩm công nghệ..."
-                value={search}
-                onChangeText={setSearch}
-                onSubmitEditing={handleSearchSubmit}
-                onFocus={handleSearchFocus}
-                onBlur={handleSearchBlur}
-                placeholderTextColor="#8B5CF6"
-              />
-              {search.length > 0 && (
-                <TouchableOpacity onPress={() => setSearch("")} style={styles.clearButton}>
-                  <Feather name="x" size={16} color="#8B5CF6" />
-                </TouchableOpacity>
-              )}
-            </View>
-          </LinearGradient>
-        </BlurView>
-      </Animated.View>
-
-      {/* Product Dropdown */}
-      {showProductDropdown && search.length > 0 && (
-        <View style={{
-          position: 'absolute',
-          top: 110, // điều chỉnh theo vị trí search box
-          left: 20,
-          right: 20,
-          backgroundColor: '#fff',
-          borderRadius: 12,
-          maxHeight: 340,
-          zIndex: 100,
-          elevation: 20,
-          shadowColor: '#000',
-          shadowOpacity: 0.15,
-          shadowRadius: 12,
-          shadowOffset: { width: 0, height: 4 },
-          paddingVertical: 4,
-        }}>
-          <ScrollView>
-            {products.map((item) => (
+      {/* Search Results Overlay - Fixed */}
+      {search.length > 0 && isSearchFocused && (
+        <View style={styles.searchOverlay}>
+          <FlatList
+            data={filteredProducts}
+            keyExtractor={(item) => String(item.id || item._id)}
+            renderItem={({ item }) => (
               <TouchableOpacity
-                key={item.id}
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  paddingVertical: 10,
-                  paddingHorizontal: 12,
-                  borderBottomWidth: 1,
-                  borderBottomColor: '#f1f1f1',
-                  gap: 12,
-                }}
-                onPress={() => {
-                  setShowProductDropdown(false);
-                  setSearch('');
-                  router.push({ pathname: '/ctsp', params: { id: item.id } });
-                }}
+                style={styles.resultItem}
+                onPress={() => handleProductPress(item)}
+                activeOpacity={0.7}
+                delayPressIn={0}
+                delayPressOut={0}
               >
-                <View style={{
-                  width: 48, height: 48, borderRadius: 8, overflow: 'hidden',
-                  backgroundColor: '#f3f4f6', justifyContent: 'center', alignItems: 'center',
-                  marginRight: 10,
-                }}>
-                  <Image
-                    source={item.image}
-                    style={{ width: 48, height: 48, borderRadius: 8 }}
-                    resizeMode="cover"
-                  />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text numberOfLines={1} style={{ fontSize: 15, fontWeight: '600', color: '#222' }}>
+                <Image source={item.image} style={styles.resultImage} />
+                <View style={styles.resultContent}>
+                  <Text numberOfLines={1} style={styles.resultTitle}>
                     {item.name}
                   </Text>
-                  <Text numberOfLines={1} style={{ color: '#888', fontSize: 13 }}>
-                    {item.desc || item.category?.name || ''}
+                  <Text style={styles.resultPrice}>
+                    {item.price?.toLocaleString("vi-VN")}₫
                   </Text>
                 </View>
-                <Text style={{ color: '#2979ff', fontWeight: 'bold', fontSize: 15, marginLeft: 8 }}>
-                  {item.price?.toLocaleString()}₫
-                </Text>
               </TouchableOpacity>
-            ))}
-          </ScrollView>
+            )}
+            showsVerticalScrollIndicator={false}
+            style={styles.resultList}
+            contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 8 }}
+            ListEmptyComponent={
+              <View style={styles.noResultsContainer}>
+                <Text style={styles.noResultsText}>Không tìm thấy sản phẩm</Text>
+                <Text style={styles.noResultsSubtext}>
+                  Thử tìm kiếm với từ khóa khác
+                </Text>
+              </View>
+            }
+            keyboardShouldPersistTaps="handled"
+          />
         </View>
       )}
 
-      {/* Main Content */}
-      <Animated.View
-        style={[
-          styles.mainContent,
-          {
-            opacity: fadeAnim,
-            transform: [{ translateY: slideAnim }],
-          },
-        ]}
+      <ScrollView
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
       >
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scrollContent}
-        >
-          {/* Lịch sử tìm kiếm */}
-          <View style={styles.section}>
+        {/* Search History Section */}
+        {searchHistory.length > 0 && (
+          <Animated.View style={[styles.section, { opacity: fadeAnim }]}>
             <View style={styles.sectionHeader}>
-              <View style={styles.sectionTitleContainer}>
-                <LinearGradient
-                  colors={['#667eea', '#764ba2']}
-                  style={styles.sectionIcon}
-                >
-                  <Feather name="clock" size={16} color="#fff" />
-                </LinearGradient>
-                <Text style={styles.sectionTitle}>Lịch sử tìm kiếm</Text>
-              </View>
-              {searchHistory.length > 0 && (
-                <TouchableOpacity onPress={handleClearHistory} style={styles.clearHistoryButton}>
-                  <LinearGradient
-                    colors={['#ff6b6b', '#ff8e8e']}
-                    style={styles.clearButtonGradient}
-                  >
-                    <Feather name="trash-2" size={14} color="#fff" />
-                  </LinearGradient>
-                </TouchableOpacity>
-              )}
-            </View>
-            <View style={styles.chipContainer}>
-              {searchHistory.map((item, idx) => (
-                <Animated.View
-                  key={item}
-                  style={[
-                    styles.chipWrapper,
-                    {
-                      opacity: fadeAnim,
-                      transform: [{
-                        translateY: slideAnim.interpolate({
-                          inputRange: [0, 30],
-                          outputRange: [0, 30 + idx * 10],
-                        })
-                      }],
-                    },
-                  ]}
-                >
-                  <SearchChip
-                    item={item}
-                    onRemove={handleRemoveHistory}
-                    onPress={handleHistoryPress}
-                  />
-                </Animated.View>
-              ))}
-            </View>
-          </View>
-
-          {/* Gợi ý xu hướng */}
-          <View style={styles.section}>
-            <View style={styles.sectionTitleContainer}>
-              <LinearGradient
-                colors={['#764ba2', '#f093fb']}
-                style={styles.sectionIcon}
+              <Text style={styles.sectionTitle}>Tìm kiếm gần đây</Text>
+              <TouchableOpacity
+                onPress={handleClearHistory}
+                style={styles.clearAllButton}
               >
-                <Feather name="trending-up" size={16} color="#fff" />
-              </LinearGradient>
-              <Text style={styles.sectionTitle}>Xu hướng tìm kiếm</Text>
+                <Text style={styles.clearAllText}>Xóa tất cả</Text>
+              </TouchableOpacity>
             </View>
-            <View style={styles.chipContainer}>
-              {suggestions.map((item, idx) => (
-                <Animated.View
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.historyScroll}
+            >
+              {searchHistory.map((item) => (
+                <SearchChip
                   key={item}
-                  style={[
-                    styles.chipWrapper,
-                    {
-                      opacity: fadeAnim,
-                      transform: [{
-                        translateY: slideAnim.interpolate({
-                          inputRange: [0, 30],
-                          outputRange: [0, 20 + idx * 8],
-                        })
-                      }],
-                    },
-                  ]}
-                >
-                  <SuggestionChip
-                    item={item}
-                    onPress={handleSuggestionPress}
-                  />
-                </Animated.View>
+                  item={item}
+                  onRemove={() => handleRemoveHistory(item)}
+                  onPress={() => handleHistoryPress(item)}
+                />
               ))}
-            </View>
-          </View>
+            </ScrollView>
+          </Animated.View>
+        )}
 
-          {/* Sản phẩm */}
-          <View style={styles.section}>
-            <View style={styles.sectionTitleContainer}>
-              <LinearGradient
-                colors={['#f093fb', '#f5576c']}
-                style={styles.sectionIcon}
-              >
-                <Feather name="star" size={16} color="#fff" />
-              </LinearGradient>
-              <Text style={styles.sectionTitle}>Sản phẩm nổi bật</Text>
-            </View>
-            <FlatList
-              data={filteredProducts}
-              numColumns={2}
-              keyExtractor={item => item.id.toString()}
-              columnWrapperStyle={styles.productRow}
-              renderItem={({ item, index }) => (
-                <Animated.View
-                  style={[
-                    styles.productWrapper,
-                    {
-                      opacity: fadeAnim,
-                      transform: [{
-                        translateY: slideAnim.interpolate({
-                          inputRange: [0, 30],
-                          outputRange: [0, 40 + index * 15],
-                        })
-                      }],
-                    },
-                  ]}
-                >
-                  <ProductCard item={item} />
-                </Animated.View>
-              )}
-              scrollEnabled={false}
-              showsVerticalScrollIndicator={false}
-            />
-          </View>
-        </ScrollView>
-      </Animated.View>
+        {/* Popular Searches */}
+        <Animated.View style={[styles.section, { opacity: fadeAnim }]}>
+          <Text style={styles.sectionTitle}>Tìm kiếm phổ biến</Text>
+          <FlatList
+            data={popularSearches}
+            keyExtractor={(item) => item}
+            renderItem={renderPopularSearch}
+            scrollEnabled={false}
+            ItemSeparatorComponent={() => <View style={styles.separator} />}
+          />
+        </Animated.View>
 
-      <CustomTabBar />
+        {/* Categories Grid */}
+        <Animated.View style={[styles.section, { opacity: fadeAnim }]}>
+          <Text style={styles.sectionTitle}>Danh mục nổi bật</Text>
+          <FlatList
+            data={categories}
+            keyExtractor={(c) => c._id}
+            numColumns={NUM_COLUMNS}
+            renderItem={renderCategory}
+            scrollEnabled={false}
+            contentContainerStyle={styles.categoriesGrid}
+            ItemSeparatorComponent={() => <View style={{ height: 16 }} />}
+            columnWrapperStyle={styles.categoryRow}
+          />
+        </Animated.View>
+
+        {/* Bottom Spacer */}
+        <View style={styles.bottomSpacer} />
+      </ScrollView>
+
+      <CustomTabBar router={router} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8fafc' },
-  splashContainer: { flex: 1 },
-  splashGradient: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  splashContent: { alignItems: 'center' },
-  logoContainer: { marginBottom: 24 },
-  logoCircle: {
-    width: 100, height: 100, borderRadius: 50,
-    justifyContent: 'center', alignItems: 'center',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3, shadowRadius: 20, elevation: 10,
+  container: {
+    flex: 1,
+    backgroundColor: "#ffffff",
   },
-  splashTitle: {
-    fontSize: 32, fontWeight: '800', color: '#fff',
-    marginBottom: 8, textShadowColor: 'rgba(0,0,0,0.3)',
-    textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 4,
-  },
-  splashSubtitle: { fontSize: 16, color: 'rgba(255,255,255,0.8)', fontWeight: '500' },
 
-  headerGradient: {
-    paddingTop: Platform.OS === 'ios' ? 50 : StatusBar.currentHeight + 10,
+  // Header Styles
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingTop: Platform.OS === "ios" ? 50 : StatusBar.currentHeight + 10,
     paddingBottom: 20,
+    backgroundColor: "#ffffff",
   },
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20 },
-  headerContent: { flex: 1 },
-  headerTitle: { fontSize: 28, fontWeight: '800', color: '#fff', marginBottom: 2 },
-  headerSubtitle: { fontSize: 14, color: 'rgba(255,255,255,0.8)', fontWeight: '500' },
-  profileButton: { width: 44, height: 44, borderRadius: 22, overflow: 'hidden' },
-  profileGradient: {
-    flex: 1, justifyContent: 'center', alignItems: 'center',
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', borderRadius: 22,
+  headerContent: {
+    flex: 1,
+  },
+  headerTitle: {
+    fontSize: 32,
+    fontWeight: "800",
+    color: "#111827",
+    letterSpacing: -0.5,
+  },
+  headerSubtitle: {
+    fontSize: 16,
+    color: "#6b7280",
+    marginTop: 4,
+    fontWeight: "400",
+  },
+  profileButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "#f3f4f6",
+    justifyContent: "center",
+    alignItems: "center",
   },
 
+  // Search Styles
+  searchSection: {
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+    backgroundColor: "#ffffff",
+  },
   searchContainer: {
-    marginHorizontal: 20, marginTop: -25, marginBottom: 10,
-    borderRadius: 20, overflow: 'hidden',
-    shadowColor: '#667eea', shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3, shadowRadius: 20, elevation: 15,
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#f9fafb",
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+    paddingHorizontal: 16,
+    height: 52,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
-  searchBlur: { borderRadius: 20, overflow: 'hidden' },
-  searchGradient: {
-    borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)',
+  searchContainerFocused: {
+    borderColor: "#6366f1",
+    backgroundColor: "#ffffff",
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
   },
-  searchInputBox: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 16 },
-  searchIcon: { marginRight: 12 },
-  searchInput: { flex: 1, fontSize: 16, color: '#1f2937', fontWeight: '500' },
+  searchIcon: {
+    marginRight: 12,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    color: "#111827",
+    fontWeight: "500",
+  },
   clearButton: {
-    padding: 4, borderRadius: 12,
-    backgroundColor: 'rgba(139, 92, 246, 0.1)',
+    padding: 8,
+    borderRadius: 8,
+  },
+  filterButton: {
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: "#f3f4f6",
   },
 
-  mainContent: { flex: 1 },
-  scrollContent: { paddingBottom: 120 },
+  // Search Overlay Styles - Fixed
+  searchOverlay: {
+    position: "absolute",
+    top: Platform.OS === "ios" ? 140 : 120, // Adjust based on header height
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "#ffffff",
+    zIndex: 1000,
+    borderTopWidth: 1,
+    borderTopColor: "#f3f4f6",
+  },
+  resultList: {
+    flex: 1,
+    backgroundColor: "#fff",
+  },
+  resultItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f3f4f6",
+  },
+  resultImage: {
+    width: 48,
+    height: 48,
+    borderRadius: 8,
+    marginRight: 12,
+    backgroundColor: "#f3f4f6",
+  },
+  resultContent: {
+    flex: 1,
+  },
+  resultTitle: {
+    fontSize: 15,
+    color: "#111",
+    marginBottom: 4,
+    fontWeight: "500",
+  },
+  resultPrice: {
+    fontSize: 14,
+    color: "#059669",
+    fontWeight: "600",
+  },
+  noResultsContainer: {
+    alignItems: "center",
+    paddingVertical: 60,
+    paddingHorizontal: 20,
+  },
+  noResultsText: {
+    fontSize: 18,
+    color: "#374151",
+    fontWeight: "500",
+  },
+  noResultsSubtext: {
+    fontSize: 14,
+    color: "#6b7280",
+    marginTop: 4,
+    textAlign: "center",
+  },
 
-  section: { marginBottom: 32 },
-  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginHorizontal: 20, marginBottom: 16 },
-  sectionTitleContainer: { flexDirection: 'row', alignItems: 'center' },
-  sectionIcon: { width: 32, height: 32, borderRadius: 16, justifyContent: 'center', alignItems: 'center', marginRight: 12 },
-  sectionTitle: { fontSize: 20, fontWeight: '700', color: '#1f2937' },
-  clearHistoryButton: { borderRadius: 12, overflow: 'hidden' },
-  clearButtonGradient: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12 },
+  // Scroll Content
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 120,
+  },
 
-  chipContainer: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: 20, gap: 10 },
-  chipWrapper: { marginBottom: 4 },
+  // Section Styles
+  section: {
+    marginBottom: 32,
+    paddingHorizontal: 20,
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#111827",
+    letterSpacing: -0.3,
+  },
+  clearAllButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: "#f3f4f6",
+  },
+  clearAllText: {
+    fontSize: 14,
+    color: "#6b7280",
+    fontWeight: "500",
+  },
 
-  productRow: { justifyContent: 'space-between', marginHorizontal: 20, marginBottom: 16 },
-  productWrapper: { flex: 1, marginHorizontal: 4 },
+  // History Scroll
+  historyScroll: {
+    paddingRight: 20,
+  },
+
+  // Popular Search Items
+  popularSearchItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 4,
+  },
+  popularSearchText: {
+    fontSize: 16,
+    color: "#374151",
+    marginLeft: 12,
+    fontWeight: "500",
+  },
+  separator: {
+    height: 1,
+    backgroundColor: "#f3f4f6",
+    marginLeft: 32,
+  },
+
+  // Category Styles
+  categoriesGrid: {
+    paddingTop: 8,
+  },
+  categoryRow: {
+    justifyContent: "space-between",
+  },
+  categoryContainer: {
+    width: ITEM_SIZE,
+  },
+  categoryCard: {
+    backgroundColor: "#ffffff",
+    borderRadius: 16,
+    padding: 16,
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: "#f3f4f6",
+  },
+  categoryImageContainer: {
+    width: ITEM_SIZE * 0.6,
+    height: ITEM_SIZE * 0.6,
+    borderRadius: 12,
+    backgroundColor: "#f9fafb",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  categoryImage: {
+    width: "80%",
+    height: "80%",
+    borderRadius: 8,
+  },
+  categoryLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#374151",
+    textAlign: "center",
+    lineHeight: 18,
+  },
+
+  bottomSpacer: {
+    height: 20,
+  },
 });

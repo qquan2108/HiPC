@@ -1,10 +1,16 @@
 // utils/axiosInstance.js
-import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import axios from 'axios';
+import { Platform } from 'react-native';
+
+const baseURL =
+  Platform.OS === 'ios' || Platform.OS === 'android'
+    ? 'https://hipc-sever.onrender.com' // IP LAN cho thiết bị thật
+    : 'https://hipc-sever.onrender.com';      // Cho web hoặc máy tính
 
 // Tạo instance
 const axiosInstance = axios.create({
-  baseURL: 'http://localhost:3000', // Hoặc IP LAN nếu dùng thiết bị thật
+  baseURL,
   headers: {
     'Content-Type': 'application/json',
   },
