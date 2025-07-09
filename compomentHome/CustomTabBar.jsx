@@ -26,10 +26,10 @@ export default function CustomTabBar({ router }) {
 
         <TouchableOpacity
           style={styles.tabItemCustom}
-          onPress={() => router.push("/favorite")}
+          onPress={() => router.push("/livevideo")}
         >
-          <Feather name="heart" size={22} color="#4a90e2" />
-          <Text style={styles.tabLabel}>Yêu thích</Text>
+          <Feather name="youtube" size={22} color="#4a90e2" />
+          <Text style={styles.tabLabel}>Video Hot</Text>
         </TouchableOpacity>
 
         <View style={styles.tabCartWrapperCustom}>
