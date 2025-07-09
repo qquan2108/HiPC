@@ -1,3 +1,4 @@
+
 import { Feather } from '@expo/vector-icons';
 import { CardField, useStripe } from './stripeNativeWrapper.native';
 import { useEffect, useState } from 'react';
