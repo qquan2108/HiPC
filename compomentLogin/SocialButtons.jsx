@@ -13,6 +13,7 @@ import * as Google from 'expo-auth-session/providers/google';
 import * as AuthSession from 'expo-auth-session'; 
 import { GoogleAuthProvider, signInWithCredential } from 'firebase/auth';
 import { auth } from '../utils/firebase';
+import Toast from 'react-native-toast-message';
 import axiosInstance from '../utils/AxiosInstance';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -68,10 +69,30 @@ const SocialButtons = () => {
             }
           } catch (e) {
             console.log('Error saving user to API:', e);
+            Toast.show({
+              type: 'error',
+              text1: 'Lỗi đăng nhập',
+              text2: 'Không thể lưu thông tin người dùng',
+              position: 'top',
+            });
           }
           router.replace('/HomeScreen');
         })
-        .catch((err) => console.log(err));
+        .catch((err) => {
+          console.log(err);
+          Toast.show({
+            type: 'error',
+            text1: 'Đăng nhập Google thất bại',
+            text2: err.message || 'Vui lòng thử lại',
+            position: 'top',
+          });
+        });
+    } else if (response?.type === 'error') {
+      Toast.show({
+        type: 'error',
+        text1: 'Đăng nhập Google thất bại',
+        position: 'top',
+      });
     }
   }, [response]);
 
