@@ -1,20 +1,20 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import axiosInstance from '../utils/AxiosInstance';
 
 const ORDER_STEPS = [
-  { key: 'pending', label: 'Chờ xác nhận' },
-  { key: 'confirmed', label: 'Chờ lấy hàng' },
-  { key: 'packed', label: 'Đã đóng gói' },
-  { key: 'picked', label: 'Đã lấy hàng' },
-  { key: 'shipping', label: 'Đang giao' },
-  { key: 'delivered', label: 'Đã giao' },
-  { key: 'return_requested', label: 'Yêu cầu trả hàng' },
-  { key: 'return_approved', label: 'Duyệt trả' },
-  { key: 'refunding', label: 'Hoàn tiền' },
-  { key: 'refunded', label: 'Đã hoàn tiền' },
-  { key: 'cancelled', label: 'Đã huỷ' },
+  { key: 'pending', label: 'Chờ xác nhận', description: 'Đơn hàng đang chờ xác nhận' },
+  { key: 'confirmed', label: 'Chờ lấy hàng', description: 'Đơn hàng đã được xác nhận' },
+  { key: 'packed', label: 'Đã đóng gói', description: 'Đơn hàng đã được đóng gói' },
+  { key: 'picked', label: 'Đã lấy hàng', description: 'Đơn hàng đã được lấy' },
+  { key: 'shipping', label: 'Đang giao', description: 'Đơn hàng đang được giao' },
+  { key: 'delivered', label: 'Đã giao', description: 'Đơn hàng đã được giao thành công' },
+  { key: 'return_requested', label: 'Yêu cầu trả hàng', description: 'Đã yêu cầu trả hàng' },
+  { key: 'return_approved', label: 'Duyệt trả', description: 'Yêu cầu trả hàng đã được duyệt' },
+  { key: 'refunding', label: 'Hoàn tiền', description: 'Đang tiến hành hoàn tiền' },
+  { key: 'refunded', label: 'Đã hoàn tiền', description: 'Đã hoàn tiền thành công' },
+  { key: 'cancelled', label: 'Đã huỷ', description: 'Đơn hàng đã bị hủy' },
 ];
 
 const STEP_ICONS = {
@@ -29,6 +29,21 @@ const STEP_ICONS = {
   'return_approved': 'check',
   refunding: 'cash-refund',
   refunded: 'cash',
+};
+
+// Màu sắc cho từng trạng thái
+const STEP_COLORS = {
+  pending: '#FF9800',
+  confirmed: '#2196F3',
+  packed: '#9C27B0',
+  picked: '#673AB7',
+  shipping: '#00BCD4',
+  delivered: '#4CAF50',
+  cancelled: '#F44336',
+  'return_requested': '#FF5722',
+  'return_approved': '#3F51B5',
+  refunding: '#795548',
+  refunded: '#607D8B',
 };
 
 export default function OrderStatusStepper({ orderId, initialStatus, onStatusChange, isUser = true }) {
@@ -52,19 +67,6 @@ export default function OrderStatusStepper({ orderId, initialStatus, onStatusCha
     return () => { ignore = true; };
   }, [orderId]);
 
-  // Hàm gọi API hoàn kho
-  const handleReturnStock = async () => {
-    setLoading(true);
-    try {
-      await axiosInstance.put(`/orders/${orderId}/cancel`);
-      setIsStockReturned(true);
-      Alert.alert('Thành công', res.data.message || 'Đã hoàn lại kho!');
-    } catch (err) {
-      Alert.alert('Lỗi', err?.response?.data?.error || 'Lỗi hoàn kho');
-    }
-    setLoading(false);
-  };
-
   // Hàm gọi API hủy đơn hàng
   const handleCancelOrder = async () => {
     Alert.alert(
@@ -81,7 +83,7 @@ export default function OrderStatusStepper({ orderId, initialStatus, onStatusCha
               await axiosInstance.put(`/orders/${orderId}/cancel`);
               setCurrentStatus('cancelled');
               Alert.alert('Thành công', 'Đơn hàng đã được hủy.');
-              if (onStatusChange) onStatusChange('cancelled'); // Gọi callback để reload danh sách
+              if (onStatusChange) onStatusChange('cancelled');
             } catch (err) {
               Alert.alert('Lỗi', err?.response?.data?.error || 'Không thể hủy đơn hàng');
             }
@@ -92,105 +94,213 @@ export default function OrderStatusStepper({ orderId, initialStatus, onStatusCha
     );
   };
 
-  const stepIndex = ORDER_STEPS.findIndex(s => s.key === currentStatus);
+  // Lấy index của trạng thái hiện tại
+  const currentStepIndex = ORDER_STEPS.findIndex(s => s.key === currentStatus);
+  
+  // Lọc chỉ hiện các trạng thái đã qua và trạng thái hiện tại
+  const visibleSteps = ORDER_STEPS.slice(0, currentStepIndex + 1);
+
+  // Định dạng thời gian
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleString('vi-VN', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  // Lấy thời gian của trạng thái từ lịch sử
+  const getStatusTime = (statusKey) => {
+    const historyItem = statusHistory.find(h => h.status === statusKey);
+    return historyItem ? formatDate(historyItem.changedAt) : null;
+  };
 
   return (
-    <View style={{ marginVertical: 12 }}>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          {ORDER_STEPS.map((step, idx) => (
-            <React.Fragment key={step.key}>
-              <View style={[
-                styles.stepCircle,
-                idx < stepIndex && styles.stepCompleted,
-                idx === stepIndex && styles.stepActive
-              ]}>
-                <MaterialCommunityIcons
-                  name={STEP_ICONS[step.key] || 'checkbox-blank-circle-outline'}
-                  size={18}
-                  color={
-                    idx < stepIndex
-                      ? '#fff'
-                      : idx === stepIndex
-                      ? '#fff'
-                      : '#888'
-                  }
-                />
-              </View>
-              {idx < ORDER_STEPS.length - 1 && (
+    <View style={styles.container}>
+      <Text style={styles.title}>Trạng thái đơn hàng</Text>
+      
+      <View style={styles.stepContainer}>
+        {visibleSteps.map((step, index) => {
+          const isCompleted = index < currentStepIndex;
+          const isCurrent = index === currentStepIndex;
+          const stepColor = STEP_COLORS[step.key] || '#888';
+          const statusTime = getStatusTime(step.key);
+          
+          return (
+            <View key={step.key} style={styles.stepItem}>
+              {/* Timeline line */}
+              {index < visibleSteps.length - 1 && (
                 <View style={[
-                  styles.stepLine,
-                  idx < stepIndex ? styles.stepCompleted : {}
+                  styles.timelineLine,
+                  { backgroundColor: isCompleted ? stepColor : '#E0E0E0' }
                 ]} />
               )}
-            </React.Fragment>
-          ))}
-        </View>
-      </ScrollView>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 }}>
-        {ORDER_STEPS.map((step, idx) => (
-          <Text key={step.key} style={{ fontSize: 10, color: idx === stepIndex ? '#1976FF' : '#888', width: 60, textAlign: 'center' }}>
-            {step.label}
-          </Text>
-        ))}
+              
+              {/* Step content */}
+              <View style={styles.stepContent}>
+                {/* Icon circle */}
+                <View style={[
+                  styles.stepCircle,
+                  {
+                    backgroundColor: isCurrent || isCompleted ? stepColor : '#E0E0E0',
+                    borderColor: stepColor,
+                    borderWidth: isCurrent ? 3 : 1
+                  }
+                ]}>
+                  <MaterialCommunityIcons
+                    name={STEP_ICONS[step.key] || 'checkbox-blank-circle-outline'}
+                    size={isCurrent ? 22 : 18}
+                    color={isCurrent || isCompleted ? '#fff' : '#888'}
+                  />
+                </View>
+                
+                {/* Step info */}
+                <View style={styles.stepInfo}>
+                  <Text style={[
+                    styles.stepLabel,
+                    { 
+                      color: isCurrent ? stepColor : isCompleted ? '#333' : '#888',
+                      fontWeight: isCurrent ? 'bold' : 'normal'
+                    }
+                  ]}>
+                    {step.label}
+                  </Text>
+                  
+                  <Text style={[
+                    styles.stepDescription,
+                    { color: isCurrent ? '#666' : '#888' }
+                  ]}>
+                    {step.description}
+                  </Text>
+                  
+                  {/* Hiển thị thời gian nếu có */}
+                  {statusTime && (
+                    <Text style={styles.stepTime}>
+                      {statusTime}
+                    </Text>
+                  )}
+                </View>
+              </View>
+            </View>
+          );
+        })}
       </View>
-      {/* Lịch sử trạng thái */}
-      <View style={{ marginTop: 10 }}>
-        <Text style={{ fontWeight: 'bold', fontSize: 13 }}>Lịch sử trạng thái:</Text>
-        {statusHistory.map((h, i) => (
-          <Text key={i} style={{ fontSize: 12 }}>
-            {ORDER_STEPS.find(s => s.key === h.status)?.label || h.status} - {new Date(h.changedAt).toLocaleString('vi-VN')}
-          </Text>
-        ))}
-      </View>
-      {/* Nút hoàn kho chỉ hiện khi đơn đã hủy, chưa hoàn kho, và là user
-      {isUser && currentStatus === 'cancelled' && !isStockReturned && (
-        <View style={{ marginTop: 16, alignItems: 'center' }}>
-          <TouchableOpacity
-            style={styles.statusBtn}
-            disabled={loading}
-            onPress={handleReturnStock}
-          >
-            <Text style={{ color: '#fff', fontWeight: 'bold' }}>Hoàn lại kho</Text>
-          </TouchableOpacity>
-        </View>
-      )} */}
-      {/* Nút hủy đơn hàng chỉ hiện khi đơn còn trong trạng thái chờ xác nhận hoặc chờ lấy hàng, và là user */}
+
+      {/* Nút hủy đơn hàng */}
       {isUser && ['pending', 'confirmed'].includes(currentStatus) && (
-        <View style={{ marginTop: 16, alignItems: 'center' }}>
+        <View style={styles.buttonContainer}>
           <TouchableOpacity
-            style={[styles.statusBtn, { backgroundColor: '#FF5252' }]}
+            style={styles.cancelButton}
             disabled={loading}
             onPress={handleCancelOrder}
           >
-            <Text style={{ color: '#fff', fontWeight: 'bold' }}>Hủy đơn hàng</Text>
+            {loading ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <>
+                <MaterialCommunityIcons name="cancel" size={16} color="#fff" />
+                <Text style={styles.cancelButtonText}>Hủy đơn hàng</Text>
+              </>
+            )}
           </TouchableOpacity>
         </View>
       )}
-      {loading && <ActivityIndicator style={{ marginTop: 10 }} color="#1976FF" />}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  container: {
+    backgroundColor: '#f9f9f9',
+    borderRadius: 12,
+    padding: 16,
+    marginVertical: 8,
+  },
+  title: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  stepContainer: {
+    paddingLeft: 8,
+  },
+  stepItem: {
+    position: 'relative',
+    marginBottom: 0,
+  },
+  timelineLine: {
+    position: 'absolute',
+    left: 19,
+    top: 40,
+    width: 2,
+    height: 60,
+    backgroundColor: '#E0E0E0',
+    zIndex: 1,
+  },
+  stepContent: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingBottom: 20,
+    zIndex: 2,
+  },
   stepCircle: {
-    width: 28, height: 28, borderRadius: 14,
-    backgroundColor: '#eee', justifyContent: 'center', alignItems: 'center'
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
-  stepCompleted: {
-    backgroundColor: '#4CAF50'
+  stepInfo: {
+    flex: 1,
+    paddingTop: 2,
   },
-  stepActive: {
-    backgroundColor: '#1976FF'
+  stepLabel: {
+    fontSize: 15,
+    fontWeight: '600',
+    marginBottom: 4,
   },
-  stepText: {
-    fontWeight: 'bold', color: '#888'
+  stepDescription: {
+    fontSize: 13,
+    lineHeight: 18,
+    marginBottom: 4,
   },
-  stepLine: {
-    width: 24, height: 3, backgroundColor: '#eee'
+  stepTime: {
+    fontSize: 11,
+    color: '#666',
+    fontStyle: 'italic',
   },
-  statusBtn: {
-    backgroundColor: '#1976FF', paddingHorizontal: 20, paddingVertical: 10,
-    borderRadius: 8, marginTop: 8
-  }
+  buttonContainer: {
+    marginTop: 16,
+    alignItems: 'center',
+  },
+  cancelButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FF5252',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 25,
+    elevation: 2,
+    shadowColor: '#FF5252',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+  },
+  cancelButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    marginLeft: 8,
+    fontSize: 14,
+  },
 });

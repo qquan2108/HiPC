@@ -1,5 +1,5 @@
 import { Feather } from '@expo/vector-icons';
-import { CardField, useStripe } from '@stripe/stripe-react-native';
+import { CardField, useStripe } from './stripeNativeWrapper.native';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Modal, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import axiosInstance from '../utils/AxiosInstance';
