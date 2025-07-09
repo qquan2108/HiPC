@@ -2,6 +2,9 @@ import { AntDesign, Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { LinearGradient } from 'expo-linear-gradient';
 import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useWishlist } from "../context/WishlistContext";
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import Toast from 'react-native-toast-message';
+import axiosInstance from "../utils/AxiosInstance";
 
 export default function NewProducts({
   products,
@@ -51,10 +54,22 @@ export default function NewProducts({
     </LinearGradient>
   );
 
-  const handleAddToCart = (product) => {
-    if (!isLoggedIn) return onRequireLogin();
-    // Thực hiện thêm vào giỏ hàng
-  };
+  const handleAddToCart = async (product) => {
+  if (!isLoggedIn) return onRequireLogin();
+  try {
+    const userStr = await AsyncStorage.getItem('user');
+    if (!userStr) {
+      Toast.show({ type:'error', text1:'Vui lòng đăng nhập để mua hàng!', position:'top' });
+      return router.push('/LoginScreen');
+    }
+    const userObj = JSON.parse(userStr);
+    const userId = userObj._id || userObj.id; // Ưu tiên _id
+    await axiosInstance.post('/orders/add-to-cart', { user_id: userId, productId: product.id, quantity: 1 });
+    Toast.show({ type:'success', text1:'Đã thêm vào giỏ hàng!', position:'bottom' });
+  } catch {
+    Toast.show({ type:'error', text1:'Thêm giỏ hàng thất bại!', position:'top' });
+  }
+};
 
   return (
     <View style={styles.container}>
@@ -217,9 +232,7 @@ export default function NewProducts({
                   )}
 
                   {/* Installment Info */}
-                  <Text style={styles.installmentText}>
-                    Trả góp từ {Math.floor(product.price / 12).toLocaleString()}₫/tháng
-                  </Text>
+                  
                 </View>
 
                 {/* Action Button */}

@@ -1,14 +1,21 @@
-import React from "react";
-import { View, Text, Image, TouchableOpacity, StyleSheet } from "react-native";
 import { Feather } from "@expo/vector-icons";
+import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
-export default function CartProductList({ cart, onRemove, onQuantity, formatCurrency }) {
+export default function CartProductList({ cart, onRemove, onQuantity, formatCurrency, onToggleSelect, selectedIds }) {
   return (
     <View style={styles.cartBox}>
       {cart.map(item => (
-        <View key={item.id} style={styles.cartItem}>
-          <TouchableOpacity onPress={() => onRemove(item.id)} style={styles.cartRemoveBtn}>
-            <Feather name="trash-2" size={18} color="#f55858" />
+        <View key={item.id} style={styles.productRow}>
+          {/* Checkbox tròn */}
+          <TouchableOpacity
+            style={styles.checkbox}
+            onPress={() => onToggleSelect(item.id)}
+          >
+            <Feather
+              name={selectedIds.includes(item.id) ? "check-circle" : "circle"}
+              size={22}
+              color={selectedIds.includes(item.id) ? "#2979ff" : "#ccc"}
+            />
           </TouchableOpacity>
           <Image source={item.image} style={styles.cartImage} />
           <View style={{ flex: 1, marginLeft: 10 }}>
@@ -24,6 +31,14 @@ export default function CartProductList({ cart, onRemove, onQuantity, formatCurr
               </TouchableOpacity>
             </View>
           </View>
+          {/* Icon thùng rác mới, đặt bên phải */}
+          <TouchableOpacity
+            onPress={() => onRemove(item.id)}
+            style={styles.cartRemoveBtn}
+            activeOpacity={0.7}
+          >
+            <Feather name="trash-2" size={20} color="#f55858" />
+          </TouchableOpacity>
         </View>
       ))}
     </View>
@@ -43,7 +58,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     elevation: 2,
   },
-  cartItem: {
+  productRow: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 14,
@@ -52,22 +67,15 @@ const styles = StyleSheet.create({
     padding: 8,
     position: 'relative',
   },
-  cartRemoveBtn: {
-    position: 'absolute',
-    left: 6,
-    top: 6,
-    zIndex: 2,
-    backgroundColor: '#fff',
-    borderRadius: 16,
+  checkbox: {
+    marginRight: 10,
     padding: 4,
-    elevation: 2,
   },
   cartImage: {
     width: 56,
     height: 56,
     borderRadius: 12,
     backgroundColor: '#f3f3f3',
-    marginLeft: 32,
   },
   cartName: {
     fontWeight: 'bold',
@@ -98,5 +106,14 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     minWidth: 24,
     textAlign: 'center',
+  },
+  cartRemoveBtn: {
+    marginLeft: 10,
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    padding: 6,
+    elevation: 2,
+    alignItems: "center",
+    justifyContent: "center",
   },
 });

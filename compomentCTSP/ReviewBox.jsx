@@ -1,96 +1,118 @@
-import React from "react";
-import { View, Text, TouchableOpacity, Image, StyleSheet } from "react-native";
+import { Feather } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from "expo-router";
-export default function ReviewBox() {
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+
+export default function ReviewBox({ product = {}}) {
   const router = useRouter();
+  const handleViewAllReviews = async () => {
+    try {
+      // Lấy thông tin user từ AsyncStorage
+      const userStr = await AsyncStorage.getItem('user');
+      const user = userStr ? JSON.parse(userStr) : null;
+      
+      router.push({
+        pathname: '/danhgia',
+        params: {
+          product_id: product.id,
+          product_name: product.name,
+          product_image: product.image?.uri || product.images?.[0]?.uri || '',
+          user_id: user ? (user._id || user.id) : '', // Thêm user_id nếu có
+          order_id: '', // Có thể thêm order_id sau nếu cần
+        }
+      });
+    } catch (error) {
+      console.error('Error getting user info:', error);
+      // Nếu không lấy được user_id, vẫn chuyển trang nhưng sẽ yêu cầu đăng nhập khi gửi đánh giá
+      router.push({
+        pathname: '/danhgia',
+        params: {
+          product_id: product.id,
+          product_name: product.name,
+          product_image: product.image?.uri || product.images?.[0]?.uri || '',
+          user_id: '',
+          order_id: '',
+        }
+      });
+    }
+  };
   return (
-    <View style={styles.reviewBox}>
-      <Text style={styles.reviewLabel}>Đánh giá và nhận xét</Text>
-      <View style={styles.reviewRow}>
-        <Text style={styles.reviewStars}>★★★★★</Text>
-        <Text style={styles.reviewScore}>4.5</Text>
-        <Image
-          source={require("../assets/images/pc1.png")}
-          style={styles.reviewAvatar}
-        />
-        <Text style={styles.reviewUser}>thitit.ba</Text>
+    <View style={styles.reviewContainer}>
+      <View style={styles.reviewHeader}>
+        <Text style={styles.reviewTitle}>Đánh giá sản phẩm</Text>
+        <TouchableOpacity 
+          style={styles.viewAllButton}
+          onPress={handleViewAllReviews}
+        >
+          <Text style={styles.viewAllText}>Xem tất cả</Text>
+          <Feather name="chevron-right" size={18} color="#2979ff" />
+        </TouchableOpacity>
       </View>
-      <Text style={styles.reviewComment}>Sản phẩm chất lượng xứng đáng số tiền bỏ ra</Text>
-      <TouchableOpacity style={styles.reviewBtn}onPress={() => router.push("./danhgia")}>
-        <Text style={styles.reviewBtnText}>Xem tất cả đánh giá</Text>
-      </TouchableOpacity>
+      
+      <View style={styles.ratingSummary}>
+        <Text style={styles.ratingValue}>{product.rating?.toFixed(1) || '0.0'}</Text>
+        <View style={styles.starsContainer}>
+          {[1, 2, 3, 4, 5].map((i) => (
+            <Text 
+              key={i} 
+              style={{
+                fontSize: 20,
+                color: i <= Math.round(product.rating || 0) ? '#FFD700' : '#ccc'
+              }}
+            >
+              ★
+            </Text>
+          ))}
+        </View>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  reviewBox: {
+  reviewContainer: {
     backgroundColor: "#fff",
     borderRadius: 16,
     marginHorizontal: 12,
     marginBottom: 12,
-    padding: 12,
+    padding: 16,
     elevation: 2,
     shadowColor: "#000",
     shadowOpacity: 0.06,
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 2 },
   },
-  reviewLabel: {
-    fontWeight: "bold",
-    fontSize: 15,
-    color: "#222",
-    marginBottom: 8,
+  reviewHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
   },
-  reviewRow: {
+  reviewTitle: {
+    fontWeight: "bold",
+    fontSize: 16,
+    color: "#222",
+  },
+  viewAllButton: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 6,
-    justifyContent: "center",
   },
-  reviewStars: {
-    color: "#fbc02d",
-    fontSize: 18,
+  viewAllText: {
+    color: "#2979ff",
     marginRight: 4,
-  },
-  reviewScore: {
-    color: "#222",
-    fontWeight: "bold",
-    fontSize: 15,
-    marginRight: 8,
-  },
-  reviewAvatar: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    marginRight: 6,
-    backgroundColor: "#eee",
-    borderWidth: 1,
-    borderColor: "#e0e0e0",
-  },
-  reviewUser: {
-    color: "#222",
-    fontWeight: "bold",
     fontSize: 14,
   },
-  reviewComment: {
-    color: "#444",
-    fontSize: 13,
-    marginBottom: 6,
-    marginLeft: 2,
-    textAlign: "center",
-  },
-  reviewBtn: {
-    backgroundColor: "#2979ff",
-    borderRadius: 10,
-    paddingVertical: 10,
+  ratingSummary: {
+    flexDirection: "row",
     alignItems: "center",
-    marginTop: 6,
-    marginHorizontal: 40,
   },
-  reviewBtnText: {
-    color: "#fff",
+  ratingValue: {
+    fontSize: 24,
     fontWeight: "bold",
-    fontSize: 14,
+    color: "#FFA000",
+    marginRight: 12,
+  },
+  starsContainer: {
+    flexDirection: "row",
   },
 });
