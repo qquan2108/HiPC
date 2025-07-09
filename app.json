@@ -15,7 +15,8 @@
           "NSAllowsArbitraryLoads": true
         }
       },
-      "bundleIdentifier": "com.roadtogt.HiPC"
+      "bundleIdentifier": "com.roadtogt.HiPC",
+      "googleServicesFile": "./GoogleService-Info.plist"
     },
     "android": {
       "adaptiveIcon": {
@@ -23,7 +24,8 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.roadtogt.HiPC"
+      "package": "com.roadtogt.HiPC",
+      "googleServicesFile": "./google-services.json"
     },
     "web": {
       "bundler": "metro",
@@ -32,6 +34,7 @@
     },
     "plugins": [
       "expo-router",
+      "@react-native-google-signin/google-signin",
       [
         "expo-splash-screen",
         {

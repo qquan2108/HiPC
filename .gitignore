@@ -144,3 +144,5 @@ expo-env.d.ts
 repomix-output.xml
 /android
 /ios
+google-services.json
+GoogleService-Info.plist
