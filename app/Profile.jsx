@@ -188,17 +188,7 @@ export default function Profile() {
                 label: "Theo dõi đơn hàng",
                 onPress: () => router.push("./theodoidonhang"),
               },
-              {
-                icon: (
-                  <Ionicons
-                    name="lock-closed-outline"
-                    size={22}
-                    color="#1976ff"
-                  />
-                ),
-                label: "Chính sách bảo mật",
-                onPress: () => {},
-              },
+              
               {
                 icon: (
                   <Ionicons
@@ -211,16 +201,27 @@ export default function Profile() {
                 onPress: () => router.push("./VoucherList"),
               },
               {
-                icon: <Feather name="settings" size={22} color="#1976ff" />,
-                label: "Cài đặt",
-                onPress: () => {},
+                icon: <Feather name="youtube" size={22} color="#1976ff" />,
+                label: "Video",
+                onPress: () => router.push("./livevideo"),
               },
               {
                 icon: (
                   <Feather name="help-circle" size={22} color="#1976ff" />
                 ),
                 label: "Chăm sóc khách hàng",
-                onPress: () => {},
+                onPress: () => router.push("./danhmucall"),
+              },
+              {
+                icon: (
+                  <Ionicons
+                    name="lock-closed-outline"
+                    size={22}
+                    color="#1976ff"
+                  />
+                ),
+                label: "Chính sách bảo mật",
+                onPress: () => router.push("./"),
               },
               {
                 icon: <Feather name="log-out" size={22} color="#1976ff" />,

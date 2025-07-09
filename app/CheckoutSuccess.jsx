@@ -235,7 +235,11 @@ export default function CheckoutSuccess() {
         ]}
         pointerEvents="box-none"
       >
-        <TouchableOpacity
+
+
+      </Animated.View>
+      
+              <TouchableOpacity
           style={styles.primaryBtn}
           onPress={() => router.push("/theodoidonhang")}
           activeOpacity={0.85}
@@ -245,7 +249,7 @@ export default function CheckoutSuccess() {
             <Text style={styles.primaryBtnBlueText}>Theo dõi đơn hàng</Text>
           </View>
         </TouchableOpacity>
-        <TouchableOpacity
+                <TouchableOpacity
           style={styles.secondaryBtn}
           onPress={() => router.push("/HomeScreen")}
           activeOpacity={0.85}
@@ -253,7 +257,6 @@ export default function CheckoutSuccess() {
           <Feather name="home" size={20} color="#2563eb" style={{ marginRight: 8 }} />
           <Text style={styles.secondaryBtnText}>Về trang chủ</Text>
         </TouchableOpacity>
-      </Animated.View>
     </View>
   );
 }
