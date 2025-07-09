@@ -10,13 +10,14 @@ import {
 
 import * as WebBrowser from 'expo-web-browser';
 import * as Google from 'expo-auth-session/providers/google';
-import * as AuthSession from 'expo-auth-session'; 
+import * as AuthSession from 'expo-auth-session';
 import { GoogleAuthProvider, signInWithCredential } from 'firebase/auth';
 import { auth } from '../utils/firebase';
 import Toast from 'react-native-toast-message';
 import axiosInstance from '../utils/AxiosInstance';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -27,19 +28,21 @@ const socialIcons = {
 };
 
 const redirectUri = AuthSession.makeRedirectUri();
+
 console.log({ redirectUri });
 
 const SocialButtons = () => {
   const router = useRouter();
   const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
     expoClientId:
-      '625212493169-ptarfq8gddcsl2q9a6mf0ev7560et1d0.apps.googleusercontent.com',
+      '625212493169-k32b92lij17jprfvhhs89oii53b5p9dl.apps.googleusercontent.com',
     androidClientId:
-      '625212493169-ptarfq8gddcsl2q9a6mf0ev7560et1d0.apps.googleusercontent.com',
+      '625212493169-k32b92lij17jprfvhhs89oii53b5p9dl.apps.googleusercontent.com',
     iosClientId:
       '625212493169-ptarfq8gddcsl2q9a6mf0ev7560et1d0.apps.googleusercontent.com',
     webClientId:
-      '625212493169-ptarfq8gddcsl2q9a6mf0ev7560et1d0.apps.googleusercontent.com',
+      '625212493169-n08r2t6k0fnnkpm5bk1gm3e1tvk37hi6.apps.googleusercontent.com',
+      redirectUri,
     selectAccount: true,
   });
 
@@ -105,7 +108,7 @@ const SocialButtons = () => {
   return (
     <View style={styles.container}>
       {/* Premium Social Buttons with Labels */}
-      <TouchableOpacity 
+      <TouchableOpacity
         style={[styles.socialButton, styles.googleButton]}
         onPress={() => handleSocialLogin('Google')}
         activeOpacity={0.8}
@@ -117,7 +120,7 @@ const SocialButtons = () => {
         <Text style={styles.socialButtonText}>Tiếp tục với Google</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity 
+      <TouchableOpacity
         style={[styles.socialButton, styles.appleButton]}
         onPress={() => handleSocialLogin('Apple')}
         activeOpacity={0.8}
@@ -131,7 +134,7 @@ const SocialButtons = () => {
         </Text>
       </TouchableOpacity>
 
-      <TouchableOpacity 
+      <TouchableOpacity
         style={[styles.socialButton, styles.facebookButton]}
         onPress={() => handleSocialLogin('Facebook')}
         activeOpacity={0.8}
@@ -150,8 +153,8 @@ const SocialButtons = () => {
         <Text style={styles.compactLabel}>Hoặc chọn nhanh:</Text>
         <View style={styles.compactButtonsRow}>
           {Object.keys(socialIcons).map((platform, idx) => (
-            <TouchableOpacity 
-              key={idx} 
+            <TouchableOpacity
+              key={idx}
               style={styles.compactSocialButton}
               onPress={() => handleSocialLogin(platform)}
               activeOpacity={0.8}
