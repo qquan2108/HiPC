@@ -1059,10 +1059,10 @@
   resolved "https://registry.npmjs.org/@expo/metro-runtime/-/metro-runtime-5.0.4.tgz"
   integrity sha512-r694MeO+7Vi8IwOsDIDzH/Q5RPMt1kUDYbiTJwnO15nIqiDwlE8HU55UlRhffKZy6s5FmxQsZ8HA+T8DqUW8cQ==
 
-"@expo/ngrok-bin-linux-x64@2.3.41":
+"@expo/ngrok-bin-win32-x64@2.3.41":
   version "2.3.41"
-  resolved "https://registry.npmjs.org/@expo/ngrok-bin-linux-x64/-/ngrok-bin-linux-x64-2.3.41.tgz"
-  integrity sha512-LcU3MbYHv7Sn2eFz8Yzo2rXduufOvX1/hILSirwCkH+9G8PYzpwp2TeGqVWuO+EmvtBe6NEYwgdQjJjN6I4L1A==
+  resolved "https://registry.npmjs.org/@expo/ngrok-bin-win32-x64/-/ngrok-bin-win32-x64-2.3.41.tgz"
+  integrity sha512-mncsPRaG462LiYrM8mQT8OYe3/i44m3N/NzUeieYpGi8+pCOo8TIC23kR9P93CVkbM9mmXsy3X6hq91a8FWBdA==
 
 "@expo/ngrok-bin@2.3.42":
   version "2.3.42"
@@ -1927,6 +1927,11 @@
   dependencies:
     merge-options "^3.0.4"
 
+"@react-native-community/slider@^4.5.7":
+  version "4.5.7"
+  resolved "https://registry.npmjs.org/@react-native-community/slider/-/slider-4.5.7.tgz"
+  integrity sha512-WMDDZjNF2Bd8M8TrSqKf5xhM9ikdfCHtSPur64Ow3bB/OVrKufUQZ59NmYdNZNeGPvcHHTsafuYTY8zfZfbchQ==
+
 "@react-native-picker/picker@^2.11.0":
   version "2.11.0"
   resolved "https://registry.npmjs.org/@react-native-picker/picker/-/picker-2.11.0.tgz"
@@ -2161,6 +2166,18 @@
   integrity sha512-V4BG07kuYSUkTCSBHG8G8TNhM+F19jXFWnQtzj+we8DrkpSBCee9Z3Ms8yiGer/dlmhe35/Xdgyo3/0rQKg7YA==
   dependencies:
     "@sinonjs/commons" "^3.0.0"
+
+"@stripe/react-stripe-js@^3.7.0":
+  version "3.7.0"
+  resolved "https://registry.npmjs.org/@stripe/react-stripe-js/-/react-stripe-js-3.7.0.tgz"
+  integrity sha512-PYls/2S9l0FF+2n0wHaEJsEU8x7CmBagiH7zYOsxbBlLIHEsqUIQ4MlIAbV9Zg6xwT8jlYdlRIyBTHmO3yM7kQ==
+  dependencies:
+    prop-types "^15.7.2"
+
+"@stripe/stripe-js@^7.4.0", "@stripe/stripe-js@>=1.44.1 <8.0.0":
+  version "7.4.0"
+  resolved "https://registry.npmjs.org/@stripe/stripe-js/-/stripe-js-7.4.0.tgz"
+  integrity sha512-lQHQPfXPTBeh0XFjq6PqSBAyR7umwcJbvJhXV77uGCUDD6ymXJU/f2164ydLMLCCceNuPlbV9b+1smx98efwWQ==
 
 "@stripe/stripe-react-native@^0.49.0":
   version "0.49.0"
@@ -2414,15 +2431,10 @@
     "@typescript-eslint/types" "8.32.1"
     eslint-visitor-keys "^4.2.0"
 
-"@unrs/resolver-binding-linux-x64-gnu@1.7.2":
+"@unrs/resolver-binding-win32-x64-msvc@1.7.2":
   version "1.7.2"
-  resolved "https://registry.npmjs.org/@unrs/resolver-binding-linux-x64-gnu/-/resolver-binding-linux-x64-gnu-1.7.2.tgz"
-  integrity sha512-dEidzJDubxxhUCBJ/SHSMJD/9q7JkyfBMT77Px1npl4xpg9t0POLvnWywSk66BgZS/b2Hy9Y1yFaoMTFJUe9yg==
-
-"@unrs/resolver-binding-linux-x64-musl@1.7.2":
-  version "1.7.2"
-  resolved "https://registry.npmjs.org/@unrs/resolver-binding-linux-x64-musl/-/resolver-binding-linux-x64-musl-1.7.2.tgz"
-  integrity sha512-RvP+Ux3wDjmnZDT4XWFfNBRVG0fMsc+yVzNFUqOflnDfZ9OYujv6nkh+GOr+watwrW4wdp6ASfG/e7bkDradsw==
+  resolved "https://registry.npmjs.org/@unrs/resolver-binding-win32-x64-msvc/-/resolver-binding-win32-x64-msvc-1.7.2.tgz"
+  integrity sha512-friS8NEQfHaDbkThxopGk+LuE5v3iY0StruifjQEt7SLbA46OnfgMO15sOTkbpJkol6RB+1l1TYPXh0sCddpvA==
 
 "@urql/core@^5.0.6", "@urql/core@^5.1.1":
   version "5.1.1"
@@ -4165,6 +4177,11 @@ expo-auth-session@~6.2.0:
     expo-web-browser "~14.1.6"
     invariant "^2.2.4"
 
+expo-av@^15.1.7:
+  version "15.1.7"
+  resolved "https://registry.npmjs.org/expo-av/-/expo-av-15.1.7.tgz"
+  integrity sha512-NC+JR+65sxXfQN1mOHp3QBaXTL2J+BzNwVO27XgUEc5s9NaoBTdHWElYXrfxvik6xwytZ+a7abrqfNNgsbQzsA==
+
 expo-blur@~14.1.4:
   version "14.1.4"
   resolved "https://registry.npmjs.org/expo-blur/-/expo-blur-14.1.4.tgz"
@@ -4224,10 +4241,10 @@ expo-keep-awake@~14.1.4:
   resolved "https://registry.npmjs.org/expo-keep-awake/-/expo-keep-awake-14.1.4.tgz"
   integrity sha512-wU9qOnosy4+U4z/o4h8W9PjPvcFMfZXrlUoKTMBW7F4pLqhkkP/5G4EviPZixv4XWFMjn1ExQ5rV6BX8GwJsWA==
 
-expo-linear-gradient@^14.1.4:
-  version "14.1.4"
-  resolved "https://registry.npmjs.org/expo-linear-gradient/-/expo-linear-gradient-14.1.4.tgz"
-  integrity sha512-bImj2qqIjnl+VHYGnIwan9LxmGvb8e4hFqHpxsPzUiK7Ady7uERrXPhJcyTKTxRf4RL2sQRDpoOKzBYNdQDmuw==
+expo-linear-gradient@^14.1.5:
+  version "14.1.5"
+  resolved "https://registry.npmjs.org/expo-linear-gradient/-/expo-linear-gradient-14.1.5.tgz"
+  integrity sha512-BSN3MkSGLZoHMduEnAgfhoj3xqcDWaoICgIr4cIYEx1GcHfKMhzA/O4mpZJ/WC27BP1rnAqoKfbclk1eA70ndQ==
 
 expo-linking@*, expo-linking@~7.1.5:
   version "7.1.5"
@@ -5567,15 +5584,10 @@ lighthouse-logger@^1.0.0:
     debug "^2.6.9"
     marky "^1.2.2"
 
-lightningcss-linux-x64-gnu@1.27.0:
+lightningcss-win32-x64-msvc@1.27.0:
   version "1.27.0"
-  resolved "https://registry.npmjs.org/lightningcss-linux-x64-gnu/-/lightningcss-linux-x64-gnu-1.27.0.tgz"
-  integrity sha512-Dk/jovSI7qqhJDiUibvaikNKI2x6kWPN79AQiD/E/KeQWMjdGe9kw51RAgoWFDi0coP4jinaH14Nrt/J8z3U4A==
-
-lightningcss-linux-x64-musl@1.27.0:
-  version "1.27.0"
-  resolved "https://registry.npmjs.org/lightningcss-linux-x64-musl/-/lightningcss-linux-x64-musl-1.27.0.tgz"
-  integrity sha512-QKjTxXm8A9s6v9Tg3Fk0gscCQA1t/HMoF7Woy1u68wCk5kS4fR+q3vXa1p3++REW784cRAtkYKrPy6JKibrEZA==
+  resolved "https://registry.npmjs.org/lightningcss-win32-x64-msvc/-/lightningcss-win32-x64-msvc-1.27.0.tgz"
+  integrity sha512-/OJLj94Zm/waZShL8nB5jsNj3CfNATLCTyFxZyouilfTmSoLDX7VlVAmhPHoZWVFp4vdmoiEbPEYC8HID3m6yw==
 
 lightningcss@~1.27.0:
   version "1.27.0"
@@ -5652,6 +5664,16 @@ loose-envify@^1.0.0, loose-envify@^1.4.0:
   integrity sha512-lyuxPGr/Wfhrlem2CL/UcnUc1zcqKAImBDzukY7Y5F/yQiNdko6+fRLevlw1HgMySw7f611UIY408EtxRSoK3Q==
   dependencies:
     js-tokens "^3.0.0 || ^4.0.0"
+
+lottie-ios@^4.5.1:
+  version "4.5.1"
+  resolved "https://registry.npmjs.org/lottie-ios/-/lottie-ios-4.5.1.tgz"
+  integrity sha512-LmFJG5ip7ZTuoMttmV6NyAY6dR8sEyVYEJOqJytS+fRAjpvqsF0tM/1VFt3lV7Ck7XB043QHwVelLag7fOx/TA==
+
+lottie-react-native@^7.2.4:
+  version "7.2.4"
+  resolved "https://registry.npmjs.org/lottie-react-native/-/lottie-react-native-7.2.4.tgz"
+  integrity sha512-o1bJ4wiG5bfuaY4YhWNkAfAmL0loPfMtmU/0XyMQoVkEIf0O2CwnO8yi6thldCPkYm6U7ENEhnm9FW3jscBE6w==
 
 lowercase-keys@^2.0.0:
   version "2.0.0"
@@ -6678,7 +6700,7 @@ react-devtools-core@^6.1.1:
     shell-quote "^1.6.1"
     ws "^7"
 
-"react-dom@^18.0.0 || ^19.0.0", react-dom@19.0.0:
+"react-dom@^18.0.0 || ^19.0.0", "react-dom@>=16.8.0 <20.0.0", react-dom@19.0.0:
   version "19.0.0"
   resolved "https://registry.npmjs.org/react-dom/-/react-dom-19.0.0.tgz"
   integrity sha512-4GV5sHFG0e/0AD4X+ySy6UJd3jVl1iNsNHdpad0qhABJ11twS3TTBnseqsKurKcsNqCEFeGL3uLpVChpIO3QfQ==
@@ -6846,7 +6868,7 @@ react-native-webview@*, react-native-webview@13.13.5:
     escape-string-regexp "^4.0.0"
     invariant "2.2.4"
 
-react-native@*, react-native@^*, "react-native@^0.0.0-0 || >=0.60 <1.0", "react-native@^0.0.0-0 || >=0.65 <1.0", "react-native@>= 0.59", react-native@0.79.2:
+react-native@*, react-native@^*, "react-native@^0.0.0-0 || >=0.60 <1.0", "react-native@^0.0.0-0 || >=0.65 <1.0", "react-native@>= 0.59", react-native@>=0.46, react-native@0.79.2:
   version "0.79.2"
   resolved "https://registry.npmjs.org/react-native/-/react-native-0.79.2.tgz"
   integrity sha512-AnGzb56JvU5YCL7cAwg10+ewDquzvmgrMddiBM0GAWLwQM/6DJfGd2ZKrMuKKehHerpDDZgG+EY64gk3x3dEkw==
@@ -6893,7 +6915,7 @@ react-refresh@^0.14.0, react-refresh@^0.14.2:
   resolved "https://registry.npmjs.org/react-refresh/-/react-refresh-0.14.2.tgz"
   integrity sha512-jCvmsr+1IUSMUyzOkRcvnVbX3ZYC6g9TDrDbFuFmRDq7PD4yaGbLKNQL6k2jnArV8hjYxh7hVhAZB6s9HDGpZA==
 
-react@*, "react@^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc", "react@^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0", "react@^18.0.0 || ^19.0.0", react@^19.0.0, "react@>= 18.2.0", react@>=16.8, react@>=17.0.0, react@19.0.0:
+react@*, "react@^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc", "react@^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0", "react@^18.0.0 || ^19.0.0", react@^19.0.0, "react@>= 18.2.0", react@>=16.8, "react@>=16.8.0 <20.0.0", react@>=17.0.0, react@19.0.0:
   version "19.0.0"
   resolved "https://registry.npmjs.org/react/-/react-19.0.0.tgz"
   integrity sha512-V8AVnmPIICiWpGfm6GLzCR/W5FXLchHop40W4nXBmdlEceh16rCN8O8LNWm5bh5XUX91fh7KpA+W0TgMKmgTpQ==
