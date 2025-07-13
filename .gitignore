@@ -146,4 +146,5 @@ repomix-output.xml
 /ios
 google-services.json
 GoogleService-Info.plist
-build-*
+*.aab
+*.apk
