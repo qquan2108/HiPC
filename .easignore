@@ -1,0 +1,23 @@
+# Bỏ thư mục build
+android/app/build/
+ios/build/
+build/
+dist/
+
+# Node
+node_modules/
+
+# Mac system files
+.DS_Store
+
+# Git
+.git/
+.gitignore
+
+# IDE/editor config
+.vscode/
+.idea/
+
+# Test
+coverage/
+*.test.js

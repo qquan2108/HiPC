@@ -8,6 +8,11 @@
       "developmentClient": true,
       "distribution": "internal"
     },
+    "apk-release": {
+      "android": {
+        "buildType": "apk"
+      }
+    },
     "preview": {
       "distribution": "internal"
     },
