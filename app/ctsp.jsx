@@ -150,12 +150,31 @@ export default function CTSP() {
     setCompareProducts([]);
     setAddModalVisible(false);
   };
-  const handleGoCompare = () => {
+const handleGoCompare = () => {
+  console.log('handleGoCompare - compareProducts:', compareProducts); // Debug
+  if (compareProducts.length < 2) {
+    Toast.show({
+      type: 'error',
+      text1: 'Vui lòng chọn ít nhất 2 sản phẩm để so sánh!',
+      position: 'top',
+    });
+    return;
+  }
+  setCompareVisible(false); // Đóng modal
+  try {
     router.push({
       pathname: '/sosanhsanpham',
       params: { compare: JSON.stringify(compareProducts) },
     });
-  };
+  } catch (err) {
+    console.error('Error in router.push:', err);
+    Toast.show({
+      type: 'error',
+      text1: 'Lỗi khi chuyển hướng đến trang so sánh!',
+      position: 'top',
+    });
+  }
+};
 
   // Hàm thêm vào giỏ hàng đúng như bạn yêu cầu
 const AddToCart = async prod => {

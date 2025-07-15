@@ -1,7 +1,7 @@
-import { Feather } from '@expo/vector-icons';
+import { Feather, MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Dimensions,
   FlatList,
@@ -9,102 +9,137 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  View
+  View,
+  ActivityIndicator,
+  RefreshControl
 } from 'react-native';
+import axiosInstance from '../utils/AxiosInstance';
 
 const { width } = Dimensions.get('window');
 
-const notifications = [
-  {
-    id: '1',
-    status: 'Đặt hàng thành công',
-    message: 'Cảm ơn bạn! Đơn hàng #A1023 đã được đặt thành công.',
-    time: '5 phút trước',
-    icon: 'check-circle',
-    color: '#2ecc71',
-  },
-  {
-    id: '2',
-    status: 'Mã giảm giá mới!',
-    message: 'Bạn vừa nhận được mã giảm giá 10% cho đơn hàng tiếp theo.',
-    time: '15 phút trước',
-    icon: 'gift',
-    color: '#f39c12',
-  },
-  {
-    id: '3',
-    status: 'Đang chuẩn bị hàng',
-    message: 'Đơn hàng #A1023 đang được người bán chuẩn bị.',
-    time: '1 giờ trước',
-    icon: 'box',
-    color: '#3498db',
-  },
-  {
-    id: '4',
-    status: 'Thanh toán thất bại',
-    message: 'Thanh toán cho đơn hàng #A1024 thất bại. Vui lòng thử lại.',
-    time: '2 giờ trước',
-    icon: 'x-octagon',
-    color: '#e74c3c',
-  },
-  {
-    id: '5',
-    status: 'Giao hàng thất bại',
-    message: 'Không thể giao đơn #A1022. Vui lòng kiểm tra địa chỉ hoặc đặt lại.',
-    time: '1 ngày trước',
-    icon: 'truck',
-    color: '#e67e22',
-  },
-];
-
 const NotificationScreen = () => {
   const router = useRouter();
-  const [showLoginDialog, setShowLoginDialog] = React.useState(false);
-  const [loading, setLoading] = React.useState(true);
+  const [showLoginDialog, setShowLoginDialog] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  const [activeTab, setActiveTab] = useState('all');
+  const [unreadCount, setUnreadCount] = useState(0);
 
-  React.useEffect(() => {
-    AsyncStorage.getItem("token").then((token) => {
+  const fetchNotifications = async () => {
+    try {
+      const token = await AsyncStorage.getItem("token");
       if (!token) {
         setShowLoginDialog(true);
         setLoading(false);
         return;
       }
-      AsyncStorage.getItem("user").then((userStr) => {
-        if (!userStr || userStr === "undefined") {
-          setShowLoginDialog(true);
-          setLoading(false);
-          return;
-        }
-        let stored;
-        try {
-          stored = JSON.parse(userStr);
-        } catch (e) {
-          setShowLoginDialog(true);
-          setLoading(false);
-          return;
-        }
-        const userId = stored.id || stored._id;
-        if (!userId) {
-          setShowLoginDialog(true);
-          setLoading(false);
-          return;
-        }
-        setShowLoginDialog(false);
-        setLoading(false);
-      });
-    });
+
+      const res = await axiosInstance.get('/notifications');
+      setNotifications(res.data);
+      
+      // Đếm thông báo chưa đọc
+      const unread = res.data.filter(n => !n.isRead).length;
+      setUnreadCount(unread);
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  const markAsRead = async (id) => {
+    try {
+      await axiosInstance.patch(`/notifications/${id}/read`);
+      
+      // Update local state
+      setNotifications(notifications.map(notif => 
+        notif._id === id ? { ...notif, isRead: true } : notif
+      ));
+      setUnreadCount(prev => prev - 1);
+    } catch (error) {
+      console.error('Error marking as read:', error);
+    }
+  };
+
+  const markAllAsRead = async () => {
+    try {
+      await axiosInstance.patch('/notifications/mark-all-read');
+      
+      // Update all notifications to read
+      setNotifications(notifications.map(notif => ({ ...notif, isRead: true })));
+      setUnreadCount(0);
+    } catch (error) {
+      console.error('Error marking all as read:', error);
+    }
+  };
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchNotifications();
+  };
+
+  useEffect(() => {
+    fetchNotifications();
   }, []);
 
+  const filteredNotifications = activeTab === 'all' 
+    ? notifications 
+    : notifications.filter(n => n.type === activeTab);
+
+  const getIconAndColor = (type) => {
+    switch(type) {
+      case 'success':
+        return { icon: 'check-circle', color: '#2ecc71' };
+      case 'warning':
+        return { icon: 'alert-circle', color: '#f39c12' };
+      case 'danger':
+        return { icon: 'x-circle', color: '#e74c3c' };
+      case 'info':
+      default:
+        return { icon: 'info', color: '#3498db' };
+    }
+  };
+
+  const formatTime = (dateString) => {
+    const now = new Date();
+    const date = new Date(dateString);
+    const diffInHours = (now - date) / (1000 * 60 * 60);
+    
+    if (diffInHours < 1) {
+      const minutes = Math.floor(diffInHours * 60);
+      return `${minutes} phút trước`;
+    } else if (diffInHours < 24) {
+      const hours = Math.floor(diffInHours);
+      return `${hours} giờ trước`;
+    } else {
+      const days = Math.floor(diffInHours / 24);
+      return `${days} ngày trước`;
+    }
+  };
+
   const renderItem = ({ item }) => (
-    <TouchableOpacity style={styles.notificationCard}>
-      <View style={[styles.iconWrapper, { backgroundColor: item.color + '22' }]}>
-        <Feather name={item.icon} size={24} color={item.color} />
+    <TouchableOpacity 
+      style={[
+        styles.notificationCard,
+        !item.isRead && styles.unreadNotification
+      ]}
+      onPress={() => markAsRead(item._id)}
+    >
+      <View style={[styles.iconWrapper, { backgroundColor: getIconAndColor(item.type).color + '22' }]}>
+        <Feather 
+          name={getIconAndColor(item.type).icon} 
+          size={24} 
+          color={getIconAndColor(item.type).color} 
+        />
       </View>
       <View style={styles.textContainer}>
-        <Text style={styles.title}>{item.status}</Text>
+        <Text style={styles.title}>{item.title}</Text>
         <Text style={styles.message} numberOfLines={2}>{item.message}</Text>
-        <Text style={styles.time}>{item.time}</Text>
+        <Text style={styles.time}>{formatTime(item.createdAt)}</Text>
       </View>
+      {!item.isRead && <View style={styles.unreadDot} />}
     </TouchableOpacity>
   );
 
@@ -121,7 +156,7 @@ const NotificationScreen = () => {
             <Text style={styles.modalEmoji}>😺</Text>
             <Text style={styles.modalTitle}>Bạn chưa đăng nhập!</Text>
             <Text style={styles.modalMessage}>
-              Hãy đăng nhập để sử dụng đầy đủ chức năng của ứng dụng nhé!
+              Hãy đăng nhập để xem thông báo của bạn
             </Text>
             <View style={styles.modalButtons}>
               <TouchableOpacity
@@ -149,79 +184,183 @@ const NotificationScreen = () => {
       </Modal>
     );
   }
+
   if (loading) {
     return (
-      <View style={{flex:1, justifyContent:'center', alignItems:'center'}}>
-        <Text>Đang tải...</Text>
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#4a90e2" />
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      <Text style={styles.headerTitle}>Thông báo</Text>
+      {/* Header */}
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Thông báo</Text>
+        {unreadCount > 0 && (
+          <TouchableOpacity onPress={markAllAsRead}>
+            <Text style={styles.markAllRead}>Đánh dấu đã đọc tất cả</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
+      {/* Tab Bar */}
+      <View style={styles.tabBar}>
+        <TouchableOpacity 
+          style={[styles.tabItem, activeTab === 'all' && styles.activeTab]}
+          onPress={() => setActiveTab('all')}
+        >
+          <Text style={[styles.tabText, activeTab === 'all' && styles.activeTabText]}>Tất cả</Text>
+          {activeTab === 'all' && <View style={styles.tabIndicator} />}
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          style={[styles.tabItem, activeTab === 'info' && styles.activeTab]}
+          onPress={() => setActiveTab('info')}
+        >
+          <Text style={[styles.tabText, activeTab === 'info' && styles.activeTabText]}>Thông tin</Text>
+          {activeTab === 'info' && <View style={styles.tabIndicator} />}
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          style={[styles.tabItem, activeTab === 'success' && styles.activeTab]}
+          onPress={() => setActiveTab('success')}
+        >
+          <Text style={[styles.tabText, activeTab === 'success' && styles.activeTabText]}>Thành công</Text>
+          {activeTab === 'success' && <View style={styles.tabIndicator} />}
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          style={[styles.tabItem, activeTab === 'warning' && styles.activeTab]}
+          onPress={() => setActiveTab('warning')}
+        >
+          <Text style={[styles.tabText, activeTab === 'warning' && styles.activeTabText]}>Cảnh báo</Text>
+          {activeTab === 'warning' && <View style={styles.tabIndicator} />}
+        </TouchableOpacity>
+      </View>
+
+      {/* Notification List */}
       <FlatList
-        data={notifications}
-        keyExtractor={(item) => item.id}
+        data={filteredNotifications}
+        keyExtractor={(item) => item._id}
         renderItem={renderItem}
-        contentContainerStyle={{ paddingBottom: 20 }}
-        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.listContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={['#4a90e2']}
+            tintColor="#4a90e2"
+          />
+        }
+        ListEmptyComponent={
+          <View style={styles.emptyContainer}>
+            <MaterialIcons name="notifications-none" size={60} color="#ccc" />
+            <Text style={styles.emptyText}>Không có thông báo</Text>
+          </View>
+        }
       />
-       <View style={styles.customTabBarContainer}>
-                <View style={styles.customTabBar}>
-                  <TouchableOpacity style={styles.tabItemCustom}>
-                    <Feather name="home" size={22} color="#4a90e2" />
-                    <Text style={styles.tabLabelActive}>Trang chủ</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.tabItemCustom}>
-                    <Feather name="heart" size={22} color="#4a90e2" />
-                    <Text style={styles.tabLabel}>Yêu thích</Text>
-                  </TouchableOpacity>
-                  <View style={styles.tabCartWrapperCustom}>
-                    <TouchableOpacity style={styles.tabCartBtnCustom}onPress={() => router.push('./search')}>
-                      <Feather name="search" size={32} color="#4a90e2" />
-                    </TouchableOpacity>
-                  </View>
-                  <TouchableOpacity style={styles.tabItemCustom} onPress={() => router.push('./cart')}>
-                    <Feather name="shopping-cart" size={22} color="#4a90e2" />
-                    <Text style={styles.tabLabel}>Tìm kiếm</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.tabItemCustom}onPress={() => router.push('./Profile')}>
-                    <Feather name="settings" size={22} color="#4a90e2" />
-                    <Text style={styles.tabLabel}>Cài đặt</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </View>
-    
-    
+      
+      {/* Bottom Navigation */}
+      <View style={styles.bottomNav}>
+        <TouchableOpacity style={styles.navItem} onPress={() => router.push('/HomeScreen')}>
+          <Feather name="home" size={24} color="#666" />
+          <Text style={styles.navText}>Trang chủ</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity style={styles.navItem} onPress={() => router.push('/SearchScreen')}>
+          <Feather name="search" size={24} color="#666" />
+          <Text style={styles.navText}>Tìm kiếm</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity style={styles.navItem} onPress={() => router.push('/CartScreen')}>
+          <Feather name="shopping-cart" size={24} color="#666" />
+          <Text style={styles.navText}>Giỏ hàng</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity style={styles.navItem} onPress={() => router.push('/ProfileScreen')}>
+          <Feather name="user" size={24} color="#666" />
+          <Text style={styles.navText}>Tôi</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f9f9f9',
+    backgroundColor: '#f5f5f5',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  header: {
     paddingTop: 50,
     paddingHorizontal: 16,
+    paddingBottom: 12,
+    backgroundColor: '#fff',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
   },
   headerTitle: {
     fontSize: 22,
     fontWeight: '700',
     color: '#333',
-    marginBottom: 20,
+  },
+  markAllRead: {
+    color: '#4a90e2',
+    fontSize: 14,
+  },
+  tabBar: {
+    flexDirection: 'row',
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  tabItem: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 12,
+    position: 'relative',
+  },
+  activeTab: {
+    backgroundColor: '#f5f5f5',
+  },
+  tabText: {
+    fontSize: 14,
+    color: '#666',
+    fontWeight: '500',
+  },
+  activeTabText: {
+    color: '#4a90e2',
+    fontWeight: '600',
+  },
+  tabIndicator: {
+    position: 'absolute',
+    bottom: 0,
+    height: 3,
+    width: '100%',
+    backgroundColor: '#4a90e2',
+  },
+  listContent: {
+    paddingBottom: 80,
   },
   notificationCard: {
     flexDirection: 'row',
     backgroundColor: '#fff',
     padding: 14,
-    borderRadius: 12,
-    marginBottom: 12,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOpacity: 0.04,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 4,
+    marginBottom: 8,
+    position: 'relative',
+  },
+  unreadNotification: {
+    backgroundColor: '#f8fafd',
   },
   iconWrapper: {
     width: 44,
@@ -241,70 +380,53 @@ const styles = StyleSheet.create({
   },
   message: {
     color: '#666',
-    fontSize: 13,
+    fontSize: 14,
     marginVertical: 4,
   },
   time: {
     fontSize: 12,
     color: '#999',
   },
-  customTabBar: {
+  unreadDot: {
+    position: 'absolute',
+    right: 12,
+    top: 12,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#4a90e2',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingTop: 100,
+  },
+  emptyText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#999',
+  },
+  bottomNav: {
     flexDirection: 'row',
     backgroundColor: '#fff',
-    borderRadius: 40,
-    height: 70,
-    marginHorizontal: 18,
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.12,
-    shadowRadius: 16,
-    elevation: 12,
-    width: width - 36,
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
+    paddingVertical: 8,
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
   },
-  tabItemCustom: {
-    alignItems: 'center',
-    justifyContent: 'center',
+  navItem: {
     flex: 1,
-  },
-  tabLabel: {
-    fontSize: 11,
-    color: '#222',
-    marginTop: 2,
-  },
-  tabLabelActive: {
-    fontSize: 11,
-    color: '#4a90e2',
-    fontWeight: 'bold',
-    marginTop: 2,
-  },
-  tabCartWrapperCustom: {
-    width: 74,
-    height: 74,
-    borderRadius: 37,
-    backgroundColor: '#fff',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: -32,
-    shadowColor: '#f55858',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.18,
-    shadowRadius: 16,
-    elevation: 16,
-    zIndex: 20,
   },
-  tabCartBtnCustom: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-    elevation: 8,
-    borderWidth: 2,
-    borderColor: '#4a90e2',
+  navText: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 4,
   },
   modalOverlay: {
     flex: 1,
@@ -318,7 +440,7 @@ const styles = StyleSheet.create({
     paddingVertical: 32,
     paddingHorizontal: 28,
     alignItems: "center",
-    width: 350,
+    width: '90%',
     shadowColor: "#000",
     shadowOpacity: 0.15,
     shadowRadius: 10,
