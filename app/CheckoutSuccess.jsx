@@ -4,6 +4,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useRef } from "react";
 import { Animated, Easing, FlatList, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
+
 function formatCurrency(num) {
   if (typeof num !== "number" || isNaN(num)) return "0 đ";
   return num.toLocaleString("vi-VN") + " đ";
