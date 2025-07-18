@@ -1,26 +1,27 @@
 // ✅ Enhanced VideoFeed screen with beautiful combo section
-import React, { useRef, useState, useEffect } from "react";
+import { Entypo, FontAwesome, Ionicons } from "@expo/vector-icons";
+import { Video } from "expo-av";
+import { LinearGradient } from 'expo-linear-gradient';
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useRouter } from "expo-router";
+import React, { useEffect, useRef, useState } from "react";
 import {
+  ActivityIndicator,
+  Alert,
+  Animated,
   Dimensions,
   FlatList,
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  Modal,
-  TextInput,
-  SafeAreaView,
-  ActivityIndicator,
   Image,
-  Alert,
+  Modal,
+  SafeAreaView,
   ScrollView,
-  Animated,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
-import { Video } from "expo-av";
-import { FontAwesome, Entypo, Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
 import axiosInstance from "../utils/AxiosInstance";
-import { LinearGradient } from 'expo-linear-gradient';
 
 const { height, width } = Dimensions.get("window");
 
@@ -70,7 +71,7 @@ export default function VideoFeed() {
             shares: video.shares || 0,
             videoUrl: video.videoUrl.startsWith("http")
               ? video.videoUrl
-              : `http://192.168.10.19:3000${video.videoUrl}`,
+              : `${axiosInstance.defaults.baseURL}${video.videoUrl}`,
           }))
         );
       } else {
@@ -88,6 +89,14 @@ export default function VideoFeed() {
     fetchVideos();
   }, []);
 
+  useEffect(() => {
+  const checkUserId = async () => {
+    const userId = await AsyncStorage.getItem("user_id");
+    console.log("📦 Đang có user_id trong AsyncStorage:", userId);
+  };
+  checkUserId();
+}, []);
+
   const viewConfig = { viewAreaCoveragePercentThreshold: 80 };
   const onViewableItemsChanged = useRef(({ viewableItems }) => {
     if (viewableItems.length > 0) {
@@ -102,15 +111,32 @@ export default function VideoFeed() {
     }
   };
 
-  const handleAddToCart = async (comboId) => {
-    try {
-      await axiosInstance.post("/api/cart", { comboId });
-      Alert.alert("Thành công", "Combo đã được thêm vào giỏ hàng");
-    } catch (err) {
-      console.error("Lỗi khi thêm combo:", err);
-      Alert.alert("Lỗi", "Không thể thêm combo vào giỏ hàng");
+const handleAddToCart = async (comboId) => {
+  if (!comboId) {
+    console.warn("comboId không hợp lệ:", comboId);
+    return Alert.alert("Lỗi", "Combo không hợp lệ");
+  }
+
+  try {
+    const userId = await AsyncStorage.getItem("user_id");
+    console.log("✅ user_id lấy từ AsyncStorage:", userId);
+    if (!userId) {
+      console.warn("Chưa đăng nhập hoặc thiếu user_id");
+      return Alert.alert("Lỗi", "Vui lòng đăng nhập để thêm vào giỏ hàng");
     }
-  };
+
+    const res = await axiosInstance.post("/admin/api/cart", {
+      user_id: userId,
+      comboId: comboId,
+    });
+
+    Alert.alert("Thành công", "Combo đã được thêm vào giỏ hàng");
+  } catch (err) {
+    console.error("Lỗi khi thêm combo:", err.response?.data || err.message);
+    Alert.alert("Lỗi", err.response?.data?.message || "Không thể thêm combo vào giỏ hàng");
+  }
+};
+
 
   const handleComboPress = (combo) => {
     setSelectedCombo(combo);
@@ -331,6 +357,7 @@ function EnhancedComboSection({ comboList, onAddToCart, onSelectCombo, fadeAnim,
 }
 
 function ComboCard({ combo, onPress, onAddToCart, index, currentIndex }) {
+  const router = useRouter();
   const scaleAnim = useRef(new Animated.Value(0.95)).current;
 
   useEffect(() => {
@@ -384,12 +411,16 @@ function ComboCard({ combo, onPress, onAddToCart, index, currentIndex }) {
             <Text style={styles.previewTitle}>Gồm {combo.productIds?.length || 0} sản phẩm:</Text>
             <View style={styles.miniProducts}>
               {combo.productIds?.slice(0, 3).map((product, idx) => (
-                <View key={product._id} style={styles.miniProduct}>
+                <TouchableOpacity
+                  key={product._id}
+                  style={styles.miniProduct}
+                  onPress={() => router.push({ pathname: '/ctsp', params: { id: product._id } })}
+                >
                   <Image
                     source={{ uri: product.image || 'https://via.placeholder.com/30x30' }}
                     style={styles.miniProductImage}
                   />
-                </View>
+                </TouchableOpacity>
               ))}
               {combo.productIds?.length > 3 && (
                 <View style={styles.moreIndicator}>
@@ -421,6 +452,7 @@ function ComboCard({ combo, onPress, onAddToCart, index, currentIndex }) {
 }
 
 function ComboDetailView({ combo, onClose, onAddToCart }) {
+  const router = useRouter();
   const discountPercent = Math.floor(Math.random() * 30) + 10;
   const originalPrice = combo.price * (1 + discountPercent / 100);
 
@@ -466,7 +498,11 @@ function ComboDetailView({ combo, onClose, onAddToCart }) {
 
           <Text style={styles.productsHeader}>Sản phẩm trong combo:</Text>
           {combo.productIds?.map((product, index) => (
-            <View key={product._id} style={styles.productDetailItem}>
+            <TouchableOpacity
+              key={product._id}
+              style={styles.productDetailItem}
+              onPress={() => router.push({ pathname: '/ctsp', params: { id: product._id } })}
+            >
               <Image
                 source={{ uri: product.image || 'https://via.placeholder.com/60x60' }}
                 style={styles.productDetailImage}
@@ -475,7 +511,7 @@ function ComboDetailView({ combo, onClose, onAddToCart }) {
                 <Text style={styles.productDetailName}>{product.name}</Text>
                 <Text style={styles.productDetailPrice}>{formatPrice(product.price)}</Text>
               </View>
-            </View>
+            </TouchableOpacity>
           ))}
         </View>
       </ScrollView>
@@ -555,7 +591,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     bottom: 20,
     left: 16,
-    right: 16,
+    width: 360,
     borderRadius: 16,
     overflow: 'hidden',
   },
@@ -614,7 +650,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   comboCard: {
-    width: 150,
+    width: 170,
     marginHorizontal: 8,
     backgroundColor: "rgba(255,255,255,0.95)",
     borderRadius: 12,

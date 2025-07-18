@@ -3,22 +3,38 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Dimensions,
-    FlatList,
-    Image,
-    Modal,
-    SafeAreaView,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Dimensions,
+  FlatList,
+  Image,
+  Modal,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import CustomTabBar from '../compomentHome/CustomTabBar';
+import MultiSlider from '@ptomasroos/react-native-multi-slider';
+import Constants from 'expo-constants';
 import axios from '../utils/AxiosInstance';
+const API_BASE_URL =
+  Constants.manifest?.extra?.apiBaseUrl ||
+  process.env.EXPO_PUBLIC_API_BASE_URL ||
+  axios.defaults.baseURL;
+
+function computeSource(uri, fallback) {
+  if (!uri) return fallback;
+  if (uri.startsWith('http://') || uri.startsWith('https://')) {
+    return { uri };
+  }
+  return {
+    uri: API_BASE_URL.replace(/\/$/, '') + '/' + uri.replace(/^\/+/, '')
+  };
+}
 
 const { width, height } = Dimensions.get('window');
 const tabs = ['Mới nhất', 'Giá thấp', 'Giá cao', 'Bộ lọc'];
@@ -60,7 +76,7 @@ const FilterModal = ({ visible, onClose, onApply, filters, setFilters, categoryI
   const updateFilter = (key, value) => {
     setTempFilters(prev => ({
       ...prev,
-      [key]: prev[key].includes(value) 
+      [key]: prev[key].includes(value)
         ? prev[key].filter(item => item !== value)
         : [...prev[key], value]
     }));
@@ -203,18 +219,17 @@ const FilterModal = ({ visible, onClose, onApply, filters, setFilters, categoryI
                   <Text style={filterStyles.priceText}>{tempFilters.priceRange[0].toLocaleString()}đ</Text>
                   <Text style={filterStyles.priceText}>{tempFilters.priceRange[1].toLocaleString()}đ</Text>
                 </View>
-                <Slider
-                  style={filterStyles.slider}
-                  minimumValue={0}
-                  maximumValue={200000000}
-                  value={tempFilters.priceRange[1]}
-                  onValueChange={(value) => setTempFilters(prev => ({
-                    ...prev,
-                    priceRange: [prev.priceRange[0], value]
-                  }))}
-                  minimumTrackTintColor="#ee4d2d"
-                  maximumTrackTintColor="#ddd"
-                  thumbStyle={filterStyles.sliderThumb}
+                <MultiSlider
+                  values={tempFilters.priceRange}
+                  min={0}
+                  max={200000000}
+                  step={100000}
+                  onValuesChange={(values) =>
+                    setTempFilters(prev => ({
+                      ...prev,
+                      priceRange: values
+                    }))
+                  }
                 />
               </View>
 
@@ -298,14 +313,12 @@ export default function DanhMucAll() {
     fetchProducts();
   }, [activeTab, filters]);
 
-    useEffect(() => {
-    fetchProducts();
-  }, [activeTab, filters]);
+
 
   const fetchProducts = async () => {
     try {
       setLoading(true);
-      
+
       // Build query parameters
       const params = new URLSearchParams();
 
@@ -320,12 +333,8 @@ export default function DanhMucAll() {
       }
 
       // Add price range
-      if (filters.priceRange[0] > 0) {
-        params.append('priceMin', filters.priceRange[0].toString());
-      }
-      if (filters.priceRange[1] < 200000000) {
-        params.append('priceMax', filters.priceRange[1].toString());
-      }
+params.append('priceMin', filters.priceRange[0].toString());
+params.append('priceMax', filters.priceRange[1].toString());
 
       // Add brand filter - convert brand names to IDs if needed
       if (filters.brands.length > 0) {
@@ -338,7 +347,7 @@ export default function DanhMucAll() {
       const specFilters = Object.keys(filters.specifications).filter(
         key => filters.specifications[key] && filters.specifications[key].length > 0
       );
-      
+
       if (specFilters.length > 0) {
         // For now, we'll handle only the first specification filter
         // The backend currently supports only one specKey/specValue pair
@@ -371,13 +380,13 @@ export default function DanhMucAll() {
       // Make API call
       const queryString = params.toString();
       const apiUrl = `/product/filter?${queryString}`;
-      
+
       console.log('API URL:', apiUrl);
       console.log('Query params:', Object.fromEntries(params));
 
       const response = await axios.get(apiUrl);
       console.log('API Response:', response.data);
-      
+
       // Handle response
       if (response.data) {
         if (response.data.products && Array.isArray(response.data.products)) {
@@ -391,11 +400,11 @@ export default function DanhMucAll() {
       } else {
         setProducts([]);
       }
-      
+
     } catch (error) {
       console.error('Error fetching products:', error);
       setProducts([]);
-      
+
       // Better error handling
       if (error.response) {
         console.error('Response error:', error.response.data);
@@ -438,7 +447,7 @@ export default function DanhMucAll() {
   // Enhanced product rendering with better error handling
   const renderItem = ({ item }) => {
     if (!item) return null;
-    
+      console.log('🖼️ item.image:', item.image);
     return (
       <TouchableOpacity
         style={styles.card}
@@ -450,18 +459,19 @@ export default function DanhMucAll() {
             <Text style={styles.favoriteIcon}>♡</Text>
           </TouchableOpacity>
         </View>
-        
+
         <View style={styles.imageContainer}>
           <Image
-            source={item.image ? { uri: item.image } : require('../assets/images/pc1.png')}
+            source={computeSource(item.image, require('../assets/images/pc1.png'))}
+            
             style={styles.image}
             resizeMode="contain"
           />
         </View>
-        
+
         <View style={styles.info}>
           <Text numberOfLines={2} style={styles.title}>{item.name || 'Tên sản phẩm'}</Text>
-          
+
           <View style={styles.ratingContainer}>
             <View style={styles.stars}>
               {[...Array(5)].map((_, i) => (
@@ -495,7 +505,7 @@ export default function DanhMucAll() {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#ee4d2d" />
-      
+
       <LinearGradient colors={['#ee4d2d', '#ff6b6b']} style={styles.header}>
         <SafeAreaView>
           <View style={styles.headerContent}>
