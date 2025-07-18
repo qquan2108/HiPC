@@ -7,6 +7,7 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
+  TouchableWithoutFeedback,
   Modal,
   TextInput,
   SafeAreaView,
@@ -17,7 +18,7 @@ import {
   Animated,
 } from "react-native";
 import { Video } from "expo-av";
-import { FontAwesome, Entypo, Ionicons } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import axiosInstance from "../utils/AxiosInstance";
 import { LinearGradient } from 'expo-linear-gradient';
@@ -32,6 +33,7 @@ export default function VideoFeed() {
   const [modalVisible, setModalVisible] = useState(false);
   const [currentComments, setCurrentComments] = useState([]);
   const [newComment, setNewComment] = useState("");
+  const [pausedStates, setPausedStates] = useState({});
   const [selectedCombo, setSelectedCombo] = useState(null);
   const [comboModalVisible, setComboModalVisible] = useState(false);
   const router = useRouter();
@@ -117,6 +119,18 @@ export default function VideoFeed() {
     setComboModalVisible(true);
   };
 
+  const handleVideoPress = (index) => {
+    const videoRef = videos[index]?.ref;
+    if (!videoRef || !videoRef.current) return;
+    if (pausedStates[index]) {
+      videoRef.current.playAsync();
+      setPausedStates((prev) => ({ ...prev, [index]: false }));
+    } else {
+      videoRef.current.pauseAsync();
+      setPausedStates((prev) => ({ ...prev, [index]: true }));
+    }
+  };
+
   const renderItem = ({ item, index }) => (
     <View style={styles.page}>
       {!item.videoUrl ? (
@@ -125,15 +139,17 @@ export default function VideoFeed() {
           <Text style={styles.placeholderText}>Không có video</Text>
         </View>
       ) : (
-        <Video
-          ref={item.ref}
-          source={{ uri: item.videoUrl }}
-          style={styles.video}
-          resizeMode="cover"
-          isLooping
-          shouldPlay={index === activeIndex}
-          volume={index === activeIndex ? 1.0 : 0.0}
-        />
+        <TouchableWithoutFeedback onPress={() => handleVideoPress(index)}>
+          <Video
+            ref={item.ref}
+            source={{ uri: item.videoUrl }}
+            style={styles.video}
+            resizeMode="cover"
+            isLooping
+            shouldPlay={index === activeIndex && !pausedStates[index]}
+            volume={index === activeIndex ? 1.0 : 0.0}
+          />
+        </TouchableWithoutFeedback>
       )}
 
       <View style={styles.bottomLeft}>
@@ -145,21 +161,6 @@ export default function VideoFeed() {
         </View>
         <Text style={styles.description}>{item.description || "Không có mô tả"}</Text>
         <Text style={styles.song}>Nhạc nền</Text>
-      </View>
-
-      <View style={styles.rightActions}>
-        <TouchableOpacity style={styles.actionBtn}>
-          <FontAwesome name="heart" size={30} color="#fff" />
-          <Text style={styles.actionText}>{item.likes}</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.actionBtn} onPress={() => { setCurrentComments([]); setModalVisible(true); }}>
-          <FontAwesome name="commenting" size={28} color="#fff" />
-          <Text style={styles.actionText}>{item.comments}</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.actionBtn}>
-          <Entypo name="share" size={28} color="#fff" />
-          <Text style={styles.actionText}>{item.shares}</Text>
-        </TouchableOpacity>
       </View>
 
       {/* 🆕 Enhanced Combo Section */}
@@ -350,8 +351,10 @@ function ComboCard({ combo, onPress, onAddToCart, index, currentIndex }) {
       <TouchableOpacity onPress={onPress} style={styles.cardContent}>
         <View style={styles.imageContainer}>
           <Image
-            source={{ 
-              uri: combo.productIds?.[0]?.image || 'https://via.placeholder.com/150x150?text=No+Image' 
+            source={{
+              uri: (combo.productIds?.[0]?.image && combo.productIds[0].image.startsWith('http'))
+                ? combo.productIds[0].image
+                : `${axiosInstance.defaults.baseURL}${combo.productIds?.[0]?.image || ''}`
             }}
             style={styles.comboImage}
           />
@@ -391,7 +394,11 @@ function ComboCard({ combo, onPress, onAddToCart, index, currentIndex }) {
                   onPress={() => router.push({ pathname: '/ctsp', params: { id: product._id } })}
                 >
                   <Image
-                    source={{ uri: product.image || 'https://via.placeholder.com/30x30' }}
+                    source={{
+                      uri: (product.image && product.image.startsWith('http'))
+                        ? product.image
+                        : `${axiosInstance.defaults.baseURL}${product.image || ''}`
+                    }}
                     style={styles.miniProductImage}
                   />
                 </TouchableOpacity>
@@ -442,8 +449,10 @@ function ComboDetailView({ combo, onClose, onAddToCart }) {
       <ScrollView style={styles.detailContent}>
         <View style={styles.detailImageContainer}>
           <Image
-            source={{ 
-              uri: combo.productIds?.[0]?.image || 'https://via.placeholder.com/300x200?text=No+Image' 
+            source={{
+              uri: (combo.productIds?.[0]?.image && combo.productIds[0].image.startsWith('http'))
+                ? combo.productIds[0].image
+                : `${axiosInstance.defaults.baseURL}${combo.productIds?.[0]?.image || ''}`
             }}
             style={styles.detailImage}
           />
@@ -478,7 +487,11 @@ function ComboDetailView({ combo, onClose, onAddToCart }) {
               onPress={() => router.push({ pathname: '/ctsp', params: { id: product._id } })}
             >
               <Image
-                source={{ uri: product.image || 'https://via.placeholder.com/60x60' }}
+                source={{
+                  uri: (product.image && product.image.startsWith('http'))
+                    ? product.image
+                    : `${axiosInstance.defaults.baseURL}${product.image || ''}`
+                }}
                 style={styles.productDetailImage}
               />
               <View style={styles.productDetailInfo}>
@@ -541,24 +554,6 @@ const styles = StyleSheet.create({
   user: { color: "#fff", fontWeight: "bold", fontSize: 16 },
   description: { color: "#fff", fontSize: 14, marginBottom: 8 },
   song: { color: "#fff", fontSize: 14 },
-
-  // Right action buttons
-  rightActions: {
-    position: "absolute",
-    right: 16,
-    bottom: 200, // Adjusted for combo section
-    alignItems: "center",
-  },
-  actionBtn: {
-    alignItems: "center",
-    marginBottom: 24,
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: "rgba(0,0,0,0.4)",
-    justifyContent: "center",
-  },
-  actionText: { color: "#fff", fontSize: 12, marginTop: 4 },
 
   // Enhanced Combo Section
   comboSection: {
