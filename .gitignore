@@ -142,9 +142,12 @@ expo-env.d.ts
 # @end expo-cli
 
 repomix-output.xml
+
 /android
 /ios
+
 google-services.json
 GoogleService-Info.plist
+
 *.aab
 *.apk
