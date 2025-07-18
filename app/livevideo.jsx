@@ -70,7 +70,7 @@ export default function VideoFeed() {
             shares: video.shares || 0,
             videoUrl: video.videoUrl.startsWith("http")
               ? video.videoUrl
-              : `http://192.168.10.8:3000${video.videoUrl}`,
+              : `http://192.168.10.19:3000${video.videoUrl}`,
           }))
         );
       } else {
