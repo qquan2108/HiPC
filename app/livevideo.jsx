@@ -70,7 +70,7 @@ export default function VideoFeed() {
             shares: video.shares || 0,
             videoUrl: video.videoUrl.startsWith("http")
               ? video.videoUrl
-              : `http://192.168.10.8:3000${video.videoUrl}`,
+              : `${axiosInstance.defaults.baseURL}${video.videoUrl}`,
           }))
         );
       } else {
@@ -331,6 +331,7 @@ function EnhancedComboSection({ comboList, onAddToCart, onSelectCombo, fadeAnim,
 }
 
 function ComboCard({ combo, onPress, onAddToCart, index, currentIndex }) {
+  const router = useRouter();
   const scaleAnim = useRef(new Animated.Value(0.95)).current;
 
   useEffect(() => {
@@ -384,12 +385,16 @@ function ComboCard({ combo, onPress, onAddToCart, index, currentIndex }) {
             <Text style={styles.previewTitle}>Gồm {combo.productIds?.length || 0} sản phẩm:</Text>
             <View style={styles.miniProducts}>
               {combo.productIds?.slice(0, 3).map((product, idx) => (
-                <View key={product._id} style={styles.miniProduct}>
+                <TouchableOpacity
+                  key={product._id}
+                  style={styles.miniProduct}
+                  onPress={() => router.push({ pathname: '/ctsp', params: { id: product._id } })}
+                >
                   <Image
                     source={{ uri: product.image || 'https://via.placeholder.com/30x30' }}
                     style={styles.miniProductImage}
                   />
-                </View>
+                </TouchableOpacity>
               ))}
               {combo.productIds?.length > 3 && (
                 <View style={styles.moreIndicator}>
@@ -421,6 +426,7 @@ function ComboCard({ combo, onPress, onAddToCart, index, currentIndex }) {
 }
 
 function ComboDetailView({ combo, onClose, onAddToCart }) {
+  const router = useRouter();
   const discountPercent = Math.floor(Math.random() * 30) + 10;
   const originalPrice = combo.price * (1 + discountPercent / 100);
 
@@ -466,7 +472,11 @@ function ComboDetailView({ combo, onClose, onAddToCart }) {
 
           <Text style={styles.productsHeader}>Sản phẩm trong combo:</Text>
           {combo.productIds?.map((product, index) => (
-            <View key={product._id} style={styles.productDetailItem}>
+            <TouchableOpacity
+              key={product._id}
+              style={styles.productDetailItem}
+              onPress={() => router.push({ pathname: '/ctsp', params: { id: product._id } })}
+            >
               <Image
                 source={{ uri: product.image || 'https://via.placeholder.com/60x60' }}
                 style={styles.productDetailImage}
@@ -475,7 +485,7 @@ function ComboDetailView({ combo, onClose, onAddToCart }) {
                 <Text style={styles.productDetailName}>{product.name}</Text>
                 <Text style={styles.productDetailPrice}>{formatPrice(product.price)}</Text>
               </View>
-            </View>
+            </TouchableOpacity>
           ))}
         </View>
       </ScrollView>
@@ -555,7 +565,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     bottom: 20,
     left: 16,
-    right: 16,
+    width: 180,
     borderRadius: 16,
     overflow: 'hidden',
   },
