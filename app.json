@@ -5,7 +5,7 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "hipc",
+    "scheme": ["hipc", "fb1287087949733876"],
     "userInterfaceStyle": "automatic",
     "newArchEnabled": false,
     "ios": {
@@ -45,7 +45,16 @@
           "backgroundColor": "#ffffff"
         }
       ],
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "react-native-fbsdk-next",
+        {
+          "appID": "1287087949733876",
+          "clientToken": "d5ef5516483b3101cf8d911cf662c17f",
+          "displayName": "HiPC",
+          "scheme": "fb1287087949733876"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
@@ -60,3 +69,4 @@
     "owner": "quocquan21"
   }
 }
+
