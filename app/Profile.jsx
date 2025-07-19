@@ -1,177 +1,375 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Image, StyleSheet, ScrollView } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+// components/Profile.js
+import { Feather, Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import Constants from "expo-constants";
+import { useFocusEffect, useRouter } from "expo-router";
+import { useCallback, useState } from "react";
+import {
+  Alert,
+  Image,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import axiosInstance from "../utils/AxiosInstance";
+
+// Base URL khớp với axiosInstance.defaults.baseURL
+const API_BASE_URL =
+  Constants.manifest?.extra?.apiBaseUrl ||
+  process.env.EXPO_PUBLIC_API_BASE_URL ||
+  axiosInstance.defaults.baseURL;
+
+// dựng nguồn ảnh (absolute hoặc relative)
+function computeSource(uri, fallback) {
+  if (!uri) return fallback;
+  if (uri.startsWith("http://") || uri.startsWith("https://")) {
+    return { uri };
+  }
+  return {
+    uri:
+      API_BASE_URL.replace(/\/$/, "") +
+      "/" +
+      uri.replace(/^\/+/, ""),
+  };
+}
 
 export default function Profile() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [city, setCity] = useState('');
-  const [district, setDistrict] = useState('');
-  const [ward, setWard] = useState('');
-  const [address, setAddress] = useState('');
+  const router = useRouter();
+  const [user, setUser] = useState(null);
+  const [showLoginDialog, setShowLoginDialog] = useState(false);
+
+  // mỗi khi vào Profile, lấy token + storedUser, rồi fetch API /users/:id
+ useFocusEffect(
+  useCallback(() => {
+    AsyncStorage.getItem("token").then((token) => {
+      if (!token) {
+        setShowLoginDialog(true);
+        return;
+      }
+      AsyncStorage.getItem("user").then((userStr) => {
+        if (!userStr || userStr === "undefined") {
+          setShowLoginDialog(true);
+          return;
+        }
+
+        let stored;
+        try {
+          stored = JSON.parse(userStr);
+        } catch (e) {
+          console.error("Lỗi parse user từ AsyncStorage:", e);
+          setShowLoginDialog(true);
+          return;
+        }
+
+        const userId = stored.id || stored._id;
+        if (!userId) {
+          setShowLoginDialog(true);
+          return;
+        }
+
+        axiosInstance
+          .get(`/users/${userId}`)
+          .then((res) => {
+            setUser(res.data);
+            setShowLoginDialog(false);
+          })
+          .catch((err) => {
+            console.error(err);
+            Alert.alert("Lỗi", "Không tải được thông tin người dùng");
+          });
+      });
+    });
+  }, [])
+);
+
+
+  const handleLogout = async () => {
+    await AsyncStorage.multiRemove(["token", "user"]);
+    router.replace("./LoginScreen");
+  };
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity>
-          <Feather name="arrow-left" size={22} color="#222" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Cá nhân</Text>
-        <View style={{ width: 22 }} />
-      </View>
+    <>
+      {/* Nếu chưa login */}
+      {showLoginDialog && (
+        <Modal
+          visible
+          transparent
+          animationType="fade"
+          onRequestClose={() => setShowLoginDialog(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalEmoji}>😺</Text>
+              <Text style={styles.modalTitle}>Bạn chưa đăng nhập!</Text>
+              <Text style={styles.modalMessage}>
+                Hãy đăng nhập để sử dụng đầy đủ chức năng của ứng dụng nhé!
+              </Text>
+              <View style={styles.modalButtons}>
+                <TouchableOpacity
+                  style={[styles.btn, styles.btnPrimary]}
+                  onPress={() => {
+                    setShowLoginDialog(false);
+                    router.replace("./LoginScreen");
+                  }}
+                >
+                  <Text style={styles.btnTextWhite}>Đăng nhập ngay</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.btn, styles.btnSecondary]}
+                  onPress={() => {
+                    setShowLoginDialog(false);
+                    router.replace("/HomeScreen"); // Chuyển về trang HomeScreen
+                  }}
+                >
+                  <Text style={styles.btnTextPrimary}>Để sau</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      )}
 
-      {/* Avatar */}
-      <View style={styles.avatarWrapper}>
-        <Image
-          source={require('../assets/images/avatar.png')}
-          style={styles.avatar}
-        />
-      </View>
-
-      {/* Thông tin cá nhân */}
-      <Text style={styles.sectionTitle}>Thông tin cá nhân</Text>
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Email</Text>
-        <TextInput
-          style={styles.input}
-          value={email}
-          onChangeText={setEmail}
-        />
-      </View>
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Mật khẩu</Text>
-        <View style={styles.passwordRow}>
-          <TextInput
-            style={[styles.input, { flex: 1 }]}
-            value={password}
-            secureTextEntry
-            onChangeText={setPassword}
-          />
-          <TouchableOpacity>
-            <Text style={styles.changePass}>Đổi mật khẩu</Text>
-          </TouchableOpacity>
+      {/* Loading */}
+      {!user && !showLoginDialog && (
+        <View style={styles.loadingContainer}>
+          <Text>Đang tải...</Text>
         </View>
-      </View>
+      )}
 
-      {/* Số địa chỉ */}
-      <Text style={styles.sectionTitle}>Số địa chỉ</Text>
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Tỉnh/Thành phố</Text>
-        <TextInput
-          style={styles.input}
-          value={city}
-          onChangeText={setCity}
-        />
-      </View>
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Quận/Huyện</Text>
-        <TextInput
-          style={styles.input}
-          value={district}
-          onChangeText={setDistrict}
-        />
-      </View>
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Xã/Phường/Thị trấn</Text>
-        <TextInput
-          style={styles.input}
-          value={ward}
-          onChangeText={setWard}
-        />
-      </View>
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Địa chỉ</Text>
-        <TextInput
-          style={styles.input}
-          value={address}
-          onChangeText={setAddress}
-        />
-      </View>
+      {/* Nội dung profile */}
+      {user && (
+        <ScrollView contentContainerStyle={styles.container}>
+          {/* Header */}
+          <View style={styles.header}>
+            <TouchableOpacity onPress={() => router.back()}>
+              <Feather name="arrow-left" size={24} color="#1976ff" />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>Hồ sơ của tôi</Text>
+            <View style={{ width: 24 }} />
+          </View>
 
-      {/* Save Button */}
-      <TouchableOpacity style={styles.saveBtn}>
-        <Text style={styles.saveText}>Save</Text>
-      </TouchableOpacity>
-    </ScrollView>
+          {/* Avatar */}
+          <View style={styles.avatarWrapper}>
+            <Image
+              source={computeSource(
+                user.avatarUrl,
+                require("../assets/images/avatar.png")
+              )}
+              style={styles.avatar}
+            />
+            <Text style={styles.name}>{user.full_name}</Text>
+            <Text style={styles.email}>{user.email}</Text>
+          </View>
+
+          {/* Menu */}
+          <View style={styles.menu}>
+            {[
+              {
+                icon: <Feather name="user" size={22} color="#1976ff" />,
+                label: "Thông tin cá nhân",
+                onPress: () => router.push("./UserInfo"),
+              },
+              {
+                icon: <Feather name="heart" size={22} color="#1976ff" />,
+                label: "Yêu thích",
+                onPress: () => router.push("./favorite"),
+              },
+              {
+                icon: <Feather name="credit-card" size={22} color="#1976ff" />,
+                label: "Phương thức thanh toán",
+                onPress: () => {},
+              },
+              {
+                icon: <Feather name="package" size={22} color="#1976ff" />,
+                label: "Theo dõi đơn hàng",
+                onPress: () => router.push("./theodoidonhang"),
+              },
+              
+              {
+                icon: (
+                  <Ionicons
+                    name="ticket-outline"
+                    size={22}
+                    color="#1976ff"
+                  />
+                ),
+                label: "voucher",
+                onPress: () => router.push("./VoucherList"),
+              },
+              {
+                icon: <Feather name="youtube" size={22} color="#1976ff" />,
+                label: "Video",
+                onPress: () => router.push("./livevideo"),
+              },
+              {
+                icon: (
+                  <Feather name="help-circle" size={22} color="#1976ff" />
+                ),
+                label: "Chăm sóc khách hàng",
+                onPress: () => router.push("./danhmucall"),
+              },
+              {
+                icon: (
+                  <Ionicons
+                    name="lock-closed-outline"
+                    size={22}
+                    color="#1976ff"
+                  />
+                ),
+                label: "Chính sách bảo mật",
+                onPress: () => router.push("./"),
+              },
+              {
+                icon: <Feather name="log-out" size={22} color="#1976ff" />,
+                label: "Đăng xuất",
+                onPress: handleLogout,
+              },
+            ].map((item, i) => (
+              <TouchableOpacity
+                key={i}
+                style={styles.menuItem}
+                onPress={item.onPress}
+                activeOpacity={0.7}
+              >
+                <View style={styles.menuIcon}>{item.icon}</View>
+                <Text style={styles.menuLabel}>{item.label}</Text>
+                <Feather name="chevron-right" size={20} color="#b0b9c8" />
+              </TouchableOpacity>
+            ))}
+          </View>
+        </ScrollView>
+      )}
+    </>
   );
 }
 
 const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
   container: {
-    padding: 24,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     flexGrow: 1,
+    paddingTop: 18,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 18,
-    marginTop: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 18,
+    marginBottom: 10,
   },
   headerTitle: {
     flex: 1,
-    textAlign: 'center',
+    textAlign: "center",
     fontSize: 20,
-    fontWeight: '700',
-    color: '#222',
+    fontWeight: "700",
+    color: "#1976ff",
   },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.3)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalContent: {
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    paddingVertical: 32,
+    paddingHorizontal: 28,
+    alignItems: "center",
+    width: 350,
+    shadowColor: "#000",
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 5,
+  },
+  modalEmoji: { fontSize: 48, marginBottom: 12 },
+  modalTitle: {
+    fontWeight: "bold",
+    fontSize: 20,
+    marginBottom: 8,
+    color: "#222",
+    textAlign: "center",
+  },
+  modalMessage: {
+    color: "#444",
+    textAlign: "center",
+    marginBottom: 22,
+    fontSize: 15,
+    lineHeight: 20,
+  },
+  modalButtons: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    width: "100%",
+    marginTop: 8,
+    gap: 8, // Nếu chưa hỗ trợ gap thì giữ marginHorizontal cho btn
+  },
+  btn: {
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 0,
+    flex: 1,
+    marginHorizontal: 4,
+    alignItems: "center",
+  },
+  btnPrimary: { backgroundColor: "#2979ff" },
+  btnSecondary: { backgroundColor: "#f0f4fa" },
+  btnTextWhite: { color: "#fff", fontWeight: "bold", fontSize: 16 },
+  btnTextPrimary: { color: "#2979ff", fontWeight: "bold", fontSize: 16 },
   avatarWrapper: {
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: 18,
   },
   avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    marginBottom: 6,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    marginTop: 18,
+    width: 90,
+    height: 90,
+    borderRadius: 45,
     marginBottom: 8,
-    color: '#222',
+    backgroundColor: "#eaf2ff",
   },
-  inputGroup: {
-    marginBottom: 12,
-  },
-  label: {
-    fontSize: 13,
-    color: '#888',
+  name: {
+    fontWeight: "bold",
+    fontSize: 18,
+    color: "#222",
     marginBottom: 4,
   },
-  input: {
-    borderWidth: 1,
-    borderColor: '#eee',
-    borderRadius: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    fontSize: 15,
-    backgroundColor: '#f9f9f9',
-    color: '#222',
+  email: {
+    color: "#888",
+    marginBottom: 8,
   },
-  passwordRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  menu: {
+    marginTop: 8,
   },
-  changePass: {
-    color: '#f55858',
-    fontSize: 13,
-    marginLeft: 8,
-    fontWeight: '500',
-  },
-  saveBtn: {
-    backgroundColor: '#f55858',
-    borderRadius: 10,
+  menuItem: {
+    flexDirection: "row",
+    alignItems: "center",
     paddingVertical: 16,
-    marginTop: 18,
-    marginBottom: 30,
+    paddingHorizontal: 24,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f0f4fa",
+    backgroundColor: "#fff",
   },
-  saveText: {
-    color: '#fff',
-    textAlign: 'center',
-    fontWeight: '700',
-    fontSize: 17,
+  menuIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: "#eaf2ff",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 18,
+  },
+  menuLabel: {
+    flex: 1,
+    fontSize: 16,
+    color: "#222",
+    fontWeight: "500",
   },
 });

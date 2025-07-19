@@ -1,490 +1,645 @@
-import React from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, ScrollView, FlatList } from 'react-native';
-import { Feather, MaterialIcons } from '@expo/vector-icons';
+import { Feather } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, FlatList, Image, Modal, SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
-const product = {
-  id: 1,
-  name: 'PC ST-MERCURY R5SP (Ryzen 5 4650G, Radeon Graphics, Ram 8GB, SSD 500GB, 450W, Win 11)',
-  price: 9800000,
-  oldPrice: 19600000,
-  image: require('../assets/images/pc1.png'),
-  rating: 5,
-  sold: 10000,
-  cpu: 'R7-5700G',
-  main: 'B450M',
-  ram: '8GB',
-  ssd: '500GB NVMe',
-  onboard: true,
-  gifts: [
-    'QUÀ TẶNG ĐẶC BIỆT cho PC Văn Phòng: Chuột Logitech B100, Bàn phím Logitech K120, Bản quyền Windows 10/Office Professional Plus 2021 (cài sẵn), Lót chuột HIPC',
-  ],
-  desc: `Ưu đãi sản phẩm
-QUÀ TẶNG ĐẶC BIỆT cho PC Văn Phòng:
-Chuột Logitech B100, Bàn phím Logitech K120
-Bản quyền Windows 10/Office Professional Plus 2021 (cài sẵn), Lót chuột HIPC
-Lưu ý: Hình ảnh chỉ mang tính chất minh họa
-Hỗ trợ thanh toán thẻ Visa, MasterCard`,
+import Toast from 'react-native-toast-message';
+import axiosInstance from '../utils/AxiosInstance';
+
+import BuyWithList from '../compomentCTSP/BuyWithList';
+import OptionGroup from '../compomentCTSP/OptionGroup';
+import ProductImage from '../compomentCTSP/ProductImage';
+import ProductPriceRow from '../compomentCTSP/ProductPriceRow';
+import ReviewBox from '../compomentCTSP/ReviewBox';
+import { SectionLiked, SectionPopular } from '../compomentCTSP/SectionBox';
+import SpecsBox from '../compomentCTSP/SpecsBox';
+import ProductDescription from '../compomentCTSP/Description';
+
+// Fetch product detail
+const fetchProductById = async (productId) => {
+  const { data: product } = await axiosInstance.get(`/product/${productId}`);
+  let specsArr = [];
+
+  if (Array.isArray(product.tskt) && product.tskt.length) {
+    specsArr = product.tskt;
+  } else if (Array.isArray(product.specifications)) {
+    specsArr = product.specifications.map((spec) => {
+      if (spec.key && spec.value) {
+        return { label: spec.key, value: spec.value };
+      }
+      const idxKeys = Object.keys(spec).filter((k) => /^\d+$/.test(k));
+      if (idxKeys.length) {
+        const joined = idxKeys
+          .sort((a, b) => a - b)
+          .map((i) => spec[i])
+          .join('');
+        return { label: '', value: joined };
+      }
+      return { label: '', value: '' };
+    });
+  }
+
+  return {
+    id:       product._id,
+    name:     product.name,
+    price:    product.price,
+    description: product.description,
+    oldPrice: product.price,
+    images: Array.isArray(product.images) && product.images.length
+      ? product.images.map((url) => ({ uri: url }))
+      : [require('../assets/images/pc1.png')],
+    image: product.image ? { uri: product.image } : require('../assets/images/pc1.png'),
+    rating: product.rating || 4.5,
+    sold:   product.sold || 0,
+    origin: product.origin || 'Unknown',
+    specs: specsArr,
+    buyWith: product.relatedProducts || product.buyWith || [],
+  };
 };
 
-const similarProducts = [
-  {
-    id: '1',
-    name: 'PC SE-MERCURY G7 Ryzen 5 5600G, Radeon Graphics, Ram 8GB, SSD 500GB, Win 11',
-    price: '9.190.000đ',
-    image: require('../assets/images/pc1.png'),
-    rating: 5,
-    sold: 100,
-  },
-  {
-    id: '2',
-    name: 'PC SE-MERCURY G7 Ryzen 5 4650G, Radeon Graphics, Ram 8GB, SSD 500GB, Win 11',
-    price: '9.190.000đ',
-    image: require('../assets/images/pc1.png'),
-    rating: 5,
-    sold: 100,
-  },
+// Fetch all products
+const fetchAllProducts = async () => {
+  try {
+    const { data } = await axiosInstance.get('/product');
+    const list = (data.products || []).map(p => ({
+      id:    p._id,
+      name:  p.name,
+      price: p.price,
+      image: p.image ? { uri: p.image } : require('../assets/images/pc1.png'),
+      sold:  p.sold || 0,
+    }));
+    console.log('allProducts ›', list);
+    return list;
+  } catch {
+    return [];
+  }
+};
+
+const cpuOptions = [
+  'i5 12400F + Tản nhiệt khí',
+  'i5 12400F + Tản nước AIO 240',
+  'i5 13400F + Tản nhiệt khí',
+  'i5 13400F + Tản nước AIO 240',
+  'i5 12600KF + Tản nhiệt khí',
+  'i5 12600KF + Tản nước AIO 240',
+  'i5 14500 + Tản nhiệt khí',
+  'i5 14500 + Tản nước AIO 240',
 ];
+const ramOptions = ['RAM 16GB', 'RAM 32GB'];
+const ssdOptions = ['SSD 512GB', 'SSD 1TB'];
 
 function formatCurrency(num) {
   return num.toLocaleString('vi-VN') + 'đ';
 }
 
 export default function CTSP() {
-  return (
-    <View style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Feather name="arrow-left" size={22} color="#222" />
-          <Text style={styles.headerTitle}>Chi tiết sản phẩm</Text>
-          <Feather name="share-2" size={22} color="#222" />
-        </View>
+  const router = useRouter();
+  const { id: productId } = useLocalSearchParams();
 
-        {/* Product Image */}
-        <Image source={product.image} style={styles.productImage} />
+  const [compareVisible, setCompareVisible] = useState(false);
+  const [selectedCpu, setSelectedCpu]       = useState(cpuOptions[0]);
+  const [selectedRam, setSelectedRam]       = useState(ramOptions[0]);
+  const [selectedSsd, setSelectedSsd]       = useState(ssdOptions[0]);
+  const [compareProducts, setCompareProducts] = useState([]);
+  const [addModalVisible, setAddModalVisible] = useState(false);
+  const [searchText, setSearchText]           = useState('');
+  const [product, setProduct]                 = useState(null);
+  const [allProducts, setAllProducts]         = useState([]);
+  const [loading, setLoading]                 = useState(true);
+  const [error, setError]                     = useState(null);
+  const [showLoginDialog, setShowLoginDialog] = useState(false);
 
-        {/* Product Info */}
-        <View style={styles.infoBox}>
-          <Text style={styles.productName}>{product.name}</Text>
-          <View style={styles.priceRow}>
-            <Text style={styles.productPrice}>{formatCurrency(product.price)}</Text>
-            <Text style={styles.productOldPrice}>{formatCurrency(product.oldPrice)}</Text>
-            <Text style={styles.productDiscount}>50% Off</Text>
-          </View>
-          <View style={styles.ratingRow}>
-            <Text style={styles.ratingStars}>★★★★★</Text>
-            <Text style={styles.ratingText}>{product.sold.toLocaleString()} đánh giá</Text>
-          </View>
-        </View>
+  // Load product & all products
+  useEffect(() => {
+    (async () => {
+      try {
+        setLoading(true);
+        if (!productId) throw new Error('Thiếu ID sản phẩm');
+        const fetched = await fetchProductById(productId);
+        setProduct(fetched);
+        setCompareProducts([fetched]);
+        setAllProducts(await fetchAllProducts());
+      } catch (e) {
+        setError(e.message);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [productId]);
 
-        {/* Config Box */}
-        <View style={styles.configBox}>
-          <View style={styles.configRow}>
-            <View style={styles.configItem}>
-              <Text style={styles.configLabel}>CPU</Text>
-              <Text style={styles.configValue}>{product.cpu}</Text>
-            </View>
-            <View style={styles.configItem}>
-              <Text style={styles.configLabel}>Main</Text>
-              <Text style={styles.configValue}>{product.main}</Text>
-            </View>
-          </View>
-          <View style={styles.configRow}>
-            <View style={styles.configItem}>
-              <Text style={styles.configLabel}>RAM</Text>
-              <Text style={styles.configValue}>{product.ram}</Text>
-            </View>
-            <View style={styles.configItem}>
-              <Text style={styles.configLabel}>SSD</Text>
-              <Text style={styles.configValue}>{product.ssd}</Text>
-            </View>
-          </View>
-        </View>
+  // Filter for compare modal
+  const filteredProducts = allProducts.filter(
+    p =>
+      p.name.toLowerCase().includes(searchText.toLowerCase()) &&
+      !compareProducts.find(item => item.id === p.id)
+  );
+  console.log('filteredProducts ›', filteredProducts);
 
-        {/* Gifts */}
-        <View style={styles.giftBox}>
-          <Text style={styles.giftTitle}>Ưu đãi sản phẩm</Text>
-          {product.gifts.map((gift, idx) => (
-            <Text key={idx} style={styles.giftText}>{gift}</Text>
-          ))}
-        </View>
+  const handleAddCompare = p => {
+    console.log('Adding to compare:', p);
+    if (compareProducts.length < 3) {
+      setCompareProducts(cp => [...cp, p]);
+      setAddModalVisible(false);
+      setSearchText('');
+    }
+  };
+  const handleRemoveCompare = id =>
+    setCompareProducts(cp => cp.filter(p => p.id !== id));
+  const handleClearCompare = () => {
+    setCompareProducts([]);
+    setAddModalVisible(false);
+  };
+const handleGoCompare = () => {
+  console.log('handleGoCompare - compareProducts:', compareProducts); // Debug
+  if (compareProducts.length < 2) {
+    Toast.show({
+      type: 'error',
+      text1: 'Vui lòng chọn ít nhất 2 sản phẩm để so sánh!',
+      position: 'top',
+    });
+    return;
+  }
+  setCompareVisible(false); // Đóng modal
+  try {
+    router.push({
+      pathname: '/sosanhsanpham',
+      params: { compare: JSON.stringify(compareProducts) },
+    });
+  } catch (err) {
+    console.error('Error in router.push:', err);
+    Toast.show({
+      type: 'error',
+      text1: 'Lỗi khi chuyển hướng đến trang so sánh!',
+      position: 'top',
+    });
+  }
+};
 
-        {/* Description */}
-        <View style={styles.descBox}>
-          <Text style={styles.descText}>{product.desc}</Text>
-        </View>
+  // Hàm thêm vào giỏ hàng đúng như bạn yêu cầu
+const AddToCart = async prod => {
+  try {
+    const userStr = await AsyncStorage.getItem('user');
+    if (!userStr) {
+      Toast.show({ type: 'error', text1: 'Vui lòng đăng nhập để mua hàng!', position: 'top' });
+      return router.replace('/LoginScreen');
+    }
+    const userObj = JSON.parse(userStr);
+    const userId = userObj._id || userObj.id;
+    console.log('AddToCart userId:', userId);
 
-        {/* Action Buttons */}
-        <View style={styles.actionRow}>
-          <TouchableOpacity style={styles.addCartBtn}>
-            <Feather name="shopping-cart" size={18} color="#1a73e8" />
-            <Text style={styles.addCartText}>Thêm vào giỏ hàng</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.buyNowBtn}>
-            <Text style={styles.buyNowText}>Mua ngay</Text>
-          </TouchableOpacity>
-        </View>
+    // Gửi đúng field user_id mà server Mongoose đang require
+    await axiosInstance.post('/orders/add-to-cart', {
+      user_id:   userId,
+      productId: prod.id,
+      quantity:  1
+    });
 
-        {/* Fast Delivery */}
-        <View style={styles.deliveryBox}>
-          <MaterialIcons name="local-shipping" size={20} color="#f55858" />
-          <Text style={styles.deliveryText}>Giao hàng trong 1 giờ</Text>
-        </View>
+    Toast.show({ type: 'success', text1: 'Đã thêm vào giỏ hàng!', position: 'bottom' });
+    setTimeout(() => router.push({ pathname: './cart', params: { refresh: 1 } }), 1200);
+  } catch (err) {
+    console.error('add-to-cart error:', err);
+    Toast.show({ type: 'error', text1: 'Thêm giỏ hàng thất bại!', position: 'top' });
+  }
+};
 
-        {/* Similar Products */}
-        <View style={styles.similarBox}>
-          <View style={styles.similarHeader}>
-            <Text style={styles.similarTitle}>Tương tự sản phẩm</Text>
-            <TouchableOpacity>
-              <Text style={styles.similarSeeAll}>282+ sản phẩm</Text>
-            </TouchableOpacity>
-          </View>
-          <FlatList
-            data={similarProducts}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            keyExtractor={item => item.id}
-            renderItem={({ item }) => (
-              <View style={styles.similarCard}>
-                <Image source={item.image} style={styles.similarImage} />
-                <Text numberOfLines={2} style={styles.similarName}>{item.name}</Text>
-                <Text style={styles.similarPrice}>{item.price}</Text>
-                <View style={styles.similarInfoRow}>
-                  <Text style={styles.similarRating}>★★★★★</Text>
-                  <Text style={styles.similarSold}>{item.sold} đã bán</Text>
-                </View>
-              </View>
-            )}
-          />
-        </View>
-      </ScrollView>
 
-      {/* Bottom Tab Bar */}
-      <View style={styles.tabBar}>
-        <TouchableOpacity style={styles.tabItem}>
-          <Feather name="home" size={22} color="#f55858" />
-          <Text style={styles.tabLabelActive}>Trang chủ</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.tabItem}>
-          <Feather name="heart" size={22} color="#222" />
-          <Text style={styles.tabLabel}>Yêu thích</Text>
-        </TouchableOpacity>
-        <View style={styles.tabCartWrapper}>
-          <TouchableOpacity style={styles.tabCartBtn}>
-            <Feather name="shopping-cart" size={28} color="#222" />
-          </TouchableOpacity>
-        </View>
-        <TouchableOpacity style={styles.tabItem}>
-          <Feather name="search" size={22} color="#222" />
-          <Text style={styles.tabLabel}>Tìm kiếm</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.tabItem}>
-          <Feather name="settings" size={22} color="#222" />
-          <Text style={styles.tabLabel}>Cài đặt</Text>
+  const handleGoReview = async () => {
+    let userId = null;
+    try {
+      const userStr = await AsyncStorage.getItem('user');
+      if (userStr) {
+        userId = JSON.parse(userStr).id || JSON.parse(userStr)._id;
+      }
+    } catch {}
+    if (!product?.id) {
+      Toast.show({ type: 'error', text1: 'Không xác định được sản phẩm!' });
+      return;
+    }
+    router.push({
+      pathname: '/danhgia',
+      params: {
+        product_id:    product.id,
+        product_name:  product.name,
+        product_image: product.image?.uri || product.images[0]?.uri || '',
+        user_id:       userId,
+      },
+    });
+  };
+
+  if (loading) {
+    return (
+      <View style={styles.loader}>
+        <ActivityIndicator size="large" color="#2979ff" />
+      </View>
+    );
+  }
+  if (error) {
+    return (
+      <View style={styles.errorContainer}>
+        <Text style={styles.errorText}>Lỗi: {error}</Text>
+        <TouchableOpacity onPress={() => router.replace(`/ctsp?id=${productId}`)}>
+          <Text style={styles.retryButton}>Thử lại</Text>
         </TouchableOpacity>
       </View>
-    </View>
+    );
+  }
+  if (!product) {
+    return (
+      <View style={styles.errorContainer}>
+        <Text style={styles.errorText}>Không tìm thấy sản phẩm</Text>
+      </View>
+    );
+  }
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <FlatList
+        data={[]}
+        contentContainerStyle={styles.contentContainer}
+        ListHeaderComponent={() => (
+          <>
+            {/* Header */}
+            <View style={styles.header}>
+              <TouchableOpacity onPress={() => router.back()}>
+                <Feather name="arrow-left" size={24} color="#222" />
+              </TouchableOpacity>
+              <Text style={styles.headerTitle}>Chi tiết sản phẩm</Text>
+              <Feather name="share-2" size={24} color="#222" />
+            </View>
+
+            {/* Image & Info */}
+            <ProductImage images={product.images} />
+            <Text style={styles.productName}>{product.name}</Text>
+            <ProductPriceRow
+              price={formatCurrency(product.price)}
+              oldPrice={formatCurrency(product.oldPrice)}
+              onLike={() => alert('Đã thêm vào yêu thích')}
+            />
+
+            {/* Buy With */}
+            <BuyWithList data={product.buyWith} />
+
+            {/* ==== Mô tả sản phẩm (HTML) ==== */}
+            {product.description ? (
+              <ProductDescription htmlContent={product.description} />
+            ) : null}
+
+            {/* Specs & Compare */}
+            <SpecsBox specs={product.specs} onCompare={() => setCompareVisible(true)} />
+
+            {/* Configuration Options */}
+            <View style={styles.configContainer}>
+              <Text style={styles.configTitle}>Tùy chọn cấu hình</Text>
+              <OptionGroup label="CPU" options={cpuOptions} selected={selectedCpu} onSelect={setSelectedCpu} />
+              <OptionGroup label="RAM" options={ramOptions} selected={selectedRam} onSelect={setSelectedRam} />
+              <OptionGroup label="SSD" options={ssdOptions} selected={selectedSsd} onSelect={setSelectedSsd} />
+            </View>
+
+            {/* Reviews & Sections */}
+            <ReviewBox product={product}/>
+            <View style={styles.sectionContainer}>
+              <Text style={styles.sectionTitle}>Sản phẩm phổ biến</Text>
+              <SectionPopular data={allProducts.slice(0, 3)} />
+            </View>
+            <View style={styles.sectionContainer}>
+              <Text style={styles.sectionTitle}>Có thể bạn thích</Text>
+              <SectionLiked data={allProducts.slice(3, 7)} />
+            </View>
+
+            {/* Description */}
+           
+          </>
+        )}
+      />
+
+      {/* Bottom Bar */}
+      <View style={styles.bottomBar}> 
+        <TouchableOpacity
+          style={styles.bottomCartBtn}
+          onPress={() => AddToCart(product)} // Sửa lại dòng này
+        >
+          <Feather name="shopping-cart" size={20} color="#1a73e8" />
+          <Text style={styles.bottomCartText}>Giỏ hàng</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.bottomBuyBtn}
+          onPress={() => AddToCart(product)}
+        >
+          <Text style={styles.bottomBuyText}>Mua ngay</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Compare Modal */}
+      <Modal
+  visible={compareVisible}
+  animationType="slide"
+  transparent
+  presentationStyle="overFullScreen"
+  onRequestClose={() => setCompareVisible(false)}
+>
+        <View style={styles.modalOverlay}>
+          <View style={styles.bottomSheet}>
+            <View style={styles.sheetHeader}>
+              <Text style={styles.sheetTitle}>So sánh sản phẩm</Text>
+              <TouchableOpacity onPress={() => setCompareVisible(false)}>
+                <Feather name="x" size={24} color="#222" />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.compareRow}>
+              {Array.from({ length: 3 }).map((_, idx) => {
+                const p = compareProducts[idx];
+                return p ? (
+                  <View style={styles.compareItem} key={p.id}>
+                    <Image source={p.image} style={styles.compareImage} />
+                    <TouchableOpacity style={styles.compareRemove} onPress={() => handleRemoveCompare(p.id)}>
+                      <Feather name="x" size={16} color="#888" />
+                    </TouchableOpacity>
+                    <Text style={styles.compareName} numberOfLines={2}>{p.name}</Text>
+                  </View>
+                ) : (
+                  <TouchableOpacity style={styles.compareEmpty} key={`empty-${idx}`} onPress={() => setAddModalVisible(true)}>
+                    <Feather name="plus" size={32} color="#bbb" />
+                    <Text style={styles.compareAddText}>Thêm sản phẩm</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+            <View style={styles.sheetFooter}>
+              <TouchableOpacity onPress={handleClearCompare}>
+                <Text style={styles.clearAll}>Xóa tất cả</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.compareNowBtn, compareProducts.length > 1 && styles.compareNowActive]}
+                disabled={compareProducts.length < 2}
+                onPress={handleGoCompare}
+              >
+                <Text style={styles.compareNowText}>So sánh ngay</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Add Compare Modal */}
+      <Modal visible={addModalVisible} animationType="fade" transparent onRequestClose={() => setAddModalVisible(false)}>
+        <View style={styles.addOverlay}>
+          <View style={styles.addBox}>
+            <Text style={styles.addTitle}>Tìm kiếm sản phẩm</Text>
+            <View style={styles.searchBox}>
+              <Feather name="search" size={18} color="#888" />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Nhập tên sản phẩm..."
+                value={searchText}
+                onChangeText={setSearchText}
+              />
+            </View>
+            <View style={{ maxHeight: 250, width: '100%' }}>
+  <FlatList
+    data={filteredProducts}
+    keyExtractor={item => item.id}
+    ListEmptyComponent={() => (
+      <Text style={styles.noResults}>Không tìm thấy sản phẩm</Text>
+    )}
+    renderItem={({ item }) => (
+      <TouchableOpacity
+        style={styles.searchItem}
+        onPress={() => handleAddCompare(item)}
+      >
+        <Image source={item.image} style={styles.searchImage} />
+        <Text numberOfLines={2} style={styles.searchName}>
+          {item.name}
+        </Text>
+      </TouchableOpacity>
+    )}
+  />
+</View>
+            <TouchableOpacity style={styles.closeSearch} onPress={() => setAddModalVisible(false)}>
+              <Text style={styles.closeText}>Đóng</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Login Prompt Modal */}
+      <Modal visible={showLoginDialog} transparent animationType="fade" onRequestClose={() => setShowLoginDialog(false)}>
+        <View style={styles.loginOverlay}>
+          <View style={styles.loginBox}>
+            <Text style={styles.loginIcon}>😺</Text>
+            <Text style={styles.loginTitle}>Bạn chưa đăng nhập!</Text>
+            <Text style={styles.loginMsg}>Vui lòng đăng nhập để tiếp tục.</Text>
+            <View style={styles.loginActions}>
+              <TouchableOpacity
+                style={styles.loginBtn}
+                onPress={() => {
+                  setShowLoginDialog(false);
+                  router.replace('./LoginScreen');
+                }}
+              >
+                <Text style={styles.loginBtnText}>Đăng nhập</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.loginLater} onPress={() => setShowLoginDialog(false)}>
+                <Text style={styles.loginLaterText}>Để sau</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fafafa' },
+  container: { flex: 1, backgroundColor: '#fff' },
+  contentContainer: { paddingBottom: 100 },
+
+  loader: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  errorContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  errorText: { color: 'red', fontSize: 16, marginBottom: 8 },
+  retryButton: { color: '#2979ff', fontSize: 16 },
+
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 18,
-    paddingTop: 18,
-    paddingBottom: 10,
-    backgroundColor: '#fff',
-    justifyContent: 'space-between',
-  },
-  headerTitle: {
-    fontWeight: 'bold',
-    fontSize: 18,
-    color: '#222',
-    letterSpacing: 1,
-  },
-  productImage: {
-    width: '92%',
-    height: 180,
-    borderRadius: 12,
-    alignSelf: 'center',
-    marginVertical: 10,
-    backgroundColor: '#fff',
-    resizeMode: 'contain',
-  },
-  infoBox: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    marginHorizontal: 12,
-    padding: 12,
-    marginBottom: 10,
-  },
-  productName: {
-    fontWeight: 'bold',
-    fontSize: 15,
-    color: '#222',
-    marginBottom: 4,
-  },
-  priceRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  productPrice: {
-    color: '#222',
-    fontWeight: 'bold',
-    fontSize: 16,
-    marginRight: 10,
-  },
-  productOldPrice: {
-    color: '#888',
-    fontSize: 14,
-    textDecorationLine: 'line-through',
-    marginRight: 10,
-  },
-  productDiscount: {
-    color: '#f55858',
-    fontWeight: 'bold',
-    fontSize: 13,
-    backgroundColor: '#ffeaea',
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-  },
-  ratingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 2,
-  },
-  ratingStars: {
-    color: '#fbc02d',
-    fontSize: 14,
-    marginRight: 6,
-  },
-  ratingText: {
-    color: '#888',
-    fontSize: 13,
-  },
-  configBox: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    marginHorizontal: 12,
-    marginBottom: 10,
-    padding: 12,
-    flexDirection: 'column',
-  },
-  configRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 6,
-  },
-  configItem: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  configLabel: {
-    fontSize: 13,
-    color: '#888',
-    marginBottom: 2,
-  },
-  configValue: {
-    fontWeight: 'bold',
-    fontSize: 14,
-    color: '#222',
-  },
-  giftBox: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    marginHorizontal: 12,
-    marginBottom: 10,
-    padding: 12,
-  },
-  giftTitle: {
-    fontWeight: 'bold',
-    fontSize: 14,
-    color: '#222',
-    marginBottom: 4,
-  },
-  giftText: {
-    fontSize: 13,
-    color: '#1a73e8',
-    marginBottom: 2,
-  },
-  descBox: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    marginHorizontal: 12,
-    marginBottom: 10,
-    padding: 12,
-  },
-  descText: {
-    fontSize: 13,
-    color: '#222',
-    lineHeight: 18,
-  },
-  actionRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginHorizontal: 12,
-    marginBottom: 10,
-  },
-  addCartBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#eaf3ff',
-    borderRadius: 8,
-    paddingVertical: 10,
     paddingHorizontal: 16,
-    flex: 1,
-    marginRight: 8,
-    justifyContent: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
   },
-  addCartText: {
-    color: '#1a73e8',
+  headerTitle: { flex: 1, textAlign: 'center', fontSize: 18, fontWeight: 'bold' },
+
+  productName: {
+    fontSize: 20,
     fontWeight: 'bold',
-    fontSize: 15,
-    marginLeft: 6,
-  },
-  buyNowBtn: {
-    backgroundColor: '#4cd964',
-    borderRadius: 8,
-    paddingVertical: 10,
-    paddingHorizontal: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-    flex: 1,
-  },
-  buyNowText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 15,
-  },
-  deliveryBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#ffeaea',
-    borderRadius: 8,
-    marginHorizontal: 12,
-    marginBottom: 10,
-    paddingVertical: 10,
-    justifyContent: 'center',
-  },
-  deliveryText: {
-    color: '#f55858',
-    fontWeight: 'bold',
-    fontSize: 15,
-    marginLeft: 8,
-  },
-  similarBox: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    marginHorizontal: 12,
-    marginBottom: 24,
-    padding: 12,
-  },
-  similarHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  similarTitle: {
-    fontWeight: 'bold',
-    fontSize: 15,
-    color: '#222',
-  },
-  similarSeeAll: {
-    color: '#1a73e8',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  similarCard: {
-    width: 140,
-    backgroundColor: '#f9f9f9',
-    borderRadius: 10,
-    marginRight: 12,
-    padding: 8,
-    alignItems: 'center',
-  },
-  similarImage: {
-    width: 90,
-    height: 60,
-    borderRadius: 8,
-    marginBottom: 6,
-    resizeMode: 'contain',
-    backgroundColor: '#fff',
-  },
-  similarName: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#222',
-    marginBottom: 2,
     textAlign: 'center',
+    marginVertical: 12,
+    color: '#333',
   },
-  similarPrice: {
-    color: '#f55858',
-    fontWeight: 'bold',
-    fontSize: 13,
-    marginBottom: 2,
+
+  configContainer: {
+    margin: 16,
+    padding: 16,
+    backgroundColor: '#fafafa',
+    borderRadius: 12,
+    elevation: 2,
   },
-  similarInfoRow: {
+  configTitle: { fontSize: 16, fontWeight: '600', marginBottom: 12 },
+
+  sectionContainer: { marginVertical: 12, paddingHorizontal: 16 },
+  sectionTitle: { fontSize: 16, fontWeight: '600', marginBottom: 8 },
+
+  bottomBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
     flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 2,
-    justifyContent: 'center',
-  },
-  similarRating: {
-    color: '#fbc02d',
-    fontSize: 12,
-    marginRight: 4,
-  },
-  similarSold: {
-    color: '#888',
-    fontSize: 12,
-  },
-  // Tab bar
-  tabBar: {
-    flexDirection: 'row',
+    padding: 16,
     backgroundColor: '#fff',
     borderTopWidth: 1,
-    borderTopColor: '#ddd',
-    height: 60,
-    alignItems: 'center',
-    justifyContent: 'space-around',
+    borderTopColor: '#eee',
   },
-  tabItem: {
+  bottomCartBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: '#f0f7ff',
+    marginRight: 8,
+  },
+  bottomCartText: { marginLeft: 6, fontSize: 16, color: '#1a73e8', fontWeight: '600' },
+  bottomBuyBtn: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: '#2979ff',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  tabLabel: {
-    fontSize: 12,
-    color: '#222',
-  },
-  tabLabelActive: {
-    fontSize: 12,
-    color: '#f55858',
-    fontWeight: 'bold',
-  },
-  tabCartWrapper: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#f3f3f3',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: -30,
-    borderWidth: 2,
-    borderColor: '#fff',
-    elevation: 3,
-  },
-  tabCartBtn: {
-    width: 54,
-    height: 54,
-    borderRadius: 27,
+  bottomBuyText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+
+  // Compare modal
+  modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.3)' },
+  bottomSheet: {
     backgroundColor: '#fff',
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    paddingTop: 12,
+  },
+  sheetHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  sheetTitle: { fontSize: 16, fontWeight: '600' },
+  compareRow: { flexDirection: 'row', padding: 16 },
+  compareItem: {
+    width: 100,
+    alignItems: 'center',
+    marginRight: 12,
+    backgroundColor: '#fafafa',
+    borderRadius: 8,
+    padding: 8,
+  },
+  compareImage: { width: 60, height: 60, resizeMode: 'contain', marginBottom: 8 },
+  compareRemove: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 2,
+  },
+  compareName: { textAlign: 'center', fontSize: 12 },
+  compareEmpty: {
+    width: 100,
+    height: 100,
     alignItems: 'center',
     justifyContent: 'center',
-    elevation: 4,
+    backgroundColor: '#f9f9f9',
+    borderRadius: 8,
+    marginRight: 12,
   },
+  compareAddText: { marginTop: 4, fontSize: 12, color: '#888', textAlign: 'center' },
+  sheetFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+  },
+  clearAll: { color: '#2979ff', fontWeight: '600' },
+  compareNowBtn: {
+    paddingVertical: 10,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    backgroundColor: '#ccc',
+  },
+  compareNowActive: { backgroundColor: '#2979ff' },
+  compareNowText: { color: '#fff', fontWeight: '600' },
+
+  // Add compare modal
+  addOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.3)' },
+  addBox: {
+    width: '90%',
+    maxHeight: '80%',
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+  },
+  addTitle: { fontSize: 16, fontWeight: '600', marginBottom: 12 },
+  searchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    marginBottom: 12,
+  },
+  searchInput: { flex: 1, marginLeft: 8, height: 40 },
+  searchItem: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
+  searchImage: { width: 40, height: 40, borderRadius: 6, marginRight: 12 },
+  searchName: { flex: 1, fontSize: 14 },
+  noResults: { textAlign: 'center', color: '#888', marginTop: 20 },
+  closeSearch: { alignSelf: 'flex-end', padding: 8 },
+  closeText: { color: '#2979ff', fontWeight: '600' },
+
+  // Login modal
+  loginOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.3)' },
+  loginBox: {
+    width: 300,
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 24,
+    alignItems: 'center',
+  },
+  loginIcon: { fontSize: 48, marginBottom: 12 },
+  loginTitle: { fontSize: 18, fontWeight: '600', color: '#1976ff', marginBottom: 8 },
+  loginMsg: { fontSize: 14, color: '#444', textAlign: 'center', marginBottom: 16 },
+  loginActions: { flexDirection: 'row', width: '100%', justifyContent: 'space-between' },
+  loginBtn: {
+    flex: 1,
+    backgroundColor: '#1976ff',
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginRight: 8,
+  },
+  loginBtnText: { color: '#fff', fontWeight: '600' },
+  loginLater: {
+    flex: 1,
+    backgroundColor: '#f0f4fa',
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  loginLaterText: { color: '#1976ff', fontWeight: '600' },
 });
