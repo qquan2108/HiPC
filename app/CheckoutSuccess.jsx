@@ -4,6 +4,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useRef } from "react";
 import { Animated, Easing, FlatList, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
+
 function formatCurrency(num) {
   if (typeof num !== "number" || isNaN(num)) return "0 đ";
   return num.toLocaleString("vi-VN") + " đ";
@@ -235,7 +236,11 @@ export default function CheckoutSuccess() {
         ]}
         pointerEvents="box-none"
       >
-        <TouchableOpacity
+
+
+      </Animated.View>
+      
+              <TouchableOpacity
           style={styles.primaryBtn}
           onPress={() => router.push("/theodoidonhang")}
           activeOpacity={0.85}
@@ -245,7 +250,7 @@ export default function CheckoutSuccess() {
             <Text style={styles.primaryBtnBlueText}>Theo dõi đơn hàng</Text>
           </View>
         </TouchableOpacity>
-        <TouchableOpacity
+                <TouchableOpacity
           style={styles.secondaryBtn}
           onPress={() => router.push("/HomeScreen")}
           activeOpacity={0.85}
@@ -253,7 +258,6 @@ export default function CheckoutSuccess() {
           <Feather name="home" size={20} color="#2563eb" style={{ marginRight: 8 }} />
           <Text style={styles.secondaryBtnText}>Về trang chủ</Text>
         </TouchableOpacity>
-      </Animated.View>
     </View>
   );
 }

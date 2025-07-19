@@ -29,6 +29,7 @@ export default function DanhMucPCScreen() {
   const [products, setProducts] = useState([]);
   const [showLoginDialog, setShowLoginDialog] = useState(false); // Thêm state này
   const [loading, setLoading] = useState(true); // Thêm state này
+   const [brands, setBrands] = useState([]);
   const router = useRouter();
 
   // Kiểm tra đăng nhập
@@ -66,9 +67,21 @@ export default function DanhMucPCScreen() {
   }, []);
 
   // Bộ lọc mẫu (tuỳ ý)
-  const BRANDS = ['ASUS','MSI','Gigabyte','ASRock','EVGA','Biostar','Colorful'];
-  const PRICES = ['Dưới 2 triệu','2–4 triệu','4–7 triệu','7–13 triệu','Trên 13 triệu'];
-  const HOT = ['RTX 4060','Ryzen 7 7800X','Corsair Vengeance','NZXT H510','Seagate 2TB','WD Blue'];
+ 
+const PRICE_SEGMENTS = [
+    { label: 'Dưới 2 triệu', min: 0, max: 2_000_000 },
+    { label: '2–4 triệu',    min: 2_000_000, max: 4_000_000 },
+    { label: '4–7 triệu',    min: 4_000_000, max: 7_000_000 },
+    { label: '7–13 triệu',   min: 7_000_000, max: 13_000_000 },
+    { label: 'Trên 13 triệu', min: 13_000_000, max: Infinity },
+  ];
+
+
+  useEffect(() => {
+    axios.get('/brands')
+      .then(res => setBrands(res.data || []))
+      .catch(err => console.error('Brand API error', err));
+  }, []);
 
   // Fetch categories + icon
   useEffect(() => {
@@ -242,11 +255,44 @@ export default function DanhMucPCScreen() {
               </TouchableOpacity>
             ))
           )}
+          {/* Filter: Hãng */}
+          <FilterSection
+            title="Hãng"
+            data={brands}
+            onSelect={brand =>
+              router.push({
+                pathname: '/danhmucall',
+                params: { type: 'brand', brandId: brand._id }
+              })
+            }
+          />
+
+          {/* Filter: Phân khúc giá */}
+          <FilterSection
+            title="Phân khúc giá"
+            data={PRICE_SEGMENTS}
+            onSelect={seg =>
+              router.push({
+                pathname: '/danhmucall',
+                params: { type: 'price', min: seg.min, max: seg.max }
+              })
+            }
+          />
+
+          {/* Filter: HOT */}
+          <FilterSection
+            title="HOT ⚡️"
+            data={products}
+            onSelect={p =>
+              router.push({
+                pathname: '/ctsp',
+                params: { id: p._id }
+              })
+            }
+          />
 
           {/* Các filter */}
-          <FilterSection title="Hãng" data={BRANDS} />
-          <FilterSection title="Phân khúc giá" data={PRICES} />
-          <FilterSection title="HOT ⚡️" data={HOT} />
+          
           <View style={{ height: 80 }} />
         </ScrollView>
       </View>
@@ -257,7 +303,7 @@ export default function DanhMucPCScreen() {
 }
 
 // Component con cho mỗi section filter
-function FilterSection({ title, data }) {
+function FilterSection({ title, data, onSelect }) {
   return (
     <View style={styles.sec}>
       <Text style={styles.secTitle}>{title}</Text>
@@ -266,11 +312,28 @@ function FilterSection({ title, data }) {
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.filterRow}
       >
-        {data.map((label, i) => (
-          <TouchableOpacity key={i} style={styles.tag}>
-            <Text style={styles.tagText}>{label}</Text>
-          </TouchableOpacity>
-        ))}
+        {data.map((item, i) => {
+         // Lấy label cho cả brand (name) và phân khúc giá (label) 
+         const label = item.name ?? item.label ?? ''; 
+         return ( 
+           <TouchableOpacity 
+             key={item._id || i} 
+             style={styles.tag}               // vẫn dùng style.tag cũ 
+             onPress={() => onSelect(item)} 
+           > 
+             {item.logo 
+               // Brand: show logo 
+               ? <Image 
+                   source={{ uri: item.logo }} 
+                   style={styles.brandLogo} 
+                  resizeMode="contain" 
+                 /> 
+               // Price segment hoặc fallback: show text label 
+               : <Text style={styles.tagText}>{label}</Text> 
+             } 
+           </TouchableOpacity> 
+         ); 
+       })}
       </ScrollView>
     </View>
   );
@@ -284,6 +347,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'blue',
     paddingHorizontal: 16,
     paddingVertical: 8,
+  },
+  brandLogo: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
   },
   searchInput: {
     flex: 1,

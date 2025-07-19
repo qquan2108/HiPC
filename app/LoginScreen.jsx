@@ -44,10 +44,14 @@ const LoginScreen = () => {
     setIsLoading(true);
     try {
       const res = await axiosInstance.post('/users/login', { email, password });
+      console.log("🧩 res.data:", res.data);
       if (res.data?.token) {
         await AsyncStorage.setItem('token', res.data.token);
-        const user = res.data.user; // Assuming the user data is in res.data.user
+        const user = res.data.user;
+        console.log("👤 res.data.user:", user);
+        console.log("🆔 user._id:", user?._id);
         await AsyncStorage.setItem('user', JSON.stringify(user));
+        await AsyncStorage.setItem('user_id', user._id);
         Toast.show({
           type: 'success',
           text1: 'Đăng nhập thành công!',
