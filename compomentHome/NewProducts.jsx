@@ -1,10 +1,13 @@
 import { AntDesign, Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { LinearGradient } from 'expo-linear-gradient';
-import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View, Dimensions } from "react-native";
 import { useWishlist } from "../context/WishlistContext";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Toast from 'react-native-toast-message';
 import axiosInstance from "../utils/AxiosInstance";
+
+const { width: screenWidth } = Dimensions.get('window');
+const CARD_WIDTH = screenWidth * 0.45;
 
 export default function NewProducts({
   products,
@@ -17,7 +20,7 @@ export default function NewProducts({
 }) {
   const { wishlist, addToWishlist, removeFromWishlist } = useWishlist();
 
-  // Default badge components với gradient đẹp
+  // Enhanced default badge components
   const defaultNewBadge = () => (
     <LinearGradient
       colors={['#667eea', '#764ba2']}
@@ -25,7 +28,7 @@ export default function NewProducts({
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
     >
-      <Ionicons name="flash" size={12} color="#fff" />
+      <Ionicons name="flash" size={10} color="#fff" />
       <Text style={styles.defaultBadgeText}>MỚI</Text>
     </LinearGradient>
   );
@@ -37,7 +40,7 @@ export default function NewProducts({
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
     >
-      <MaterialIcons name="local-fire-department" size={12} color="#fff" />
+      <MaterialIcons name="local-fire-department" size={10} color="#fff" />
       <Text style={styles.defaultBadgeText}>HOT</Text>
     </LinearGradient>
   );
@@ -49,132 +52,134 @@ export default function NewProducts({
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
     >
-      <MaterialIcons name="local-offer" size={12} color="#fff" />
+      <MaterialIcons name="local-offer" size={10} color="#fff" />
       <Text style={styles.defaultBadgeText}>-{discount}%</Text>
     </LinearGradient>
   );
 
   const handleAddToCart = async (product) => {
-  if (!isLoggedIn) return onRequireLogin();
-  try {
-    const userStr = await AsyncStorage.getItem('user');
-    if (!userStr) {
-      Toast.show({ type:'error', text1:'Vui lòng đăng nhập để mua hàng!', position:'top' });
-      return router.push('/LoginScreen');
+    if (!isLoggedIn) return onRequireLogin();
+    try {
+      const userStr = await AsyncStorage.getItem('user');
+      if (!userStr) {
+        Toast.show({ type:'error', text1:'Vui lòng đăng nhập để mua hàng!', position:'top' });
+        return router.push('/LoginScreen');
+      }
+      const userObj = JSON.parse(userStr);
+      const userId = userObj._id || userObj.id;
+      await axiosInstance.post('/orders/add-to-cart', { user_id: userId, productId: product.id, quantity: 1 });
+      Toast.show({ type:'success', text1:'Đã thêm vào giỏ hàng!', position:'bottom' });
+    } catch {
+      Toast.show({ type:'error', text1:'Thêm giỏ hàng thất bại!', position:'top' });
     }
-    const userObj = JSON.parse(userStr);
-    const userId = userObj._id || userObj.id; // Ưu tiên _id
-    await axiosInstance.post('/orders/add-to-cart', { user_id: userId, productId: product.id, quantity: 1 });
-    Toast.show({ type:'success', text1:'Đã thêm vào giỏ hàng!', position:'bottom' });
-  } catch {
-    Toast.show({ type:'error', text1:'Thêm giỏ hàng thất bại!', position:'top' });
-  }
-};
+  };
+
+  const formatPrice = (price) => {
+    if (!price) return 'Liên hệ';
+    
+    // Nếu price đã là string có định dạng sẵn, trả về luôn
+    if (typeof price === 'string' && (price.includes('.') || price.includes('đ') || price.includes(','))) {
+      return price.replace('đ', ''); // Loại bỏ đ nếu có
+    }
+    
+    // Convert sang number và format
+    const numPrice = Number(price);
+    if (isNaN(numPrice) || numPrice === 0) return 'Liên hệ';
+    
+    return new Intl.NumberFormat('vi-VN').format(numPrice);
+  };
 
   return (
     <View style={styles.container}>
-      {/* Modern Header với gradient */}
-      <LinearGradient
-        colors={['#667eea', '#764ba2']}
-        style={styles.headerGradient}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-      >
-        <View style={styles.sectionRow}>
-          <View style={styles.titleContainer}>
-            <MaterialIcons name="new-releases" size={24} color="#fff" style={styles.titleIcon} />
-            <Text style={styles.sectionTitle}>
-              Sản Phẩm Mới
-              <Text style={styles.titleAccent}> 2025</Text>
-            </Text>
+      {/* Enhanced Header */}
+      <View style={styles.headerContainer}>
+        <LinearGradient
+          colors={['#667eea', '#764ba2']}
+          style={styles.headerGradient}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+        >
+          <View style={styles.sectionRow}>
+            <View style={styles.titleContainer}>
+              <View style={styles.iconWrapper}>
+                <MaterialIcons name="new-releases" size={20} color="#fff" />
+              </View>
+              <View>
+                <Text style={styles.sectionTitle}>Sản Phẩm Mới</Text>
+                <Text style={styles.sectionSubtitle}>Xu hướng 2025</Text>
+              </View>
+            </View>
+            <TouchableOpacity style={styles.viewAllButton}>
+              <Text style={styles.linkText}>Xem tất cả</Text>
+              <Ionicons name="chevron-forward" size={14} color="#fff" />
+            </TouchableOpacity>
           </View>
-          <TouchableOpacity style={styles.viewAllButton}>
-            <Text style={styles.linkText}>Xem tất cả</Text>
-            <Ionicons name="chevron-forward" size={16} color="#fff" />
-          </TouchableOpacity>
-        </View>
-      </LinearGradient>
+        </LinearGradient>
+      </View>
 
-      {/* Horizontal Product Scroll */}
+      {/* Product Scroll */}
       <ScrollView 
         horizontal 
         showsHorizontalScrollIndicator={false} 
         style={styles.scrollContainer}
         contentContainerStyle={styles.scrollContent}
+        decelerationRate="fast"
+        snapToInterval={CARD_WIDTH + 12}
+        snapToAlignment="start"
       >
         {products.map((product, index) => (
           <TouchableOpacity
             key={product.id}
-            style={[styles.productCard, { marginLeft: index === 0 ? 16 : 8 }]}
+            style={[styles.productCard, { 
+              marginLeft: index === 0 ? 16 : 6,
+              marginRight: index === products.length - 1 ? 16 : 6
+            }]}
             activeOpacity={0.9}
             onPress={() => router.push({ pathname: './ctsp', params: { id: product.id } })}
           >
-            {/* Card với glassmorphism */}
-            <LinearGradient
-              colors={['rgba(255,255,255,0.95)', 'rgba(255,255,255,0.8)']}
-              style={styles.cardGradient}
-            >
-              {/* Shine effect */}
-              <View style={styles.shineEffect} />
-
-              {/* Image Container với modern styling */}
-              <View style={styles.imageWrapper}>
-                <Image
-                  source={product.image}
-                  style={styles.productImage}
-                  resizeMode="contain"
-                />
-                
-                {/* Image overlay gradient */}
-                <LinearGradient
-                  colors={['transparent', 'rgba(102,126,234,0.05)']}
-                  style={styles.imageOverlay}
-                />
-
-                {/* Premium frame effect */}
-                <View style={styles.imageFrame} />
-
-                {/* Badges Container */}
-                <View style={styles.badgeContainer}>
-                  {product.isNew && (
-                    <View style={styles.newBadgeWrapper}>
-                      {renderNewBadge ? renderNewBadge() : defaultNewBadge()}
-                    </View>
-                  )}
+            <View style={styles.cardContent}>
+              {/* Image Section */}
+              <View style={styles.imageContainer}>
+                <View style={styles.imageWrapper}>
+                  <Image
+                    source={product.image}
+                    style={styles.productImage}
+                    resizeMode="cover"
+                  />
                   
-                  <View style={styles.badgeRow}>
-                    {product.discount > 0 && (
-                      renderDiscountBadge ? renderDiscountBadge(product.discount) : defaultDiscountBadge(product.discount)
-                    )}
-                    {product.isHot && (
-                      renderHotBadge ? renderHotBadge() : defaultHotBadge()
-                    )}
-                  </View>
+                  {/* Image overlay for better text visibility */}
+                  <LinearGradient
+                    colors={['transparent', 'rgba(0,0,0,0.1)']}
+                    style={styles.imageOverlay}
+                  />
                 </View>
 
-                {/* Enhanced Star Rating */}
-                <View style={styles.starWrapper}>
-                  <LinearGradient
-                    colors={['#ffd700', '#ffb347']}
-                    style={styles.starGradient}
-                  >
-                    <Ionicons name="star" size={14} color="#fff" />
-                  </LinearGradient>
-                  <Text style={styles.ratingText}>4.9</Text>
+                {/* Badges positioned over image */}
+                <View style={styles.badgeContainer}>
+                  {product.isNew && (
+                    renderNewBadge ? renderNewBadge() : defaultNewBadge()
+                  )}
+                  
+                  {product.discount > 0 && (
+                    renderDiscountBadge ? renderDiscountBadge(product.discount) : defaultDiscountBadge(product.discount)
+                  )}
+                  
+                  {product.isHot && (
+                    renderHotBadge ? renderHotBadge() : defaultHotBadge()
+                  )}
+                </View>
+
+                {/* Star Rating */}
+                <View style={styles.ratingContainer}>
+                  <View style={styles.starWrapper}>
+                    <Ionicons name="star" size={12} color="#FFD700" />
+                    <Text style={styles.ratingText}>4.9</Text>
+                  </View>
                 </View>
 
                 {/* Wishlist Button */}
                 <TouchableOpacity
-                  style={{
-                    position: "absolute",
-                    top: 8,
-                    right: 8,
-                    zIndex: 10,
-                    backgroundColor: "#fff",
-                    borderRadius: 16,
-                    padding: 4,
-                    elevation: 2,
-                  }}
+                  style={styles.wishlistButton}
                   onPress={() =>
                     wishlist.some((p) => p._id === product._id)
                       ? removeFromWishlist(product._id)
@@ -183,88 +188,74 @@ export default function NewProducts({
                 >
                   <AntDesign
                     name={wishlist.some((p) => p._id === product._id) ? "heart" : "hearto"}
-                    size={20}
+                    size={16}
                     color="#ff4d4f"
                   />
                 </TouchableOpacity>
               </View>
 
-              {/* Product Info Section */}
+              {/* Product Info */}
               <View style={styles.productInfo}>
-                {/* Product Name */}
                 <Text numberOfLines={2} style={styles.productName}>
                   {product.name}
                 </Text>
 
-                {/* Short Description */}
                 <Text numberOfLines={1} style={styles.shortDesc}>
                   {product.shortDesc || "Hiệu suất tối ưu, giá hợp lý"}
                 </Text>
 
-                {/* Features Tags */}
+                {/* Feature Tags */}
                 <View style={styles.featureTags}>
                   <View style={styles.featureTag}>
-                    <MaterialIcons name="verified" size={10} color="#00d4aa" />
+                    <MaterialIcons name="verified" size={8} color="#00d4aa" />
                     <Text style={styles.featureText}>CHÍNH HÃNG</Text>
                   </View>
                   <View style={styles.featureTag}>
-                    <MaterialIcons name="local-shipping" size={10} color="#667eea" />
-                    <Text style={styles.featureText}>MIỄN PHÍ SHIP</Text>
+                    <MaterialIcons name="local-shipping" size={8} color="#667eea" />
+                    <Text style={styles.featureText}>FREESHIP</Text>
                   </View>
                 </View>
 
-                {/* Enhanced Price Block */}
-                <View style={styles.priceBlock}>
-                  <View style={styles.priceRow}>
-                    <Text style={styles.productPrice}>{product.price}₫</Text>
-                    {product.originalPrice && (
-                      <View style={styles.originalPriceContainer}>
-                        <Text style={styles.originalPrice}>{product.originalPrice}₫</Text>
-                        <View style={styles.strikeThrough} />
-                      </View>
-                    )}
-                  </View>
-                  
-                  {product.originalPrice && (
-                    <Text style={styles.savingsText}>
-                      Tiết kiệm {((product.originalPrice - product.price) / 1000).toFixed(0)}K
-                    </Text>
+                {/* Price Section */}
+                <View style={styles.priceSection}>
+                  <Text style={styles.currentPrice}>
+                    {formatPrice(product.price)}₫
+                  </Text>
+                  {product.originalPrice && product.originalPrice !== product.price && (
+                    <View style={styles.originalPriceContainer}>
+                      <Text style={styles.originalPrice}>
+                        {formatPrice(product.originalPrice)}₫
+                      </Text>
+                    </View>
                   )}
-
-                  {/* Installment Info */}
-                  
                 </View>
 
-                {/* Action Button */}
-                <TouchableOpacity onPress={() => handleAddToCart(product)}>
+                {product.originalPrice && product.originalPrice !== product.price && Number(product.originalPrice) > Number(product.price) && (
+                  <Text style={styles.savingsText}>
+                    Tiết kiệm {formatPrice(Number(product.originalPrice) - Number(product.price))}₫
+                  </Text>
+                )}
+
+                {/* Add to Cart Button */}
+                <TouchableOpacity 
+                  style={styles.addToCartButton}
+                  onPress={() => handleAddToCart(product)}
+                  activeOpacity={0.8}
+                >
                   <LinearGradient
                     colors={['#667eea', '#764ba2']}
                     style={styles.buttonGradient}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 0 }}
                   >
-                    <Ionicons name="cart-outline" size={16} color="#fff" />
+                    <Ionicons name="cart-outline" size={14} color="#fff" />
                     <Text style={styles.buttonText}>Thêm vào giỏ</Text>
                   </LinearGradient>
                 </TouchableOpacity>
               </View>
-
-              {/* Premium Badge */}
-              <View style={styles.premiumBadge}>
-                <LinearGradient
-                  colors={['#f093fb', '#f5576c']}
-                  style={styles.premiumGradient}
-                >
-                  <MaterialIcons name="diamond" size={12} color="#fff" />
-                  <Text style={styles.premiumText}>PREMIUM</Text>
-                </LinearGradient>
-              </View>
-            </LinearGradient>
+            </View>
           </TouchableOpacity>
         ))}
-        
-        {/* Add spacing after last item */}
-        <View style={{ width: 16 }} />
       </ScrollView>
     </View>
   );
@@ -273,124 +264,102 @@ export default function NewProducts({
 const styles = StyleSheet.create({
   container: {
     backgroundColor: '#f8fafc',
-    marginBottom: 24,
+    paddingVertical: 16,
+  },
+  headerContainer: {
+    paddingHorizontal: 16,
+    marginBottom: 16,
   },
   headerGradient: {
-    borderRadius: 20,
-    marginHorizontal: 16,
-    marginTop: 20,
-    marginBottom: 16,
+    borderRadius: 16,
     shadowColor: "#667eea",
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.2,
     shadowRadius: 8,
-    elevation: 8,
+    elevation: 6,
   },
   sectionRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
   },
   titleContainer: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  titleIcon: {
-    marginRight: 8,
+  iconWrapper: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    padding: 6,
+    borderRadius: 10,
+    marginRight: 10,
   },
   sectionTitle: {
-    fontWeight: "800",
-    fontSize: 18,
-    color: "#fff",
-    fontFamily: 'System',
-  },
-  titleAccent: {
-    fontWeight: "300",
+    fontWeight: "700",
     fontSize: 16,
+    color: "#fff",
+    lineHeight: 20,
+  },
+  sectionSubtitle: {
+    fontWeight: "400",
+    fontSize: 11,
+    color: "rgba(255,255,255,0.8)",
+    marginTop: 1,
   },
   viewAllButton: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(255,255,255,0.2)',
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
     paddingVertical: 6,
-    borderRadius: 15,
+    borderRadius: 12,
   },
   linkText: {
     color: '#fff',
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
     marginRight: 4,
   },
   scrollContainer: {
-    marginBottom: 16,
+    paddingVertical: 8,
   },
   scrollContent: {
-    paddingRight: 8,
+    paddingVertical: 4,
   },
   productCard: {
-    width: 200,
-    marginRight: 8,
-    borderRadius: 24,
-    overflow: 'hidden',
+    width: CARD_WIDTH,
+    backgroundColor: '#fff',
+    borderRadius: 16,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.15,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
     shadowRadius: 12,
-    elevation: 10,
+    elevation: 6,
   },
-  cardGradient: {
-    padding: 16,
+  cardContent: {
+    flex: 1,
+  },
+  imageContainer: {
     position: 'relative',
-    minHeight: 320,
-  },
-  shineEffect: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 2,
-    backgroundColor: 'rgba(255,255,255,0.6)',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
   },
   imageWrapper: {
-    width: '100%',
-    height: 120,
-    borderRadius: 16,
+    height: 140,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    overflow: 'hidden',
     backgroundColor: "#f8fafc",
-    marginBottom: 12,
-    justifyContent: "center",
-    alignItems: "center",
-    position: "relative",
-    overflow: "hidden",
   },
   productImage: {
-    width: 100,
-    height: 90,
-    resizeMode: "contain",
-    zIndex: 1,
+    width: '100%',
+    height: '100%',
   },
   imageOverlay: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    height: 30,
-    borderBottomLeftRadius: 16,
-    borderBottomRightRadius: 16,
-  },
-  imageFrame: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    borderWidth: 1,
-    borderColor: 'rgba(102,126,234,0.1)',
-    borderRadius: 16,
+    height: 40,
   },
   badgeContainer: {
     position: "absolute",
@@ -398,115 +367,104 @@ const styles = StyleSheet.create({
     left: 8,
     right: 8,
     flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  newBadgeWrapper: {
-    alignSelf: 'flex-start',
-  },
-  badgeRow: {
-    flexDirection: "row",
+    flexWrap: 'wrap',
     gap: 4,
   },
   defaultNewBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 10,
     shadowColor: "#667eea",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 4,
+    shadowRadius: 3,
+    elevation: 3,
   },
   defaultHotBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 10,
     shadowColor: "#ff6b6b",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 4,
+    shadowRadius: 3,
+    elevation: 3,
   },
   defaultDiscountBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 10,
     shadowColor: "#f093fb",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 4,
+    shadowRadius: 3,
+    elevation: 3,
   },
   defaultBadgeText: {
     color: '#fff',
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '700',
     marginLeft: 2,
   },
-  starWrapper: {
+  ratingContainer: {
     position: "absolute",
-    top: 8,
-    right: 8,
+    bottom: 8,
+    left: 8,
+  },
+  starWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
-    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    borderRadius: 10,
     paddingHorizontal: 6,
     paddingVertical: 3,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  starGradient: {
-    borderRadius: 8,
-    padding: 2,
-    marginRight: 3,
+    shadowRadius: 2,
+    elevation: 2,
   },
   ratingText: {
     fontSize: 10,
     fontWeight: '600',
     color: '#333',
+    marginLeft: 2,
   },
   wishlistButton: {
-    position: 'absolute',
-    bottom: 8,
+    position: "absolute",
+    top: 8,
     right: 8,
+    backgroundColor: 'rgba(255,255,255,0.95)',
     borderRadius: 12,
-    shadowColor: "#ff6b6b",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 4,
-  },
-  wishlistGradient: {
     padding: 6,
-    borderRadius: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
   productInfo: {
+    padding: 12,
     flex: 1,
-    alignItems: 'stretch',
   },
   productName: {
-    fontSize: 14,
-    fontWeight: "700",
+    fontSize: 13,
+    fontWeight: "600",
     color: "#1a202c",
     marginBottom: 4,
-    lineHeight: 18,
-    fontFamily: 'System',
+    lineHeight: 16,
   },
   shortDesc: {
-    fontSize: 11,
+    fontSize: 10,
     color: "#64748b",
     marginBottom: 8,
-    fontStyle: 'italic',
+    lineHeight: 14,
   },
   featureTags: {
     flexDirection: 'row',
@@ -516,105 +474,67 @@ const styles = StyleSheet.create({
   featureTag: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(102,126,234,0.1)',
-    paddingHorizontal: 6,
+    backgroundColor: 'rgba(102,126,234,0.08)',
+    paddingHorizontal: 4,
     paddingVertical: 2,
-    borderRadius: 8,
-    borderWidth: 1,
+    borderRadius: 6,
+    borderWidth: 0.5,
     borderColor: 'rgba(102,126,234,0.2)',
   },
   featureText: {
-    fontSize: 8,
+    fontSize: 7,
     color: '#667eea',
-    fontWeight: '700',
+    fontWeight: '600',
     marginLeft: 2,
   },
-  priceBlock: {
-    marginBottom: 12,
-  },
-  priceRow: {
+  priceSection: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
-    marginBottom: 2,
+    marginBottom: 4,
+    flexWrap: 'wrap',
   },
-  productPrice: {
+  currentPrice: {
     color: "#e53e3e",
-    fontWeight: "800",
-    fontSize: 16,
-    fontFamily: 'System',
+    fontWeight: "700",
+    fontSize: 14,
+    marginRight: 6,
   },
   originalPriceContainer: {
     position: 'relative',
   },
   originalPrice: {
-    fontSize: 12,
+    fontSize: 11,
     color: "#a0aec0",
     fontWeight: '500',
-  },
-  strikeThrough: {
-    position: 'absolute',
-    top: '50%',
-    left: 0,
-    right: 0,
-    height: 1,
-    backgroundColor: '#a0aec0',
+    textDecorationLine: 'line-through',
   },
   savingsText: {
-    fontSize: 10,
+    fontSize: 9,
     color: "#00d4aa",
     fontWeight: '600',
-    marginBottom: 2,
-  },
-  installmentText: {
-    fontSize: 9,
-    color: '#667eea',
-    fontWeight: '500',
+    marginBottom: 8,
   },
   addToCartButton: {
-    borderRadius: 12,
+    marginTop: 4,
+    borderRadius: 10,
     shadowColor: "#667eea",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
   },
   buttonGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 10,
   },
   buttonText: {
     color: '#fff',
-    fontSize: 12,
-    fontWeight: '700',
-    marginLeft: 6,
-  },
-  premiumBadge: {
-    position: 'absolute',
-    top: 16,
-    right: 16,
-    borderRadius: 12,
-    shadowColor: "#f093fb",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 4,
-  },
-  premiumGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  premiumText: {
-    color: '#fff',
-    fontSize: 9,
-    fontWeight: '700',
-    marginLeft: 2,
+    fontSize: 11,
+    fontWeight: '600',
+    marginLeft: 4,
   },
 });
