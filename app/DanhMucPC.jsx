@@ -29,7 +29,7 @@ export default function DanhMucPCScreen() {
   const [products, setProducts] = useState([]);
   const [showLoginDialog, setShowLoginDialog] = useState(false); // Thêm state này
   const [loading, setLoading] = useState(true); // Thêm state này
-   const [brands, setBrands] = useState([]);
+  const [brands, setBrands] = useState([]);
   const router = useRouter();
 
   // Kiểm tra đăng nhập
@@ -67,12 +67,12 @@ export default function DanhMucPCScreen() {
   }, []);
 
   // Bộ lọc mẫu (tuỳ ý)
- 
-const PRICE_SEGMENTS = [
+
+  const PRICE_SEGMENTS = [
     { label: 'Dưới 2 triệu', min: 0, max: 2_000_000 },
-    { label: '2–4 triệu',    min: 2_000_000, max: 4_000_000 },
-    { label: '4–7 triệu',    min: 4_000_000, max: 7_000_000 },
-    { label: '7–13 triệu',   min: 7_000_000, max: 13_000_000 },
+    { label: '2–4 triệu', min: 2_000_000, max: 4_000_000 },
+    { label: '4–7 triệu', min: 4_000_000, max: 7_000_000 },
+    { label: '7–13 triệu', min: 7_000_000, max: 13_000_000 },
     { label: 'Trên 13 triệu', min: 13_000_000, max: Infinity },
   ];
 
@@ -292,7 +292,7 @@ const PRICE_SEGMENTS = [
           />
 
           {/* Các filter */}
-          
+
           <View style={{ height: 80 }} />
         </ScrollView>
       </View>
@@ -313,27 +313,27 @@ function FilterSection({ title, data, onSelect }) {
         contentContainerStyle={styles.filterRow}
       >
         {data.map((item, i) => {
-         // Lấy label cho cả brand (name) và phân khúc giá (label) 
-         const label = item.name ?? item.label ?? ''; 
-         return ( 
-           <TouchableOpacity 
-             key={item._id || i} 
-             style={styles.tag}               // vẫn dùng style.tag cũ 
-             onPress={() => onSelect(item)} 
-           > 
-             {item.logo 
-               // Brand: show logo 
-               ? <Image 
-                   source={{ uri: item.logo }} 
-                   style={styles.brandLogo} 
-                  resizeMode="contain" 
-                 /> 
-               // Price segment hoặc fallback: show text label 
-               : <Text style={styles.tagText}>{label}</Text> 
-             } 
-           </TouchableOpacity> 
-         ); 
-       })}
+          // Lấy label cho cả brand (name) và phân khúc giá (label) 
+          const label = item.name ?? item.label ?? '';
+          return (
+            <TouchableOpacity
+              key={item._id || i}
+              style={styles.tag}               // vẫn dùng style.tag cũ 
+              onPress={() => onSelect(item)}
+            >
+              {item.logo
+                // Brand: show logo 
+                ? <Image
+                  source={{ uri: item.logo }}
+                  style={styles.brandLogo}
+                  resizeMode="contain"
+                />
+                // Price segment hoặc fallback: show text label 
+                : <Text style={styles.tagText}>{label}</Text>
+              }
+            </TouchableOpacity>
+          );
+        })}
       </ScrollView>
     </View>
   );

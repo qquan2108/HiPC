@@ -1,5 +1,5 @@
 // components/Profile.js
-import { Feather, Ionicons } from "@expo/vector-icons";
+import { Feather, Ionicons, MaterialIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Constants from "expo-constants";
 import { useFocusEffect, useRouter } from "expo-router";
@@ -13,6 +13,8 @@ import {
   Text,
   TouchableOpacity,
   View,
+  StatusBar,
+  Platform,
 } from "react-native";
 import axiosInstance from "../utils/AxiosInstance";
 
@@ -85,7 +87,6 @@ export default function Profile() {
   }, [])
 );
 
-
   const handleLogout = async () => {
     await AsyncStorage.multiRemove(["token", "user"]);
     router.replace("./LoginScreen");
@@ -93,6 +94,8 @@ export default function Profile() {
 
   return (
     <>
+      <StatusBar barStyle="light-content" backgroundColor="#1976ff" />
+      
       {/* Nếu chưa login */}
       {showLoginDialog && (
         <Modal
@@ -122,7 +125,7 @@ export default function Profile() {
                   style={[styles.btn, styles.btnSecondary]}
                   onPress={() => {
                     setShowLoginDialog(false);
-                    router.replace("/HomeScreen"); // Chuyển về trang HomeScreen
+                    router.replace("/HomeScreen");
                   }}
                 >
                   <Text style={styles.btnTextPrimary}>Để sau</Text>
@@ -142,27 +145,80 @@ export default function Profile() {
 
       {/* Nội dung profile */}
       {user && (
-        <ScrollView contentContainerStyle={styles.container}>
-          {/* Header */}
-          <View style={styles.header}>
-            <TouchableOpacity onPress={() => router.back()}>
-              <Feather name="arrow-left" size={24} color="#1976ff" />
-            </TouchableOpacity>
-            <Text style={styles.headerTitle}>Hồ sơ của tôi</Text>
-            <View style={{ width: 24 }} />
-          </View>
+        <View style={styles.container}>
+          {/* Enhanced Header với Gradient Background */}
+          <View style={styles.headerContainer}>
+            {/* Background Gradient Effect */}
+            <View style={styles.headerBackground} />
+            
+            {/* Header Content */}
+            <View style={styles.headerContent}>
+              {/* Top Navigation Bar */}
+              <View style={styles.topNavBar}>
+                <TouchableOpacity 
+                  style={styles.navButton}
+                  onPress={() => router.back()}
+                >
+                  <Feather name="arrow-left" size={24} color="#fff" />
+                </TouchableOpacity>
+                
+                <Text style={styles.headerTitle}>Hồ sơ</Text>
+                
+                <View style={styles.rightActions}>
+                  <TouchableOpacity style={styles.navButton}>
+                    <Feather name="more-vertical" size={24} color="#fff" />
+                  </TouchableOpacity>
+                </View>
+              </View>
 
-          {/* Avatar */}
-          <View style={styles.avatarWrapper}>
-            <Image
-              source={computeSource(
-                user.avatarUrl,
-                require("../assets/images/avatar.png")
-              )}
-              style={styles.avatar}
-            />
-            <Text style={styles.name}>{user.full_name}</Text>
-            <Text style={styles.email}>{user.email}</Text>
+              {/* User Info Section */}
+              <View style={styles.userInfoSection}>
+                <View style={styles.avatarContainer}>
+                  <View style={styles.avatarWrapper}>
+                    <Image
+                      source={computeSource(
+                        user.avatarUrl,
+                        require("../assets/images/avatar.png")
+                      )}
+                      style={styles.avatar}
+                    />
+                    <TouchableOpacity style={styles.editAvatarButton}>
+                      <MaterialIcons name="photo-camera" size={16} color="#1976ff" />
+                    </TouchableOpacity>
+                  </View>
+                  
+                  <View style={styles.userDetails}>
+                    <Text style={styles.userName}>{user.full_name}</Text>
+                    <Text style={styles.userEmail}>{user.email}</Text>
+                    
+                    {/* Status Badge */}
+                    <View style={styles.statusBadge}>
+                      <View style={styles.onlineIndicator} />
+                      <Text style={styles.statusText}>Đang hoạt động</Text>
+                    </View>
+                  </View>
+                </View>
+
+                {/* Action Buttons */}
+                <View style={styles.actionButtons}>
+                  <TouchableOpacity 
+                    style={[styles.actionButton, styles.primaryActionButton]}
+                    onPress={() => router.push("./UserInfo")}
+                  >
+                    <Feather name="edit-3" size={16} color="#1976ff" />
+                    <Text style={styles.primaryActionText}>Chỉnh sửa</Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity 
+                    style={[styles.actionButton, styles.secondaryActionButton]}
+                    onPress={() => router.push("./settings")}
+                  >
+                    <Feather name="settings" size={16} color="#fff" />
+                    <Text style={styles.secondaryActionText}>Cài đặt</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
           </View>
 
           {/* Menu */}
@@ -254,23 +310,225 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   container: {
-    backgroundColor: "#fff",
-    flexGrow: 1,
-    paddingTop: 18,
+    flex: 1,
+    backgroundColor: "#f8f9fa",
   },
-  header: {
+  
+  // Enhanced Header Styles
+  headerContainer: {
+    position: "relative",
+    paddingTop: Platform.OS === 'ios' ? 50 : 25,
+  },
+  headerBackground: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "#1976ff",
+    // Gradient effect simulation
+    shadowColor: "#1976ff",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  headerContent: {
+    position: "relative",
+    paddingBottom: 20,
+  },
+  topNavBar: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 18,
-    marginBottom: 10,
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
+    paddingVertical: 15,
+  },
+  navButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    alignItems: "center",
+    justifyContent: "center",
   },
   headerTitle: {
-    flex: 1,
-    textAlign: "center",
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: "700",
-    color: "#1976ff",
+    color: "#fff",
+    letterSpacing: 0.5,
   },
+  rightActions: {
+    flexDirection: "row",
+  },
+  
+  // User Info Section
+  userInfoSection: {
+    paddingHorizontal: 20,
+    paddingTop: 10,
+  },
+  avatarContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  avatarWrapper: {
+    position: "relative",
+    marginRight: 16,
+  },
+  avatar: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    borderWidth: 3,
+    borderColor: "rgba(255, 255, 255, 0.3)",
+    backgroundColor: "#fff",
+  },
+  editAvatarButton: {
+    position: "absolute",
+    bottom: 0,
+    right: 0,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: "#fff",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: "#1976ff",
+  },
+  userDetails: {
+    flex: 1,
+  },
+  userName: {
+    fontSize: 24,
+    fontWeight: "700",
+    color: "#fff",
+    marginBottom: 4,
+  },
+  userEmail: {
+    fontSize: 16,
+    color: "rgba(255, 255, 255, 0.8)",
+    marginBottom: 8,
+  },
+  statusBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(76, 175, 80, 0.2)",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    alignSelf: "flex-start",
+  },
+  onlineIndicator: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#4caf50",
+    marginRight: 6,
+  },
+  statusText: {
+    fontSize: 12,
+    color: "#fff",
+    fontWeight: "500",
+  },
+  
+  // Action Buttons
+  actionButtons: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  actionButton: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    gap: 8,
+  },
+  primaryActionButton: {
+    backgroundColor: "#fff",
+  },
+  secondaryActionButton: {
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.3)",
+  },
+  primaryActionText: {
+    color: "#1976ff",
+    fontWeight: "600",
+    fontSize: 16,
+  },
+  secondaryActionText: {
+    color: "#fff",
+    fontWeight: "600",
+    fontSize: 16,
+  },
+
+  // Menu Styles
+  menuScrollView: {
+    flex: 1,
+    marginTop: 8,
+  },
+  menu: {
+    backgroundColor: "#fff",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingTop: 8,
+    minHeight: "100%",
+  },
+  menuItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f0f4fa",
+    backgroundColor: "#fff",
+  },
+  menuIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "#f8f9fa",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  menuLabel: {
+    flex: 1,
+    fontSize: 16,
+    color: "#2c3e50",
+    fontWeight: "500",
+  },
+  menuRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  badge: {
+    backgroundColor: "#ff4757",
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+    minWidth: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  badgeText: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+
+  // Modal Styles (unchanged)
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.3)",
@@ -310,7 +568,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     width: "100%",
     marginTop: 8,
-    gap: 8, // Nếu chưa hỗ trợ gap thì giữ marginHorizontal cho btn
+    gap: 8,
   },
   btn: {
     borderRadius: 8,
@@ -324,52 +582,4 @@ const styles = StyleSheet.create({
   btnSecondary: { backgroundColor: "#f0f4fa" },
   btnTextWhite: { color: "#fff", fontWeight: "bold", fontSize: 16 },
   btnTextPrimary: { color: "#2979ff", fontWeight: "bold", fontSize: 16 },
-  avatarWrapper: {
-    alignItems: "center",
-    marginBottom: 18,
-  },
-  avatar: {
-    width: 90,
-    height: 90,
-    borderRadius: 45,
-    marginBottom: 8,
-    backgroundColor: "#eaf2ff",
-  },
-  name: {
-    fontWeight: "bold",
-    fontSize: 18,
-    color: "#222",
-    marginBottom: 4,
-  },
-  email: {
-    color: "#888",
-    marginBottom: 8,
-  },
-  menu: {
-    marginTop: 8,
-  },
-  menuItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    borderBottomWidth: 1,
-    borderBottomColor: "#f0f4fa",
-    backgroundColor: "#fff",
-  },
-  menuIcon: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: "#eaf2ff",
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 18,
-  },
-  menuLabel: {
-    flex: 1,
-    fontSize: 16,
-    color: "#222",
-    fontWeight: "500",
-  },
 });
