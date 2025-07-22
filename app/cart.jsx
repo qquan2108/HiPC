@@ -43,6 +43,7 @@ export default function CartScreen() {
   const [cart, setCart] = useState([]);
   // store the entire pending order so we can display its info and items
   const [pendingOrder, setPendingOrder] = useState(null);
+  const [pendingInfo, setPendingInfo] = useState(null);
   const [addresses, setAddresses] = useState(defaultAddresses);
   const [showAddressModal, setShowAddressModal] = useState(false);
   const [newAddress, setNewAddress] = useState("");
