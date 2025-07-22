@@ -152,13 +152,17 @@ export default function OrderDetailScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Địa chỉ giao hàng</Text>
           <Text style={styles.addressText}>
-            {order.shippingAddress?.recipientName}
+            {order.shippingAddress?.recipientName ||
+              order.recipientName ||
+              order.user_id?.full_name}
           </Text>
           <Text style={styles.addressText}>
-            {order.shippingAddress?.phoneNumber}
+            {order.shippingAddress?.phoneNumber ||
+              order.phoneNumber ||
+              order.user_id?.phone}
           </Text>
           <Text style={styles.addressText}>
-            {order.shippingAddress?.address}
+            {order.shippingAddress?.address || order.address}
           </Text>
         </View>
 
