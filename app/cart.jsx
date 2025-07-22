@@ -41,6 +41,8 @@ export default function CartScreen() {
   const [userId, setUserId] = useState(null);
   const [showLoginDialog, setShowLoginDialog] = useState(false);
   const [cart, setCart] = useState([]);
+  // store the entire pending order so we can display its info and items
+  const [pendingOrder, setPendingOrder] = useState(null);
   const [addresses, setAddresses] = useState(defaultAddresses);
   const [showAddressModal, setShowAddressModal] = useState(false);
   const [newAddress, setNewAddress] = useState("");
@@ -65,6 +67,7 @@ export default function CartScreen() {
       }
     });
   }, []);
+
 
   // Check login
   useEffect(() => {
@@ -104,23 +107,33 @@ const fetchCart = useCallback(async () => {
   try {
     // 1. Fetch and normalize the API response into an array of orders
     const { data: ordersData } = await axiosInstance.get(`/orders/user/${userId}`);
-    const orders = Array.isArray(ordersData)
-      ? ordersData
-      : (ordersData.orders && Array.isArray(ordersData.orders))
-        ? ordersData.orders
-        : (typeof ordersData === "object")
-          ? [ordersData]
-          : [];
+
+    // handle possible nested data structures
+    let orders = [];
+    if (Array.isArray(ordersData)) {
+      orders = ordersData;
+    } else if (Array.isArray(ordersData?.orders)) {
+      orders = ordersData.orders;
+    } else if (Array.isArray(ordersData?.data)) {
+      orders = ordersData.data;
+    } else if (Array.isArray(ordersData?.data?.orders)) {
+      orders = ordersData.data.orders;
+    } else if (typeof ordersData === 'object') {
+      orders = [ordersData];
+    }
 
     // 2. Pick the pending (or payment_failed) order
-    const pendingOrder =
+    const pending =
       orders.find(o => o.status?.toLowerCase() === "pending") ||
       orders.find(o => o.status?.toLowerCase() === "payment_failed") ||
       { products: [] };
 
+    // save pending order info for display
+    setPendingOrder(pending);
+
     // 3. Map each product into the shape your UI expects
-    const items = Array.isArray(pendingOrder.products)
-      ? pendingOrder.products.map(item => {
+    const items = Array.isArray(pending.products)
+      ? pending.products.map(item => {
           // a) Extract the product object (or synthesize one if productId is a string)
           const prod = typeof item.productId === "object"
             ? item.productId
@@ -182,6 +195,13 @@ const fetchCart = useCallback(async () => {
     setLoading(false);
   }
 }, [userId]);
+
+  // whenever userId becomes available, fetch cart
+  useEffect(() => {
+    if (userId) {
+      fetchCart();
+    }
+  }, [userId, fetchCart]);
 
   // Handlers
   const handleQuantity = async (id, delta) => {
@@ -321,7 +341,6 @@ const fetchCart = useCallback(async () => {
   const finalTotal = Math.max(0, selectedTotal - discount);
 
   // danh sách sản phẩm đã chọn
-  const isEmpty = cart.length === 0;
   const isNothingSelected = selectedProducts.length === 0;
 
   // Address handlers (unchanged)
@@ -423,10 +442,22 @@ const fetchCart = useCallback(async () => {
             color={selectedIds.length === 0 ? "#ccc" : "#ff4d4f"}
           />
         </TouchableOpacity>
-        <View style={styles.cartCount}>
-          <Text style={styles.cartCountText}>{cart.length}</Text>
-        </View>
+      <View style={styles.cartCount}>
+        <Text style={styles.cartCountText}>{cart.length}</Text>
       </View>
+    </View>
+
+      {/* Show pending order info if available */}
+      {pendingOrder && (
+        <View style={styles.orderInfoBox}>
+          <Text style={styles.orderInfoText} numberOfLines={1}>
+            ID: {pendingOrder._id} - {pendingOrder.status}
+          </Text>
+          <Text style={styles.orderInfoText}>
+            Tổng: {formatCurrency(pendingOrder.total)}
+          </Text>
+        </View>
+      )}
 
       {/* Address */}
       <View style={styles.addressBox}>{/* ... */}</View>
@@ -447,7 +478,7 @@ const fetchCart = useCallback(async () => {
       />
 
       <View style={{ flex: 1, paddingBottom: 100 }}>
-        {!isEmpty ? (
+        {pendingOrder && cart.length > 0 ? (
           <CartProductList
             cart={cart}
             onRemove={handleRemove}
@@ -664,4 +695,16 @@ const styles = StyleSheet.create({
   btnSecondary: { backgroundColor: "#f0f4fa" },
   btnTextWhite: { color: "#fff", fontWeight: "bold", fontSize: 16 },
   btnTextPrimary: { color: "#2979ff", fontWeight: "bold", fontSize: 16 },
+  orderInfoBox: {
+    backgroundColor: "#fff",
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    marginHorizontal: 16,
+    marginTop: 10,
+    borderRadius: 8,
+  },
+  orderInfoText: {
+    fontSize: 14,
+    color: "#333",
+  },
 });
