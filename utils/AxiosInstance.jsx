@@ -5,7 +5,7 @@ import { Platform } from 'react-native';
 
 const baseURL =
   Platform.OS === 'ios' || Platform.OS === 'android'
-    ? 'https://hipc-sever-vz03.onrender.com' // IP LAN cho thiết bị thật
+    ? 'http://192.168.10.19:3000' // IP LAN cho thiết bị thật
     : 'https://hipc-sever-vz03.onrender.com';      // Cho web hoặc máy tính
 
 // Tạo instance
