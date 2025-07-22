@@ -182,7 +182,7 @@ export default function CTSP() {
   };
 
   // Hàm thêm vào giỏ hàng đúng như bạn yêu cầu
-  const AddToCart = async prod => {
+  const AddToCart = async (prod, variant) => {
     try {
       const userStr = await AsyncStorage.getItem('user');
       if (!userStr) {
@@ -197,11 +197,16 @@ export default function CTSP() {
       await axiosInstance.post('/orders/add-to-cart', {
         user_id: userId,
         productId: prod.id,
-        quantity: 1
+        quantity: 1,
+        variant,
       });
 
-      Toast.show({ type: 'success', text1: 'Đã thêm vào giỏ hàng!', position: 'bottom' });
-      setTimeout(() => router.push('/cart'), 1200);
+      Toast.show({
+        type: 'success',
+        text1: 'Đã thêm vào giỏ hàng!',
+        position: 'bottom',
+      });
+      router.push('/cart');
     } catch (err) {
       console.error('add-to-cart error:', err);
       Toast.show({ type: 'error', text1: 'Thêm giỏ hàng thất bại!', position: 'top' });
@@ -325,17 +330,14 @@ export default function CTSP() {
       <View style={styles.bottomBar}>
         <TouchableOpacity
           style={styles.bottomCartBtn}
-          onPress={() => AddToCart(product)} // Sửa lại dòng này
+          onPress={() => AddToCart(product, selectedVariant)}
         >
           <Feather name="shopping-cart" size={20} color="#1a73e8" />
           <Text style={styles.bottomCartText}>Giỏ hàng</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.bottomBuyBtn}
-          onPress={() => AddToCart({
-            ...product,
-            variant: selectedVariant
-          })}
+          onPress={() => AddToCart(product, selectedVariant)}
         >
           <Text style={styles.bottomBuyText}>Mua ngay</Text>
         </TouchableOpacity>
