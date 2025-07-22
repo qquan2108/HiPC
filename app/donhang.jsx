@@ -19,7 +19,6 @@ import {
   StatusBar
 } from 'react-native';
 import { TabBar, TabView } from 'react-native-tab-view';
-import OrderStatusStepper from '../components/OrderStatusStepper';
 import axiosInstance from '../utils/AxiosInstance';
 
 const TAB_CONFIG = {
@@ -38,6 +37,7 @@ function formatCurrency(num) {
 }
 
 const OrderCard = React.memo(({ order, tab, onCancel, onStatusChange, onReview }) => {
+  const router = useRouter();
   const itemCount = order.products?.reduce((sum, p) => sum + p.quantity, 0) || 0;
 
   const getStatusColor = (status) => {
@@ -56,7 +56,9 @@ const OrderCard = React.memo(({ order, tab, onCancel, onStatusChange, onReview }
   const statusColor = getStatusColor(order.status);
 
   return (
-    <View style={styles.card}>
+    <TouchableOpacity style={styles.card} activeOpacity={0.8}
+      onPress={() => router.push({ pathname: '/chitietdonhang', params: { orderId: order._id } })}
+    >
       {/* Gradient Header */}
       <View style={styles.cardHeader}>
         <View style={styles.shopSection}>
@@ -133,14 +135,6 @@ const OrderCard = React.memo(({ order, tab, onCancel, onStatusChange, onReview }
         </View>
       </View>
 
-      {/* Order Status Stepper */}
-      <View style={styles.stepperContainer}>
-        <OrderStatusStepper
-          orderId={order._id}
-          initialStatus={order.status}
-          onStatusChange={onStatusChange}
-        />
-      </View>
 
       {/* Review Buttons */}
       {order.status === 'delivered' && order.products?.filter(p => p.productId).length > 0 && (
@@ -160,7 +154,7 @@ const OrderCard = React.memo(({ order, tab, onCancel, onStatusChange, onReview }
           ))}
         </View>
       )}
-    </View>
+    </TouchableOpacity>
   );
 });
 
@@ -717,13 +711,6 @@ const styles = StyleSheet.create({
     fontWeight: '700', 
     color: '#DC2626',
   },
-
-  // Stepper Container
-  stepperContainer: {
-    paddingHorizontal: 16,
-    paddingTop: 12,
-  },
-
   // Review Section
   reviewSection: {
     paddingHorizontal: 16,
