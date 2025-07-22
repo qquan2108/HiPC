@@ -41,6 +41,8 @@ export default function CartScreen() {
   const [userId, setUserId] = useState(null);
   const [showLoginDialog, setShowLoginDialog] = useState(false);
   const [cart, setCart] = useState([]);
+  // store the entire pending order so we can display its info and items
+  const [pendingOrder, setPendingOrder] = useState(null);
   const [pendingInfo, setPendingInfo] = useState(null);
   const [addresses, setAddresses] = useState(defaultAddresses);
   const [showAddressModal, setShowAddressModal] = useState(false);
@@ -122,17 +124,17 @@ const fetchCart = useCallback(async () => {
     }
 
     // 2. Pick the pending (or payment_failed) order
-    const pendingOrder =
+    const pending =
       orders.find(o => o.status?.toLowerCase() === "pending") ||
       orders.find(o => o.status?.toLowerCase() === "payment_failed") ||
       { products: [] };
 
     // save pending order info for display
-    setPendingInfo(pendingOrder);
+    setPendingOrder(pending);
 
     // 3. Map each product into the shape your UI expects
-    const items = Array.isArray(pendingOrder.products)
-      ? pendingOrder.products.map(item => {
+    const items = Array.isArray(pending.products)
+      ? pending.products.map(item => {
           // a) Extract the product object (or synthesize one if productId is a string)
           const prod = typeof item.productId === "object"
             ? item.productId
@@ -340,7 +342,6 @@ const fetchCart = useCallback(async () => {
   const finalTotal = Math.max(0, selectedTotal - discount);
 
   // danh sách sản phẩm đã chọn
-  const isEmpty = cart.length === 0;
   const isNothingSelected = selectedProducts.length === 0;
 
   // Address handlers (unchanged)
@@ -448,13 +449,13 @@ const fetchCart = useCallback(async () => {
     </View>
 
       {/* Show pending order info if available */}
-      {pendingInfo && (
+      {pendingOrder && (
         <View style={styles.orderInfoBox}>
           <Text style={styles.orderInfoText} numberOfLines={1}>
-            ID: {pendingInfo._id} - {pendingInfo.status}
+            ID: {pendingOrder._id} - {pendingOrder.status}
           </Text>
           <Text style={styles.orderInfoText}>
-            Tổng: {formatCurrency(pendingInfo.total)}
+            Tổng: {formatCurrency(pendingOrder.total)}
           </Text>
         </View>
       )}
@@ -478,7 +479,7 @@ const fetchCart = useCallback(async () => {
       />
 
       <View style={{ flex: 1, paddingBottom: 100 }}>
-        {!isEmpty ? (
+        {pendingOrder && cart.length > 0 ? (
           <CartProductList
             cart={cart}
             onRemove={handleRemove}
