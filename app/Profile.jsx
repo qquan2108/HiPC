@@ -186,7 +186,7 @@ export default function Profile() {
               {
                 icon: <Feather name="package" size={22} color="#1976ff" />,
                 label: "Theo dõi đơn hàng",
-                onPress: () => router.push("./theodoidonhang"),
+                onPress: () => router.push("./donhang"),
               },
               
               {

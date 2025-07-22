@@ -242,7 +242,7 @@ export default function CheckoutSuccess() {
       
               <TouchableOpacity
           style={styles.primaryBtn}
-          onPress={() => router.push("/theodoidonhang")}
+          onPress={() => router.push("/donhang")}
           activeOpacity={0.85}
         >
           <View style={styles.primaryBtnBlue}>
