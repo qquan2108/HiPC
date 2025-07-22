@@ -221,89 +221,83 @@ export default function Profile() {
             </View>
           </View>
 
-          {/* Menu Content */}
-          <ScrollView 
-            style={styles.menuScrollView}
-            showsVerticalScrollIndicator={false}
-          >
-            <View style={styles.menu}>
-              {[
-                {
-                  icon: <Feather name="user" size={22} color="#1976ff" />,
-                  label: "Thông tin cá nhân",
-                  onPress: () => router.push("./UserInfo"),
-                  badge: null,
-                },
-                {
-                  icon: <Feather name="heart" size={22} color="#e91e63" />,
-                  label: "Yêu thích",
-                  onPress: () => router.push("./favorite"),
-                  badge: "12",
-                },
-                {
-                  icon: <Feather name="credit-card" size={22} color="#4caf50" />,
-                  label: "Phương thức thanh toán",
-                  onPress: () => {},
-                  badge: null,
-                },
-                {
-                  icon: <Feather name="package" size={22} color="#ff9800" />,
-                  label: "Theo dõi đơn hàng",
-                  onPress: () => router.push("./theodoidonhang"),
-                  badge: "3",
-                },
-                {
-                  icon: <Ionicons name="ticket-outline" size={22} color="#9c27b0" />,
-                  label: "Voucher",
-                  onPress: () => router.push("./VoucherList"),
-                  badge: null,
-                },
-                {
-                  icon: <Feather name="youtube" size={22} color="#f44336" />,
-                  label: "Video",
-                  onPress: () => router.push("./livevideo"),
-                  badge: null,
-                },
-                {
-                  icon: <Feather name="help-circle" size={22} color="#2196f3" />,
-                  label: "Chăm sóc khách hàng",
-                  onPress: () => router.push("./danhmucall"),
-                  badge: null,
-                },
-                {
-                  icon: <Ionicons name="lock-closed-outline" size={22} color="#607d8b" />,
-                  label: "Chính sách bảo mật",
-                  onPress: () => router.push("./"),
-                  badge: null,
-                },
-                {
-                  icon: <Feather name="log-out" size={22} color="#f44336" />,
-                  label: "Đăng xuất",
-                  onPress: handleLogout,
-                  badge: null,
-                },
-              ].map((item, i) => (
-                <TouchableOpacity
-                  key={i}
-                  style={styles.menuItem}
-                  onPress={item.onPress}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.menuIcon}>{item.icon}</View>
-                  <Text style={styles.menuLabel}>{item.label}</Text>
-                  <View style={styles.menuRight}>
-                    {item.badge && (
-                      <View style={styles.badge}>
-                        <Text style={styles.badgeText}>{item.badge}</Text>
-                      </View>
-                    )}
-                    <Feather name="chevron-right" size={20} color="#b0b9c8" />
-                  </View>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </ScrollView>
-        </View>
+          {/* Menu */}
+          <View style={styles.menu}>
+            {[
+              {
+                icon: <Feather name="user" size={22} color="#1976ff" />,
+                label: "Thông tin cá nhân",
+                onPress: () => router.push("./UserInfo"),
+              },
+              {
+                icon: <Feather name="heart" size={22} color="#1976ff" />,
+                label: "Yêu thích",
+                onPress: () => router.push("./favorite"),
+              },
+              {
+                icon: <Feather name="credit-card" size={22} color="#1976ff" />,
+                label: "Phương thức thanh toán",
+                onPress: () => {},
+              },
+              {
+                icon: <Feather name="package" size={22} color="#1976ff" />,
+                label: "Theo dõi đơn hàng",
+                onPress: () => router.push("./donhang"),
+              },
+              
+              {
+                icon: (
+                  <Ionicons
+                    name="ticket-outline"
+                    size={22}
+                    color="#1976ff"
+                  />
+                ),
+                label: "voucher",
+                onPress: () => router.push("./VoucherList"),
+              },
+              {
+                icon: <Feather name="youtube" size={22} color="#1976ff" />,
+                label: "Video",
+                onPress: () => router.push("./livevideo"),
+              },
+              {
+                icon: (
+                  <Feather name="help-circle" size={22} color="#1976ff" />
+                ),
+                label: "Chăm sóc khách hàng",
+                onPress: () => router.push("./danhmucall"),
+              },
+              {
+                icon: (
+                  <Ionicons
+                    name="lock-closed-outline"
+                    size={22}
+                    color="#1976ff"
+                  />
+                ),
+                label: "Chính sách bảo mật",
+                onPress: () => router.push("./"),
+              },
+              {
+                icon: <Feather name="log-out" size={22} color="#1976ff" />,
+                label: "Đăng xuất",
+                onPress: handleLogout,
+              },
+            ].map((item, i) => (
+              <TouchableOpacity
+                key={i}
+                style={styles.menuItem}
+                onPress={item.onPress}
+                activeOpacity={0.7}
+              >
+                <View style={styles.menuIcon}>{item.icon}</View>
+                <Text style={styles.menuLabel}>{item.label}</Text>
+                <Feather name="chevron-right" size={20} color="#b0b9c8" />
+              </TouchableOpacity>
+            ))}
+          </View>
+        </ScrollView>
       )}
     </>
   );
