@@ -41,17 +41,19 @@ const fetchProductById = async (productId) => {
   }
 
   return {
-    id:       product._id,
-    name:     product.name,
-    price:    product.price,
+    id: product._id,
+    name: product.name,
+    price: product.price,
     description: product.description,
     oldPrice: product.price,
     images: Array.isArray(product.images) && product.images.length
       ? product.images.map((url) => ({ uri: url }))
       : [require('../assets/images/pc1.png')],
+    // rename field to variants
+    variants: product.variants || {},
     image: product.image ? { uri: product.image } : require('../assets/images/pc1.png'),
     rating: product.rating || 4.5,
-    sold:   product.sold || 0,
+    sold: product.sold || 0,
     origin: product.origin || 'Unknown',
     specs: specsArr,
     buyWith: product.relatedProducts || product.buyWith || [],
@@ -62,32 +64,17 @@ const fetchProductById = async (productId) => {
 const fetchAllProducts = async () => {
   try {
     const { data } = await axiosInstance.get('/product');
-    const list = (data.products || []).map(p => ({
-      id:    p._id,
-      name:  p.name,
+    return (data.products || []).map(p => ({
+      id: p._id,
+      name: p.name,
       price: p.price,
       image: p.image ? { uri: p.image } : require('../assets/images/pc1.png'),
-      sold:  p.sold || 0,
+      sold: p.sold || 0,
     }));
-    console.log('allProducts ›', list);
-    return list;
   } catch {
     return [];
   }
 };
-
-const cpuOptions = [
-  'i5 12400F + Tản nhiệt khí',
-  'i5 12400F + Tản nước AIO 240',
-  'i5 13400F + Tản nhiệt khí',
-  'i5 13400F + Tản nước AIO 240',
-  'i5 12600KF + Tản nhiệt khí',
-  'i5 12600KF + Tản nước AIO 240',
-  'i5 14500 + Tản nhiệt khí',
-  'i5 14500 + Tản nước AIO 240',
-];
-const ramOptions = ['RAM 16GB', 'RAM 32GB'];
-const ssdOptions = ['SSD 512GB', 'SSD 1TB'];
 
 function formatCurrency(num) {
   return num.toLocaleString('vi-VN') + 'đ';
@@ -97,20 +84,20 @@ export default function CTSP() {
   const router = useRouter();
   const { id: productId } = useLocalSearchParams();
 
-  const [compareVisible, setCompareVisible] = useState(false);
-  const [selectedCpu, setSelectedCpu]       = useState(cpuOptions[0]);
-  const [selectedRam, setSelectedRam]       = useState(ramOptions[0]);
-  const [selectedSsd, setSelectedSsd]       = useState(ssdOptions[0]);
+  const [product, setProduct] = useState(null);
+  const [variantLabel, setVariantLabel] = useState('Phiên Bản');
+  const [variantOptions, setVariantOptions] = useState([]);
+  const [selectedVariant, setSelectedVariant] = useState(null);
   const [compareProducts, setCompareProducts] = useState([]);
+  const [compareVisible, setCompareVisible] = useState(false);
   const [addModalVisible, setAddModalVisible] = useState(false);
-  const [searchText, setSearchText]           = useState('');
-  const [product, setProduct]                 = useState(null);
-  const [allProducts, setAllProducts]         = useState([]);
-  const [loading, setLoading]                 = useState(true);
-  const [error, setError]                     = useState(null);
+  const [searchText, setSearchText] = useState('');
+  const [allProducts, setAllProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [showLoginDialog, setShowLoginDialog] = useState(false);
 
-  // Load product & all products
+  // Load product & initialize variants
   useEffect(() => {
     (async () => {
       try {
@@ -118,6 +105,24 @@ export default function CTSP() {
         if (!productId) throw new Error('Thiếu ID sản phẩm');
         const fetched = await fetchProductById(productId);
         setProduct(fetched);
+
+        // Process variants object or array
+        const vars = fetched.variants;
+        if (vars && typeof vars === 'object' && !Array.isArray(vars)) {
+          const [key] = Object.keys(vars);
+          const opts = Array.isArray(vars[key]) ? vars[key] : [];
+          setVariantLabel(key);
+          setVariantOptions(opts);
+          setSelectedVariant(opts[0] || null);
+        } else if (Array.isArray(vars)) {
+          setVariantLabel('Phiên Bản');
+          setVariantOptions(vars);
+          setSelectedVariant(vars[0] || null);
+        } else {
+          setVariantOptions([]);
+          setSelectedVariant(null);
+        }
+
         setCompareProducts([fetched]);
         setAllProducts(await fetchAllProducts());
       } catch (e) {
@@ -150,58 +155,58 @@ export default function CTSP() {
     setCompareProducts([]);
     setAddModalVisible(false);
   };
-const handleGoCompare = () => {
-  console.log('handleGoCompare - compareProducts:', compareProducts); // Debug
-  if (compareProducts.length < 2) {
-    Toast.show({
-      type: 'error',
-      text1: 'Vui lòng chọn ít nhất 2 sản phẩm để so sánh!',
-      position: 'top',
-    });
-    return;
-  }
-  setCompareVisible(false); // Đóng modal
-  try {
-    router.push({
-      pathname: '/sosanhsanpham',
-      params: { compare: JSON.stringify(compareProducts) },
-    });
-  } catch (err) {
-    console.error('Error in router.push:', err);
-    Toast.show({
-      type: 'error',
-      text1: 'Lỗi khi chuyển hướng đến trang so sánh!',
-      position: 'top',
-    });
-  }
-};
+  const handleGoCompare = () => {
+    console.log('handleGoCompare - compareProducts:', compareProducts); // Debug
+    if (compareProducts.length < 2) {
+      Toast.show({
+        type: 'error',
+        text1: 'Vui lòng chọn ít nhất 2 sản phẩm để so sánh!',
+        position: 'top',
+      });
+      return;
+    }
+    setCompareVisible(false); // Đóng modal
+    try {
+      router.push({
+        pathname: '/sosanhsanpham',
+        params: { compare: JSON.stringify(compareProducts) },
+      });
+    } catch (err) {
+      console.error('Error in router.push:', err);
+      Toast.show({
+        type: 'error',
+        text1: 'Lỗi khi chuyển hướng đến trang so sánh!',
+        position: 'top',
+      });
+    }
+  };
 
   // Hàm thêm vào giỏ hàng đúng như bạn yêu cầu
-const AddToCart = async prod => {
-  try {
-    const userStr = await AsyncStorage.getItem('user');
-    if (!userStr) {
-      Toast.show({ type: 'error', text1: 'Vui lòng đăng nhập để mua hàng!', position: 'top' });
-      return router.replace('/LoginScreen');
+  const AddToCart = async prod => {
+    try {
+      const userStr = await AsyncStorage.getItem('user');
+      if (!userStr) {
+        Toast.show({ type: 'error', text1: 'Vui lòng đăng nhập để mua hàng!', position: 'top' });
+        return router.replace('/LoginScreen');
+      }
+      const userObj = JSON.parse(userStr);
+      const userId = userObj._id || userObj.id;
+      console.log('AddToCart userId:', userId);
+
+      // Gửi đúng field user_id mà server Mongoose đang require
+      await axiosInstance.post('/orders/add-to-cart', {
+        user_id: userId,
+        productId: prod.id,
+        quantity: 1
+      });
+
+      Toast.show({ type: 'success', text1: 'Đã thêm vào giỏ hàng!', position: 'bottom' });
+      setTimeout(() => router.push('/cart'), 1200);
+    } catch (err) {
+      console.error('add-to-cart error:', err);
+      Toast.show({ type: 'error', text1: 'Thêm giỏ hàng thất bại!', position: 'top' });
     }
-    const userObj = JSON.parse(userStr);
-    const userId = userObj._id || userObj.id;
-    console.log('AddToCart userId:', userId);
-
-    // Gửi đúng field user_id mà server Mongoose đang require
-    await axiosInstance.post('/orders/add-to-cart', {
-      user_id:   userId,
-      productId: prod.id,
-      quantity:  1
-    });
-
-    Toast.show({ type: 'success', text1: 'Đã thêm vào giỏ hàng!', position: 'bottom' });
-    setTimeout(() => router.push({ pathname: './cart', params: { refresh: 1 } }), 1200);
-  } catch (err) {
-    console.error('add-to-cart error:', err);
-    Toast.show({ type: 'error', text1: 'Thêm giỏ hàng thất bại!', position: 'top' });
-  }
-};
+  };
 
 
   const handleGoReview = async () => {
@@ -211,7 +216,7 @@ const AddToCart = async prod => {
       if (userStr) {
         userId = JSON.parse(userStr).id || JSON.parse(userStr)._id;
       }
-    } catch {}
+    } catch { }
     if (!product?.id) {
       Toast.show({ type: 'error', text1: 'Không xác định được sản phẩm!' });
       return;
@@ -219,10 +224,10 @@ const AddToCart = async prod => {
     router.push({
       pathname: '/danhgia',
       params: {
-        product_id:    product.id,
-        product_name:  product.name,
+        product_id: product.id,
+        product_name: product.name,
         product_image: product.image?.uri || product.images[0]?.uri || '',
-        user_id:       userId,
+        user_id: userId,
       },
     });
   };
@@ -291,13 +296,16 @@ const AddToCart = async prod => {
             {/* Configuration Options */}
             <View style={styles.configContainer}>
               <Text style={styles.configTitle}>Tùy chọn cấu hình</Text>
-              <OptionGroup label="CPU" options={cpuOptions} selected={selectedCpu} onSelect={setSelectedCpu} />
-              <OptionGroup label="RAM" options={ramOptions} selected={selectedRam} onSelect={setSelectedRam} />
-              <OptionGroup label="SSD" options={ssdOptions} selected={selectedSsd} onSelect={setSelectedSsd} />
+              <OptionGroup
+                label={variantLabel}
+                options={variantOptions}
+                selected={selectedVariant}
+                onSelect={setSelectedVariant}
+              />
             </View>
 
             {/* Reviews & Sections */}
-            <ReviewBox product={product}/>
+            <ReviewBox product={product} />
             <View style={styles.sectionContainer}>
               <Text style={styles.sectionTitle}>Sản phẩm phổ biến</Text>
               <SectionPopular data={allProducts.slice(0, 3)} />
@@ -308,13 +316,13 @@ const AddToCart = async prod => {
             </View>
 
             {/* Description */}
-           
+
           </>
         )}
       />
 
       {/* Bottom Bar */}
-      <View style={styles.bottomBar}> 
+      <View style={styles.bottomBar}>
         <TouchableOpacity
           style={styles.bottomCartBtn}
           onPress={() => AddToCart(product)} // Sửa lại dòng này
@@ -324,7 +332,10 @@ const AddToCart = async prod => {
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.bottomBuyBtn}
-          onPress={() => AddToCart(product)}
+          onPress={() => AddToCart({
+            ...product,
+            variant: selectedVariant
+          })}
         >
           <Text style={styles.bottomBuyText}>Mua ngay</Text>
         </TouchableOpacity>
@@ -332,12 +343,12 @@ const AddToCart = async prod => {
 
       {/* Compare Modal */}
       <Modal
-  visible={compareVisible}
-  animationType="slide"
-  transparent
-  presentationStyle="overFullScreen"
-  onRequestClose={() => setCompareVisible(false)}
->
+        visible={compareVisible}
+        animationType="slide"
+        transparent
+        presentationStyle="overFullScreen"
+        onRequestClose={() => setCompareVisible(false)}
+      >
         <View style={styles.modalOverlay}>
           <View style={styles.bottomSheet}>
             <View style={styles.sheetHeader}>
@@ -396,25 +407,25 @@ const AddToCart = async prod => {
               />
             </View>
             <View style={{ maxHeight: 250, width: '100%' }}>
-  <FlatList
-    data={filteredProducts}
-    keyExtractor={item => item.id}
-    ListEmptyComponent={() => (
-      <Text style={styles.noResults}>Không tìm thấy sản phẩm</Text>
-    )}
-    renderItem={({ item }) => (
-      <TouchableOpacity
-        style={styles.searchItem}
-        onPress={() => handleAddCompare(item)}
-      >
-        <Image source={item.image} style={styles.searchImage} />
-        <Text numberOfLines={2} style={styles.searchName}>
-          {item.name}
-        </Text>
-      </TouchableOpacity>
-    )}
-  />
-</View>
+              <FlatList
+                data={filteredProducts}
+                keyExtractor={item => item.id}
+                ListEmptyComponent={() => (
+                  <Text style={styles.noResults}>Không tìm thấy sản phẩm</Text>
+                )}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={styles.searchItem}
+                    onPress={() => handleAddCompare(item)}
+                  >
+                    <Image source={item.image} style={styles.searchImage} />
+                    <Text numberOfLines={2} style={styles.searchName}>
+                      {item.name}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              />
+            </View>
             <TouchableOpacity style={styles.closeSearch} onPress={() => setAddModalVisible(false)}>
               <Text style={styles.closeText}>Đóng</Text>
             </TouchableOpacity>

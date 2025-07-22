@@ -39,7 +39,7 @@ function formatCurrency(num) {
 
 export default function CartScreen() {
   const [userId, setUserId] = useState(null);
-  const [showLoginDialog, setShowLoginDialog] = useState(false); // Thêm state này
+  const [showLoginDialog, setShowLoginDialog] = useState(false);
   const [cart, setCart] = useState([]);
   const [addresses, setAddresses] = useState(defaultAddresses);
   const [showAddressModal, setShowAddressModal] = useState(false);
@@ -62,112 +62,146 @@ export default function CartScreen() {
         const user = JSON.parse(data);
         const uid = user.id || user._id;
         setUserId(uid);
-        console.log('CartScreen userId:', uid);
       }
     });
   }, []);
 
-  // Kiểm tra đăng nhập
+  // Check login
   useEffect(() => {
     AsyncStorage.getItem("token").then((token) => {
       if (!token) {
         setShowLoginDialog(true);
-        setLoading(false); 
+        setLoading(false);
         return;
       }
       AsyncStorage.getItem("user").then((userStr) => {
         if (!userStr || userStr === "undefined") {
           setShowLoginDialog(true);
-          setLoading(false); 
+          setLoading(false);
           return;
         }
-        let stored;
-        try {
-          stored = JSON.parse(userStr);
-        } catch (e) {
+        const stored = JSON.parse(userStr);
+        const userIdVal = stored.id || stored._id;
+        if (!userIdVal) {
           setShowLoginDialog(true);
-          setLoading(false); 
+          setLoading(false);
           return;
         }
-        const userId = stored.id || stored._id;
-        if (!userId) {
-          setShowLoginDialog(true);
-          setLoading(false); // Thêm dòng này
-          return;
-        }
-        setUserId(userId);
+        setUserId(userIdVal);
         setShowLoginDialog(false);
       });
     });
   }, []);
 
   // Fetch cart (pending order only)
-  const fetchCart = useCallback(async () => {
-    if (!userId) {
-      setLoading(false); // Thêm dòng này để không bị loading mãi
-      return;
-    }
-    setLoading(true);
-    try {
-      const res = await axiosInstance.get(`/orders/user/${userId}`);
-      const orders = Array.isArray(res.data) ? res.data : [];
-      console.log("Fetched orders:", orders);
-      const pending = orders.find((o) => o.status === "pending") || {
-        products: [],
-      };
-      const items = (pending.products || [])
-  .filter(item => item.productId && typeof item.productId === "object")
-  .map((item) => {
-    let imageUri = require("../assets/images/pc1.png"); // default image
+const fetchCart = useCallback(async () => {
+  if (!userId) {
+    setLoading(false);
+    return;
+  }
+  setLoading(true);
 
-    // Xử lý nhiều trường hợp image
-    const img = item.productId.image;
-    if (img) {
-      if (typeof img === "string") {
-        imageUri = { uri: img };
-      } else if (Array.isArray(img) && img.length > 0) {
-        imageUri = { uri: img[0] }; // lấy ảnh đầu tiên nếu là mảng
-      } else if (typeof img === "object" && img.uri) {
-        imageUri = { uri: img.uri };
-      }
-    }
+  try {
+    // 1. Fetch and normalize the API response into an array of orders
+    const { data: ordersData } = await axiosInstance.get(`/orders/user/${userId}`);
+    const orders = Array.isArray(ordersData)
+      ? ordersData
+      : (ordersData.orders && Array.isArray(ordersData.orders))
+        ? ordersData.orders
+        : (typeof ordersData === "object")
+          ? [ordersData]
+          : [];
 
-    return {
-      id: item.productId._id,
-      name: item.productId.name || "Không có tên",
-      price: item.productId.price ?? 0,
-      image: imageUri,
-      quantity: item.quantity ?? 1,
-    };
-  });
-      setCart(items);
-    } catch (err) {
-      console.error("Lỗi khi lấy giỏ hàng:", err);
-      setCart([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [userId]);
+    // 2. Pick the pending (or payment_failed) order
+    const pendingOrder =
+      orders.find(o => o.status?.toLowerCase() === "pending") ||
+      orders.find(o => o.status?.toLowerCase() === "payment_failed") ||
+      { products: [] };
 
-  // Reload on focus
-  useFocusEffect(
-    useCallback(() => {
-      if (userId) fetchCart();
-    }, [fetchCart, userId])
-  );
+    // 3. Map each product into the shape your UI expects
+    const items = Array.isArray(pendingOrder.products)
+      ? pendingOrder.products.map(item => {
+          // a) Extract the product object (or synthesize one if productId is a string)
+          const prod = typeof item.productId === "object"
+            ? item.productId
+            : {
+                _id: item.productId,
+                name: item.productName,
+                price: item.productPrice,
+                image: item.productImage,
+                stock: item.productStock,
+                variants: []
+              };
 
-  // Change quantity
+          // b) Determine which image to use (fallback to default)
+          let imageUri = require("../assets/images/pc1.png");
+          const img = prod.image;
+          if (img) {
+            if (typeof img === "string") {
+              imageUri = { uri: img };
+            } else if (Array.isArray(img) && img.length) {
+              imageUri = { uri: img[0] };
+            } else if (img.uri) {
+              imageUri = { uri: img.uri };
+            }
+          }
+
+          // c) Normalize variants (could be array or object)
+          let variants = [];
+          if (prod.variants) {
+            if (Array.isArray(prod.variants)) {
+              variants = prod.variants;
+            } else if (typeof prod.variants === "object") {
+              const key = Object.keys(prod.variants)[0];
+              if (Array.isArray(prod.variants[key])) {
+                variants = prod.variants[key];
+              }
+            }
+          }
+
+          return {
+            id: prod._id,
+            productId: prod._id,
+            name: prod.name || "Không có tên",
+            price: prod.price ?? 0,
+            image: imageUri,
+            quantity: item.quantity ?? 1,
+            variants,
+            selectedVariant: item.variant || variants[0] || "",
+            stock: prod.stock ?? 0
+          };
+        })
+      : [];
+
+    console.log("Fetched cart items:", items);
+    setCart(items);
+  } catch (err) {
+    console.error("Error fetching cart:", err);
+    setCart([]);
+  } finally {
+    setLoading(false);
+  }
+}, [userId]);
+
+  // Handlers
   const handleQuantity = async (id, delta) => {
     const prod = cart.find((item) => item.id === id);
     if (!prod) return;
-    const newQty = Math.max(1, prod.quantity + delta);
+    let newQty = Math.max(1, prod.quantity + delta);
+    if (newQty > prod.stock) {
+      Toast.show({
+        type: "error",
+        text1: `Chỉ còn ${prod.stock} sản phẩm trong kho`,
+        position: "top",
+      });
+      newQty = prod.stock;
+    }
     try {
       await axiosInstance.put("/orders/update-quantity", {
         user_id: userId,
         productId: id,
         quantity: newQty,
       });
-      // sau khi update xong thì fetch lại giỏ để có đầy đủ image URL
       await fetchCart();
     } catch (err) {
       console.error("Lỗi khi cập nhật số lượng:", err);
@@ -175,10 +209,44 @@ export default function CartScreen() {
         type: "error",
         text1: "Có lỗi khi cập nhật số lượng sản phẩm",
         position: "top",
-        visibilityTime: 2000,
       });
     }
   };
+
+  const handleQuantityInput = async (id, text) => {
+    const prod = cart.find((item) => item.id === id);
+    if (!prod) return;
+    let parsed = parseInt(text, 10);
+    if (isNaN(parsed) || parsed < 1) parsed = 1;
+    if (parsed > prod.stock) {
+      Toast.show({ type: 'error', text1: `Chỉ còn ${prod.stock} sản phẩm trong kho`, position: 'top' });
+      parsed = prod.stock;
+    }
+    try {
+      await axiosInstance.put("/orders/update-quantity", { user_id: userId, productId: id, quantity: parsed });
+      await fetchCart();
+    } catch (err) {
+      console.error("Lỗi khi cập nhật số lượng:", err);
+      Toast.show({ type: "error", text1: "Có lỗi khi cập nhật số lượng sản phẩm", position: "top" });
+    }
+  };
+
+  const handleVariantChange = async (id, variant) => {
+    try {
+      await axiosInstance.put("/orders/update-variant", { user_id: userId, productId: id, variant });
+      await fetchCart();
+    } catch (err) {
+      console.error("Lỗi khi cập nhật biến thể:", err);
+      Toast.show({ type: "error", text1: "Cập nhật biến thể thất bại!", position: "top" });
+    }
+  };
+
+  // Load on focus
+  useFocusEffect(
+    useCallback(() => {
+      if (userId) fetchCart();
+    }, [fetchCart, userId])
+  );
 
   useEffect(() => {
     (async () => {
@@ -195,7 +263,7 @@ export default function CartScreen() {
   const handleRemove = async (id) => {
     try {
       await axiosInstance.delete(`/orders/remove-product/${userId}/${id}`);
-      setCart((prev) => prev.filter((item) => item.productId !== id));
+      setCart((prev) => prev.filter((item) => item.id !== id)); // Sửa từ item.productId thành item.id
     } catch (err) {
       console.error("Lỗi khi xóa sản phẩm:", err);
       Toast.show({
@@ -229,28 +297,28 @@ export default function CartScreen() {
   };
 
   // Compute total
-const selectedProducts = cart.filter(item => selectedIds.includes(item.id));
+  const selectedProducts = cart.filter(item => selectedIds.includes(item.id));
 
-// 2) Tính tổng tiền của các món được chọn
-const selectedTotal = selectedProducts.reduce(
-  (sum, item) => sum + item.price * item.quantity,
-  0
-);
+  // 2) Tính tổng tiền của các món được chọn
+  const selectedTotal = selectedProducts.reduce(
+    (sum, item) => sum + item.price * item.quantity,
+    0
+  );
 
-// 3) Tính discount dựa trên selectedTotal
-let discount = 0;
-if (selectedVoucher) {
-  const dv = selectedVoucher.discount_value;
-  // nếu discount_value < 100, coi như %; còn lại coi như tiền cố định
-  if (dv > 0 && dv < 100) {
-    discount = Math.round((selectedTotal * dv) / 100);
-  } else {
-    discount = dv;
+  // 3) Tính discount dựa trên selectedTotal
+  let discount = 0;
+  if (selectedVoucher) {
+    const dv = selectedVoucher.discount_value;
+    // nếu discount_value < 100, coi như %; còn lại coi như tiền cố định
+    if (dv > 0 && dv < 100) {
+      discount = Math.round((selectedTotal * dv) / 100);
+    } else {
+      discount = dv;
+    }
   }
-}
 
-// 4) Tổng cuối cùng = selectedTotal – discount
-const finalTotal = Math.max(0, selectedTotal - discount);
+  // 4) Tổng cuối cùng = selectedTotal – discount
+  const finalTotal = Math.max(0, selectedTotal - discount);
 
   // danh sách sản phẩm đã chọn
   const isEmpty = cart.length === 0;
@@ -378,15 +446,14 @@ const finalTotal = Math.max(0, selectedTotal - discount);
         handleAddAddress={handleAddAddress}
       />
 
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ flexGrow: 1, paddingBottom: 100 }}
-      >
+      <View style={{ flex: 1, paddingBottom: 100 }}>
         {!isEmpty ? (
           <CartProductList
             cart={cart}
             onRemove={handleRemove}
             onQuantity={handleQuantity}
+            onQuantityInput={handleQuantityInput}
+            onVariantChange={handleVariantChange}
             formatCurrency={formatCurrency}
             selectedIds={selectedIds}
             onToggleSelect={toggleSelect}
@@ -396,7 +463,7 @@ const finalTotal = Math.max(0, selectedTotal - discount);
         )}
 
         <CartWishlist wishlist={wishlist} formatCurrency={formatCurrency} />
-      </ScrollView>
+      </View>
 
       <CartTotalBar
         total={finalTotal}
@@ -426,11 +493,11 @@ const finalTotal = Math.max(0, selectedTotal - discount);
             },
           });
         }}
-        
+
         onShowVoucher={() => setShowVoucher(true)}
         onClearVoucher={() => setSelectedVoucher(null)}
-         disabled={isNothingSelected}
-        
+        disabled={isNothingSelected}
+
       />
       {/* Voucher modal vẫn để trong CartScreen */}
       <PayVoucherModal
@@ -439,7 +506,7 @@ const finalTotal = Math.max(0, selectedTotal - discount);
         selectedVoucher={selectedVoucher}
         setSelectedVoucher={setSelectedVoucher}
         setShowVoucher={setShowVoucher}
-        
+
       />
     </View>
   );
@@ -552,7 +619,7 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     backgroundColor: "#fff",
-      borderRadius: 16,
+    borderRadius: 16,
     paddingVertical: 32,
     paddingHorizontal: 28,
     alignItems: "center",
