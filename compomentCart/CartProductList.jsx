@@ -6,7 +6,16 @@ export default function CartProductList({ cart, onRemove, onQuantity, onQuantity
   return (
     <View style={styles.cartBox}>
       {cart.map(item => {
-        const variants = Array.isArray(item.variants) ? item.variants : [];
+        let variants = [];
+        if (Array.isArray(item.variants)) {
+          variants = item.variants;
+        } else if (item.variants && typeof item.variants === 'object') {
+          // Support object form {label: [options]}
+          const key = Object.keys(item.variants)[0];
+          if (Array.isArray(item.variants[key])) {
+            variants = item.variants[key];
+          }
+        }
         return (
           <View key={item.id} style={styles.productRow}>
             <TouchableOpacity style={styles.checkbox} onPress={() => onToggleSelect(item.id)}>
@@ -116,7 +125,9 @@ const styles = StyleSheet.create({
   picker: {
     flex: 1,
     height: 36,
-    backgroundColor: '#f9f9f9',
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#ddd',
     borderRadius: 4,
   },
   qtyRow: {
