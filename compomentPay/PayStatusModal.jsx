@@ -61,7 +61,7 @@ export default function PayStatusModal({ payStatus, setPayStatus, router }) {
                 style={[styles.statusBtn, { backgroundColor: "#eaf3ff", marginTop: 18 }]}
                 onPress={() => {
                   setPayStatus(null);
-                  router.push("./theodoidonhang");
+                  router.push("./donhang");
                 }}
               >
                 <Text style={[styles.statusBtnText, { color: "#2979ff" }]}>
