@@ -1,43 +1,165 @@
 import { Feather } from "@expo/vector-icons";
-import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { useState, useEffect } from "react";
+import { 
+  Image, 
+  StyleSheet, 
+  Text, 
+  TouchableOpacity, 
+  View, 
+  TextInput,
+  Animated
+} from "react-native";
+import Toast from "react-native-toast-message";
 
-export default function CartProductList({ cart, onRemove, onQuantity, formatCurrency, onToggleSelect, selectedIds }) {
+export default function CartProductList({ 
+  cart, 
+  onRemove, 
+  onQuantity, 
+  formatCurrency, 
+  onToggleSelect, 
+  selectedIds,
+  onQuantityInput // Thêm prop mới để xử lý input số lượng
+}) {
+  const [editingQuantity, setEditingQuantity] = useState({});
+  const [tempQuantity, setTempQuantity] = useState({});
+
+  const handleQuantityInputFocus = (itemId, currentQuantity) => {
+    setEditingQuantity(prev => ({ ...prev, [itemId]: true }));
+    setTempQuantity(prev => ({ ...prev, [itemId]: currentQuantity.toString() }));
+  };
+
+  const handleQuantityInputBlur = async (itemId) => {
+    const inputValue = tempQuantity[itemId];
+    const newQuantity = parseInt(inputValue) || 1;
+    
+    // Gọi callback để xử lý validation và cập nhật
+    if (onQuantityInput) {
+      await onQuantityInput(itemId, newQuantity);
+    }
+    
+    setEditingQuantity(prev => ({ ...prev, [itemId]: false }));
+    setTempQuantity(prev => ({ ...prev, [itemId]: '' }));
+  };
+
+  const handleQuantityTextChange = (itemId, text) => {
+    // Chỉ cho phép nhập số
+    const numericText = text.replace(/[^0-9]/g, '');
+    setTempQuantity(prev => ({ ...prev, [itemId]: numericText }));
+  };
+
   return (
     <View style={styles.cartBox}>
       {cart.map(item => (
-        <View key={item.id} style={styles.productRow}>
-          {/* Checkbox tròn */}
+        <View key={item.id} style={styles.productCard}>
+          {/* Checkbox với animation */}
           <TouchableOpacity
-            style={styles.checkbox}
+            style={[
+              styles.checkbox,
+              selectedIds.includes(item.id) && styles.checkboxSelected
+            ]}
             onPress={() => onToggleSelect(item.id)}
+            activeOpacity={0.8}
           >
             <Feather
-              name={selectedIds.includes(item.id) ? "check-circle" : "circle"}
-              size={22}
-              color={selectedIds.includes(item.id) ? "#2979ff" : "#ccc"}
+              name={selectedIds.includes(item.id) ? "check" : ""}
+              size={16}
+              color="#fff"
             />
           </TouchableOpacity>
-          <Image source={item.image} style={styles.cartImage} />
-          <View style={{ flex: 1, marginLeft: 10 }}>
-            <Text style={styles.cartName} numberOfLines={2}>{item.name}</Text>
-            <Text style={styles.cartPrice}>{formatCurrency(item.price)}</Text>
-            <View style={styles.qtyRow}>
-              <TouchableOpacity onPress={() => onQuantity(item.id, -1)} style={styles.qtyBtn}>
-                <Feather name="minus" size={16} color="#2979ff" />
+
+          {/* Product Image với shadow */}
+          <View style={styles.imageContainer}>
+            <Image source={item.image} style={styles.productImage} />
+            {/* Badge discount nếu có */}
+            {item.discount && (
+              <View style={styles.discountBadge}>
+                <Text style={styles.discountText}>-{item.discount}%</Text>
+              </View>
+            )}
+          </View>
+
+          {/* Product Info */}
+          <View style={styles.productInfo}>
+            <Text style={styles.productName} numberOfLines={2}>
+              {item.name}
+            </Text>
+            {item.variant && (
+          <Text style={styles.variantText} numberOfLines={1}>
+            Phiên bản: {item.variant}
+          </Text>
+        )}
+            {/* Price section với styling giống Shopee/Tiki */}
+            <View style={styles.priceSection}>
+              <Text style={styles.currentPrice}>
+                {formatCurrency(item.price)}
+              </Text>
+              {item.originalPrice && item.originalPrice > item.price && (
+                <Text style={styles.originalPrice}>
+                  {formatCurrency(item.originalPrice)}
+                </Text>
+              )}
+            </View>
+
+            {/* Quantity controls với input */}
+            <View style={styles.quantityContainer}>
+              <TouchableOpacity 
+                onPress={() => onQuantity(item.id, -1)} 
+                style={[styles.quantityBtn, styles.decreaseBtn]}
+                disabled={item.quantity <= 1}
+              >
+                <Feather 
+                  name="minus" 
+                  size={14} 
+                  color={item.quantity <= 1 ? "#ccc" : "#666"} 
+                />
               </TouchableOpacity>
-              <Text style={styles.qtyText}>{item.quantity}</Text>
-              <TouchableOpacity onPress={() => onQuantity(item.id, 1)} style={styles.qtyBtn}>
-                <Feather name="plus" size={16} color="#2979ff" />
+
+              {/* Input số lượng có thể chỉnh sửa */}
+              <View style={styles.quantityInputContainer}>
+                {editingQuantity[item.id] ? (
+                  <TextInput
+                    style={styles.quantityInput}
+                    value={tempQuantity[item.id] || ''}
+                    onChangeText={(text) => handleQuantityTextChange(item.id, text)}
+                    onBlur={() => handleQuantityInputBlur(item.id)}
+                    keyboardType="numeric"
+                    selectTextOnFocus
+                    maxLength={3}
+                    autoFocus
+                  />
+                ) : (
+                  <TouchableOpacity 
+                    onPress={() => handleQuantityInputFocus(item.id, item.quantity)}
+                    style={styles.quantityDisplay}
+                  >
+                    <Text style={styles.quantityText}>{item.quantity}</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              <TouchableOpacity 
+                onPress={() => onQuantity(item.id, 1)} 
+                style={[styles.quantityBtn, styles.increaseBtn]}
+              >
+                <Feather name="plus" size={14} color="#666" />
               </TouchableOpacity>
             </View>
+
+            {/* Stock info nếu có */}
+            {item.stock && item.stock < 10 && (
+              <Text style={styles.stockWarning}>
+                Chỉ còn {item.stock} sản phẩm
+              </Text>
+            )}
           </View>
-          {/* Icon thùng rác mới, đặt bên phải */}
+
+          {/* Remove button với animation */}
           <TouchableOpacity
             onPress={() => onRemove(item.id)}
-            style={styles.cartRemoveBtn}
+            style={styles.removeButton}
             activeOpacity={0.7}
           >
-            <Feather name="trash-2" size={20} color="#f55858" />
+            <Feather name="trash-2" size={18} color="#ff4757" />
           </TouchableOpacity>
         </View>
       ))}
@@ -47,73 +169,156 @@ export default function CartProductList({ cart, onRemove, onQuantity, formatCurr
 
 const styles = StyleSheet.create({
   cartBox: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    marginHorizontal: 14,
-    marginBottom: 14,
-    padding: 10,
-    shadowColor: '#000',
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
+    paddingHorizontal: 16,
   },
-  productRow: {
+  productCard: {
     flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 14,
+    backgroundColor: '#fff',
     borderRadius: 12,
-    backgroundColor: '#f7f8fa',
-    padding: 8,
-    position: 'relative',
+    marginBottom: 12,
+    padding: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
+    borderWidth: 0.5,
+    borderColor: '#f0f0f0',
   },
   checkbox: {
-    marginRight: 10,
-    padding: 4,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: '#ddd',
+    marginRight: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#fff',
   },
-  cartImage: {
-    width: 56,
-    height: 56,
-    borderRadius: 12,
-    backgroundColor: '#f3f3f3',
+  checkboxSelected: {
+    backgroundColor: '#ee4d2d',
+    borderColor: '#ee4d2d',
   },
-  cartName: {
+  imageContainer: {
+    position: 'relative',
+    marginRight: 12,
+  },
+  productImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 8,
+    backgroundColor: '#f8f8f8',
+  },
+  discountBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    backgroundColor: '#ff424e',
+    borderRadius: 8,
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+  },
+  discountText: {
+    color: '#fff',
+    fontSize: 10,
     fontWeight: 'bold',
-    fontSize: 14,
-    color: '#222',
-    marginBottom: 2,
   },
-  cartPrice: {
-    color: '#2979ff',
-    fontWeight: 'bold',
-    fontSize: 14,
-    marginBottom: 2,
+  productInfo: {
+    flex: 1,
+    justifyContent: 'space-between',
   },
-  qtyRow: {
+  productName: {
+    fontSize: 14,
+    color: '#333',
+    fontWeight: '500',
+    lineHeight: 18,
+    marginBottom: 4,
+  },
+  priceSection: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 4,
+    marginBottom: 8,
   },
-  qtyBtn: {
-    backgroundColor: '#eaf3ff',
-    borderRadius: 8,
-    padding: 4,
-    marginHorizontal: 4,
-  },
-  qtyText: {
-    fontSize: 15,
-    color: '#222',
+  currentPrice: {
+    fontSize: 16,
     fontWeight: 'bold',
-    minWidth: 24,
-    textAlign: 'center',
+    color: '#ee4d2d',
   },
-  cartRemoveBtn: {
-    marginLeft: 10,
-    backgroundColor: "#fff",
-    borderRadius: 16,
-    padding: 6,
-    elevation: 2,
-    alignItems: "center",
-    justifyContent: "center",
+  originalPrice: {
+    fontSize: 12,
+    color: '#999',
+    textDecorationLine: 'line-through',
+    marginLeft: 8,
+  },
+  quantityContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  quantityBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#fff',
+  },
+  decreaseBtn: {
+    borderTopRightRadius: 0,
+    borderBottomRightRadius: 0,
+  },
+  increaseBtn: {
+    borderTopLeftRadius: 0,
+    borderBottomLeftRadius: 0,
+  },
+  quantityInputContainer: {
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: '#e0e0e0',
+    backgroundColor: '#fff',
+    minWidth: 40,
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  quantityInput: {
+    fontSize: 14,
+    textAlign: 'center',
+    padding: 0,
+    width: '100%',
+    height: '100%',
+    color: '#333',
+  },
+  quantityDisplay: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  quantityText: {
+    fontSize: 14,
+    color: '#333',
+    fontWeight: '500',
+  },
+  stockWarning: {
+    fontSize: 11,
+    color: '#ff6b35',
+    marginTop: 4,
+    fontStyle: 'italic',
+  },
+  removeButton: {
+    padding: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 8,
+  },
+  variantText: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 4,
+    fontStyle: 'italic',
   },
 });

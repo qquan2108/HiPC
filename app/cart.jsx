@@ -72,13 +72,13 @@ export default function CartScreen() {
     AsyncStorage.getItem("token").then((token) => {
       if (!token) {
         setShowLoginDialog(true);
-        setLoading(false); 
+        setLoading(false);
         return;
       }
       AsyncStorage.getItem("user").then((userStr) => {
         if (!userStr || userStr === "undefined") {
           setShowLoginDialog(true);
-          setLoading(false); 
+          setLoading(false);
           return;
         }
         let stored;
@@ -86,7 +86,7 @@ export default function CartScreen() {
           stored = JSON.parse(userStr);
         } catch (e) {
           setShowLoginDialog(true);
-          setLoading(false); 
+          setLoading(false);
           return;
         }
         const userId = stored.id || stored._id;
@@ -115,31 +115,35 @@ export default function CartScreen() {
       const pending = orders.find((o) => o.status === "pending") || {
         products: [],
       };
+      // Trong hàm fetchCart, thay đoạn mapping items:
       const items = (pending.products || [])
-  .filter(item => item.productId && typeof item.productId === "object")
-  .map((item) => {
-    let imageUri = require("../assets/images/pc1.png"); // default image
+        .filter(item => item.productId && typeof item.productId === "object")
+        .map((item) => {
+          let imageUri = require("../assets/images/pc1.png");
+          const variant = item.variant || null;
+          const img = item.productId.image;
+          if (img) {
+            if (typeof img === "string") {
+              imageUri = { uri: img };
+            } else if (Array.isArray(img) && img.length > 0) {
+              imageUri = { uri: img[0] };
+            } else if (typeof img === "object" && img.uri) {
+              imageUri = { uri: img.uri };
+            }
+          }
 
-    // Xử lý nhiều trường hợp image
-    const img = item.productId.image;
-    if (img) {
-      if (typeof img === "string") {
-        imageUri = { uri: img };
-      } else if (Array.isArray(img) && img.length > 0) {
-        imageUri = { uri: img[0] }; // lấy ảnh đầu tiên nếu là mảng
-      } else if (typeof img === "object" && img.uri) {
-        imageUri = { uri: img.uri };
-      }
-    }
-
-    return {
-      id: item.productId._id,
-      name: item.productId.name || "Không có tên",
-      price: item.productId.price ?? 0,
-      image: imageUri,
-      quantity: item.quantity ?? 1,
-    };
-  });
+          return {
+            id: item.productId._id,
+            name: item.productId.name || "Không có tên",
+            price: item.productId.price ?? 0,
+            originalPrice: item.productId.originalPrice, // Thêm giá gốc nếu có
+            discount: item.productId.discount, // Thêm discount nếu có
+            stock: item.productId.stock || 99, // Thêm thông tin stock
+            image: imageUri,
+            quantity: item.quantity ?? 1,
+            variant
+          };
+        });
       setCart(items);
     } catch (err) {
       console.error("Lỗi khi lấy giỏ hàng:", err);
@@ -229,29 +233,78 @@ export default function CartScreen() {
   };
 
   // Compute total
-const selectedProducts = cart.filter(item => selectedIds.includes(item.id));
+  const selectedProducts = cart.filter(item => selectedIds.includes(item.id));
 
-// 2) Tính tổng tiền của các món được chọn
-const selectedTotal = selectedProducts.reduce(
-  (sum, item) => sum + item.price * item.quantity,
-  0
-);
+  // 2) Tính tổng tiền của các món được chọn
+  const selectedTotal = selectedProducts.reduce(
+    (sum, item) => sum + item.price * item.quantity,
+    0
+  );
 
-// 3) Tính discount dựa trên selectedTotal
-let discount = 0;
-if (selectedVoucher) {
-  const dv = selectedVoucher.discount_value;
-  // nếu discount_value < 100, coi như %; còn lại coi như tiền cố định
-  if (dv > 0 && dv < 100) {
-    discount = Math.round((selectedTotal * dv) / 100);
-  } else {
-    discount = dv;
+  // 3) Tính discount dựa trên selectedTotal
+  let discount = 0;
+  if (selectedVoucher) {
+    const dv = selectedVoucher.discount_value;
+    // nếu discount_value < 100, coi như %; còn lại coi như tiền cố định
+    if (dv > 0 && dv < 100) {
+      discount = Math.round((selectedTotal * dv) / 100);
+    } else {
+      discount = dv;
+    }
   }
-}
 
-// 4) Tổng cuối cùng = selectedTotal – discount
-const finalTotal = Math.max(0, selectedTotal - discount);
+  // 4) Tổng cuối cùng = selectedTotal – discount
+  const finalTotal = Math.max(0, selectedTotal - discount);
+  // Thêm hàm này sau hàm handleQuantity
+const handleQuantityInput = async (id, newQuantity) => {
+  const prod = cart.find((item) => item.id === id);
+  if (!prod) return;
 
+  // Kiểm tra với stock từ server (giả sử bạn có thông tin stock)
+  // Nếu không có stock info, có thể set max là 99
+  const maxStock = prod.stock || 99;
+  
+  if (newQuantity > maxStock) {
+    Toast.show({
+      type: "error",
+      text1: "Số lượng vượt quá kho",
+      text2: `Sản phẩm này chỉ còn ${maxStock} trong kho`,
+      position: "top",
+      visibilityTime: 3000,
+    });
+    
+    // Reset về số lượng tối đa có thể
+    try {
+      await axiosInstance.put("/orders/update-quantity", {
+        user_id: userId,
+        productId: id,
+        quantity: maxStock,
+      });
+      await fetchCart();
+    } catch (err) {
+      console.error("Lỗi khi cập nhật số lượng:", err);
+    }
+    return;
+  }
+
+  // Cập nhật số lượng bình thường
+  try {
+    await axiosInstance.put("/orders/update-quantity", {
+      user_id: userId,
+      productId: id,
+      quantity: Math.max(1, newQuantity),
+    });
+    await fetchCart();
+  } catch (err) {
+    console.error("Lỗi khi cập nhật số lượng:", err);
+    Toast.show({
+      type: "error",
+      text1: "Có lỗi khi cập nhật số lượng sản phẩm",
+      position: "top",
+      visibilityTime: 2000,
+    });
+  }
+};
   // danh sách sản phẩm đã chọn
   const isEmpty = cart.length === 0;
   const isNothingSelected = selectedProducts.length === 0;
@@ -382,11 +435,13 @@ const finalTotal = Math.max(0, selectedTotal - discount);
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ flexGrow: 1, paddingBottom: 100 }}
       >
+
         {!isEmpty ? (
           <CartProductList
             cart={cart}
             onRemove={handleRemove}
             onQuantity={handleQuantity}
+            onQuantityInput={handleQuantityInput} // Thêm prop mới
             formatCurrency={formatCurrency}
             selectedIds={selectedIds}
             onToggleSelect={toggleSelect}
@@ -426,11 +481,11 @@ const finalTotal = Math.max(0, selectedTotal - discount);
             },
           });
         }}
-        
+
         onShowVoucher={() => setShowVoucher(true)}
         onClearVoucher={() => setSelectedVoucher(null)}
-         disabled={isNothingSelected}
-        
+        disabled={isNothingSelected}
+
       />
       {/* Voucher modal vẫn để trong CartScreen */}
       <PayVoucherModal
@@ -439,7 +494,7 @@ const finalTotal = Math.max(0, selectedTotal - discount);
         selectedVoucher={selectedVoucher}
         setSelectedVoucher={setSelectedVoucher}
         setShowVoucher={setShowVoucher}
-        
+
       />
     </View>
   );
@@ -552,7 +607,7 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     backgroundColor: "#fff",
-      borderRadius: 16,
+    borderRadius: 16,
     paddingVertical: 32,
     paddingHorizontal: 28,
     alignItems: "center",

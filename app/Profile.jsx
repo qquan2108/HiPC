@@ -145,7 +145,7 @@ export default function Profile() {
 
       {/* Nội dung profile */}
       {user && (
-        <View style={styles.container}>
+        <ScrollView style={styles.container}>
           {/* Enhanced Header với Gradient Background */}
           <View style={styles.headerContainer}>
             {/* Background Gradient Effect */}
