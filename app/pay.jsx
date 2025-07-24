@@ -74,6 +74,11 @@ export default function PayScreen() {
   const [orderId, setOrderId] = useState(null);
   const [orderAmount, setOrderAmount] = useState(0);
 
+  const clearCart = async () => {
+    await AsyncStorage.removeItem("cart");
+    setProducts([]);
+  };
+
   // Calculations
   const subtotal = products.reduce((sum, p) => sum + p.price * p.quantity, 0);
   // Tính giảm giá từ trường discount_value (dùng chung với CartScreen)
@@ -494,8 +499,6 @@ export default function PayScreen() {
       const res = await axiosInstance.post("/orders/checkout", orderData, {
         headers: { "Content-Type": "application/json" },
       });
-      await AsyncStorage.removeItem("cart");
-      setProducts([]);
 
       if (selectedPayment === "vnpay") {
         setVnpayData({
@@ -534,6 +537,7 @@ export default function PayScreen() {
         text1: "Đặt hàng thành công!",
         text2: "Cảm ơn bạn.",
       });
+      await clearCart();
       setPayStatus("success");
       router.push({
         pathname: "/CheckoutSuccess",
@@ -576,6 +580,7 @@ export default function PayScreen() {
 
       if (verifyRes.data?.success) {
         Toast.show({ type: "success", text1: "Đặt hàng thành công!" });
+        await clearCart();
         setPayStatus("success");
         router.push({
           pathname: "/CheckoutSuccess",
@@ -771,13 +776,14 @@ export default function PayScreen() {
       visible={showStripe}
       amount={orderAmount}
       orderId={orderId}
-      onClose={(result) => {
+      onClose={async (result) => {
         setShowStripe(false);
         if (result?.success) {
           Toast.show({
             type: "success",
             text1: "Thanh toán thành công!",
           });
+          await clearCart();
           router.push({
             pathname: "/CheckoutSuccess",
             params: {
@@ -810,9 +816,10 @@ export default function PayScreen() {
         <WebView
           source={{ uri: payOSUrl }}
           style={{ flex: 1 }}
-          onNavigationStateChange={(navState) => {
+          onNavigationStateChange={async (navState) => {
             if (navState.url.includes("/success")) {
               setShowPayOS(false);
+              await clearCart();
               setPayStatus("success");
             }
           }}
