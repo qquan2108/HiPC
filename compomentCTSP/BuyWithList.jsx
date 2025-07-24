@@ -5,10 +5,8 @@ import { Feather } from "@expo/vector-icons";
 export default function BuyWithList({ data }) {
   return (
     <View style={styles.buyWithBox}>
-      <Text style={styles.buyWithTitle}>Sản phẩm mua kèm</Text>
-      <TouchableOpacity style={styles.buyWithArrow}>
-        <Feather name="arrow-right" size={20} color="#2979ff" />
-      </TouchableOpacity>
+      
+      
       <FlatList
         data={data}
         horizontal

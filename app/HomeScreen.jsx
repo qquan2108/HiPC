@@ -28,6 +28,7 @@ import axiosInstance from "../utils/AxiosInstance";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
 const { width } = Dimensions.get("window");
+const base = axiosInstance.defaults.baseURL;
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -66,36 +67,36 @@ export default function HomeScreen() {
     </View>
   );
   useFocusEffect(
-  React.useCallback(() => {
-    const loadAvatar = async () => {
-      try {
-        const raw = await AsyncStorage.getItem("user");
-        if (!raw) return;
-        const local = JSON.parse(raw);
-        // local.id (được login trả về) hoặc nếu bạn dùng _id thì dùng local._id
-        const userId = local.id ?? local._id;
-        if (!userId) return;
+    React.useCallback(() => {
+      const loadAvatar = async () => {
+        try {
+          const raw = await AsyncStorage.getItem("user");
+          if (!raw) return;
+          const local = JSON.parse(raw);
+          // local.id (được login trả về) hoặc nếu bạn dùng _id thì dùng local._id
+          const userId = local.id ?? local._id;
+          if (!userId) return;
 
-        // Nếu trước đó có avatarUrl, dùng luôn
-        if (local.avatarUrl) {
-          setAvatarUri(local.avatarUrl);
-        } else {
-          // Fetch chi tiết user
-          const res = await axiosInstance.get(`/users/${userId}`);
-          setAvatarUri(res.data.avatarUrl);
-          // Cập nhật AsyncStorage để lần sau khỏi fetch lại
-          await AsyncStorage.setItem(
-            "user",
-            JSON.stringify({ ...local, avatarUrl: res.data.avatarUrl })
-          );
+          // Nếu trước đó có avatarUrl, dùng luôn
+          if (local.avatarUrl) {
+            setAvatarUri(local.avatarUrl);
+          } else {
+            // Fetch chi tiết user
+            const res = await axiosInstance.get(`/users/${userId}`);
+            setAvatarUri(res.data.avatarUrl);
+            // Cập nhật AsyncStorage để lần sau khỏi fetch lại
+            await AsyncStorage.setItem(
+              "user",
+              JSON.stringify({ ...local, avatarUrl: res.data.avatarUrl })
+            );
+          }
+        } catch (err) {
+          console.error("Load avatar error:", err);
         }
-      } catch (err) {
-        console.error("Load avatar error:", err);
-      }
-    };
-    loadAvatar();
-  }, [])
-);
+      };
+      loadAvatar();
+    }, [])
+  );
   useEffect(() => {
     if (showPromoPopup) {
       fadeAnim.setValue(1);
@@ -158,29 +159,40 @@ export default function HomeScreen() {
   }, []);
   useEffect(() => {
     axiosInstance
-      .get("/product")
-      .then((res) => {
-        const mapped = (res.data.products || []).map((p) => ({
-          ...p,
-          id: p._id,
-          image: p.image
-            ? { uri: p.image }
-            : require("../assets/images/pc1.png"),
-          discount:
-            p.originalPrice && p.price < p.originalPrice
-              ? Math.round(100 - (p.price / p.originalPrice) * 100)
-              : 0,
-          isHot: p.sold ? p.sold > 50 : false,
-          isBestSeller: p.isBestSeller ?? false,
-          price: (p.price ?? 0).toLocaleString("vi-VN") + " đ",
-          originalPrice: p.originalPrice
-            ? p.originalPrice.toLocaleString("vi-VN") + " đ"
-            : undefined,
-        }));
+      .get('/product')
+      .then(({ data }) => {
+        const mapped = (data.products || []).map(p => {
+          // build a full image URI, falling back to a local asset
+          const raw = p.image;
+          const uri = raw
+            ? raw.startsWith('http')
+              ? raw
+              : `${base}${raw}`
+            : undefined;
+
+          return {
+            ...p,
+            id: p._id,
+            image: uri
+              ? { uri }
+              : require('../assets/images/pc1.png'),
+            discount:
+              p.originalPrice && p.price < p.originalPrice
+                ? Math.round(100 - (p.price / p.originalPrice) * 100)
+                : 0,
+            isHot: (p.sold || 0) > 50,
+            isBestSeller: p.isBestSeller ?? false,
+            price: (p.price ?? 0).toLocaleString('vi-VN') + ' đ',
+            originalPrice: p.originalPrice
+              ? p.originalPrice.toLocaleString('vi-VN') + ' đ'
+              : undefined,
+          };
+        });
+
         setProducts(mapped);
-        setBestSellers(mapped.filter((p) => p.isBestSeller));
-        // Lọc flash sale: sản phẩm có discount > 0
-        setFlashSaleProducts(mapped); // Đổ hết sản phẩm vào flash sale
+        setBestSellers(mapped.filter(p => p.isBestSeller));
+        // Lọc flash sale: chỉ những sản phẩm có discount > 0
+        setFlashSaleProducts(mapped.filter(p => p.discount > 0));
       })
       .catch(() => {
         setProducts([]);
@@ -189,32 +201,45 @@ export default function HomeScreen() {
       });
   }, []);
 
+
   useFocusEffect(
     React.useCallback(() => {
       // Gọi lại API khi HomeScreen được focus
       axiosInstance
-        .get("/product")
-        .then((res) => {
-          const mapped = (res.data.products || []).map((p) => ({
-            ...p,
-            id: p._id,
-            image: p.image
-              ? { uri: p.image }
-              : require("../assets/images/pc1.png"),
-            discount:
-              p.originalPrice && p.price < p.originalPrice
-                ? Math.round(100 - (p.price / p.originalPrice) * 100)
-                : 0,
-            isHot: p.sold ? p.sold > 50 : false,
-            isBestSeller: p.isBestSeller ?? false,
-            price: (p.price ?? 0).toLocaleString("vi-VN") + " đ",
-            originalPrice: p.originalPrice
-              ? p.originalPrice.toLocaleString("vi-VN") + " đ"
-              : undefined,
-          }));
+        .get('/product')
+        .then(({ data }) => {
+          const mapped = (data.products || []).map(p => {
+            // build a full image URI, falling back to a local asset
+            const raw = p.image;
+            const uri = raw
+              ? raw.startsWith('http')
+                ? raw
+                : `${base}${raw}`
+              : undefined;
+
+            return {
+              ...p,
+              id: p._id,
+              image: uri
+                ? { uri }
+                : require('../assets/images/pc1.png'),
+              discount:
+                p.originalPrice && p.price < p.originalPrice
+                  ? Math.round(100 - (p.price / p.originalPrice) * 100)
+                  : 0,
+              isHot: (p.sold || 0) > 50,
+              isBestSeller: p.isBestSeller ?? false,
+              price: (p.price ?? 0).toLocaleString('vi-VN') + ' đ',
+              originalPrice: p.originalPrice
+                ? p.originalPrice.toLocaleString('vi-VN') + ' đ'
+                : undefined,
+            };
+          });
+
           setProducts(mapped);
-          setBestSellers(mapped.filter((p) => p.isBestSeller));
-          setFlashSaleProducts(mapped);
+          setBestSellers(mapped.filter(p => p.isBestSeller));
+          // Lọc flash sale: chỉ những sản phẩm có discount > 0
+          setFlashSaleProducts(mapped.filter(p => p.discount > 0));
         })
         .catch(() => {
           setProducts([]);
