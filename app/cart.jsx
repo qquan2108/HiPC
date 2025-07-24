@@ -102,56 +102,63 @@ export default function CartScreen() {
   }, []);
 
   // Fetch cart (pending order only)
-  const fetchCart = useCallback(async () => {
-    if (!userId) {
-      setLoading(false); // Thêm dòng này để không bị loading mãi
-      return;
-    }
-    setLoading(true);
-    try {
-      const res = await axiosInstance.get(`/orders/user/${userId}`);
-      const orders = Array.isArray(res.data) ? res.data : [];
-      console.log("Fetched orders:", orders);
-      const pending = orders.find((o) => o.status === "pending") || {
-        products: [],
-      };
-      // Trong hàm fetchCart, thay đoạn mapping items:
-      const items = (pending.products || [])
-        .filter(item => item.productId && typeof item.productId === "object")
-        .map((item) => {
-          let imageUri = require("../assets/images/pc1.png");
-          const variant = item.variant || null;
-          const img = item.productId.image;
-          if (img) {
-            if (typeof img === "string") {
-              imageUri = { uri: img };
-            } else if (Array.isArray(img) && img.length > 0) {
-              imageUri = { uri: img[0] };
-            } else if (typeof img === "object" && img.uri) {
-              imageUri = { uri: img.uri };
-            }
-          }
+ const fetchCart = useCallback(async () => {
+  if (!userId) {
+    setLoading(false);
+    return;
+  }
+  setLoading(true);
+  try {
+    const res = await axiosInstance.get(`/orders/user/${userId}`);
+    const orders = Array.isArray(res.data) ? res.data : [];
+    console.log("Fetched orders:", orders);
+    const pending = orders.find((o) => o.status === "pending") || { products: [] };
 
-          return {
-            id: item.productId._id,
-            name: item.productId.name || "Không có tên",
-            price: item.productId.price ?? 0,
-            originalPrice: item.productId.originalPrice, // Thêm giá gốc nếu có
-            discount: item.productId.discount, // Thêm discount nếu có
-            stock: item.productId.stock || 99, // Thêm thông tin stock
-            image: imageUri,
-            quantity: item.quantity ?? 1,
-            variant
-          };
-        });
-      setCart(items);
-    } catch (err) {
-      console.error("Lỗi khi lấy giỏ hàng:", err);
-      setCart([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [userId]);
+    const items = (pending.products || [])
+      // lọc bỏ những item không load được productId
+      .filter(item => item.productId && typeof item.productId === "object")
+      .map((item) => {
+        const variant = item.variant || {};
+        const basePrice = item.productId.price || 0;
+        // tính giá hiển thị đã cộng priceDiff
+        const displayPrice = basePrice + (variant.priceDiff || 0);
+
+        // xử lý ảnh như cũ
+        let imageUri = require("../assets/images/pc1.png");
+        const img = item.productId.image;
+        if (img) {
+          if (typeof img === "string") {
+            imageUri = { uri: img };
+          } else if (Array.isArray(img) && img.length > 0) {
+            imageUri = { uri: img[0] };
+          } else if (typeof img === "object" && img.uri) {
+            imageUri = { uri: img.uri };
+          }
+        }
+
+        return {
+          id: item.productId._id,
+          name: item.productId.name || "Không có tên",
+          // đây là giá đã cộng priceDiff
+          price: displayPrice,
+          originalPrice: item.productId.originalPrice,
+          discount: item.productId.discount,
+          stock: item.productId.stock ?? 0,
+          image: imageUri,
+          quantity: item.quantity ?? 1,
+          variant
+        };
+      });
+
+    setCart(items);
+  } catch (err) {
+    console.error("Lỗi khi lấy giỏ hàng:", err);
+    setCart([]);
+  } finally {
+    setLoading(false);
+  }
+}, [userId]);
+
 
   // Reload on focus
   useFocusEffect(
@@ -161,28 +168,31 @@ export default function CartScreen() {
   );
 
   // Change quantity
-  const handleQuantity = async (id, delta) => {
-    const prod = cart.find((item) => item.id === id);
-    if (!prod) return;
-    const newQty = Math.max(1, prod.quantity + delta);
-    try {
-      await axiosInstance.put("/orders/update-quantity", {
-        user_id: userId,
-        productId: id,
-        quantity: newQty,
-      });
-      // sau khi update xong thì fetch lại giỏ để có đầy đủ image URL
-      await fetchCart();
-    } catch (err) {
-      console.error("Lỗi khi cập nhật số lượng:", err);
-      Toast.show({
-        type: "error",
-        text1: "Có lỗi khi cập nhật số lượng sản phẩm",
-        position: "top",
-        visibilityTime: 2000,
-      });
-    }
-  };
+const handleQuantity = async (id, delta) => {
+  // tìm item trong cart theo id
+  const prod = cart.find((item) => item.id === id);
+  if (!prod) return;
+
+  const newQty = Math.max(1, prod.quantity + delta);
+  try {
+    await axiosInstance.put("/orders/update-quantity", {
+      user_id:   userId,
+      productId: id,
+      variant:   prod.variant,   // <-- gửi luôn object variant
+      quantity:  newQty
+    });
+    // refresh cart để lấy giá mới + image URL
+    await fetchCart();
+  } catch (err) {
+    console.error("Lỗi khi cập nhật số lượng:", err);
+    Toast.show({
+      type: "error",
+      text1: "Có lỗi khi cập nhật số lượng sản phẩm",
+      position: "top",
+      visibilityTime: 2000,
+    });
+  }
+};
 
   useEffect(() => {
     (async () => {
@@ -196,20 +206,31 @@ export default function CartScreen() {
   }, []);
 
   // Remove product
-  const handleRemove = async (id) => {
-    try {
-      await axiosInstance.delete(`/orders/remove-product/${userId}/${id}`);
-      setCart((prev) => prev.filter((item) => item.productId !== id));
-    } catch (err) {
-      console.error("Lỗi khi xóa sản phẩm:", err);
-      Toast.show({
-        type: "error",
-        text1: "Có lỗi khi xóa sản phẩm khỏi giỏ hàng",
-        position: "top",
-        visibilityTime: 2000,
-      });
-    }
-  };
+const handleRemove = async (id) => {
+  // tìm item để lấy variant
+  const prod = cart.find((item) => item.id === id);
+  if (!prod) return;
+
+  try {
+    await axiosInstance.delete("/orders/remove-product", {
+      data: {
+        user_id:   userId,
+        productId: id,
+        variant:   prod.variant   // <-- gửi object variant để backend biết phải pull đúng
+      }
+    });
+    // cập nhật state local ngay lập tức
+    setCart((prev) => prev.filter((item) => item.id !== id));
+  } catch (err) {
+    console.error("Lỗi khi xóa sản phẩm:", err);
+    Toast.show({
+      type: "error",
+      text1: "Có lỗi khi xóa sản phẩm khỏi giỏ hàng",
+      position: "top",
+      visibilityTime: 2000,
+    });
+  }
+};
 
   // Remove selected products
   const handleRemoveSelected = async () => {

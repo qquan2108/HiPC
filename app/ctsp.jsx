@@ -40,18 +40,17 @@ const fetchProductById = async (productId) => {
     });
   }
 
-  // Xử lý variants từ API
-  // Xử lý variants từ API (có thể là object hoặc array)
+
+  // API mới trả mảng nhóm biến thể { key, options: [ {label,priceDiff} ] }
   let variantOptions = [];
   if (Array.isArray(product.variants)) {
-    variantOptions = product.variants;
-  } else if (product.variants && typeof product.variants === 'object') {
-    // API có thể trả về { "Phiên Bản": ["16GB","32GB"] }
-    Object.values(product.variants).forEach(val => {
-      if (Array.isArray(val)) variantOptions = variantOptions.concat(val);
-      else if (typeof val === 'string') variantOptions.push(val);
-    });
+    // ví dụ chỉ lấy nhóm đầu tiên (Phiên Bản)
+    const group = product.variants[0];
+    if (group?.options) {
+      variantOptions = group.options;
+    }
   }
+
 
   return {
     id: product._id,
@@ -106,6 +105,9 @@ export default function CTSP() {
   const [selectedVariant, setSelectedVariant] = useState(null);
   const [compareVisible, setCompareVisible] = useState(false);
 
+  const [basePrice, setBasePrice] = useState(0);
+  const [displayPrice, setDisplayPrice] = useState(0);
+
   // Thêm state cho variant
   const [compareProducts, setCompareProducts] = useState([]);
   const [addModalVisible, setAddModalVisible] = useState(false);
@@ -138,8 +140,22 @@ export default function CTSP() {
       } finally {
         setLoading(false);
       }
+
     })();
   }, [productId]);
+
+  useEffect(() => {
+    if (product) {
+      setBasePrice(product.price);
+      setDisplayPrice(product.price);
+    }
+  }, [product]);
+
+  useEffect(() => {
+    if (selectedVariant) {
+      setDisplayPrice(basePrice + (selectedVariant.priceDiff || 0));
+    }
+  }, [selectedVariant, basePrice]);
 
   // Filter for compare modal
   const filteredProducts = allProducts.filter(
@@ -212,7 +228,7 @@ export default function CTSP() {
         user_id: userId,
         productId: prod.id,
         quantity: 1,
-        configuration: selectedConfig, // Thêm thông tin cấu hình
+        variant: selectedVariant, // Thêm thông tin cấu hình
       });
 
       Toast.show({
@@ -300,8 +316,8 @@ export default function CTSP() {
               <Text style={styles.categoryText}>Danh mục: {product.category}</Text>
             </View>
             <ProductPriceRow
-              price={formatCurrency(product.price)}
-              oldPrice={formatCurrency(product.oldPrice)}
+              price={formatCurrency(displayPrice)}
+              oldPrice={formatCurrency(basePrice)}
               onLike={() => alert('Đã thêm vào yêu thích')}
             />
 
@@ -334,7 +350,11 @@ export default function CTSP() {
                   label="Phiên bản"
                   options={variants}
                   selected={selectedVariant}
-                  onSelect={setSelectedVariant}
+                  onSelect={opt => setSelectedVariant({
+                    key: 'Phiên Bản',   // <-- bắt buộc phải có
+                    label: opt.label,
+                    priceDiff: opt.priceDiff
+                  })}
                   type="variant"
                 />
               )}
@@ -348,9 +368,7 @@ export default function CTSP() {
                 <Text style={styles.selectedConfigTitle}>Cấu hình đã chọn:</Text>
                 <View style={styles.selectedConfigList}>
                   {selectedVariant && (
-                    <View style={styles.configItem}>
-                      <Text style={styles.configItemText}>• Phiên bản: {selectedVariant}</Text>
-                    </View>
+                    <Text>• Phiên bản: {selectedVariant.label}</Text>
                   )}
 
                 </View>

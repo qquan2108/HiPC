@@ -85,7 +85,7 @@ export default function CartProductList({
             </Text>
             {item.variant && (
           <Text style={styles.variantText} numberOfLines={1}>
-            Phiên bản: {item.variant}
+            Phiên bản: {item.variant.label}
           </Text>
         )}
             {/* Price section với styling giống Shopee/Tiki */}
@@ -317,7 +317,7 @@ const styles = StyleSheet.create({
   },
   variantText: {
     fontSize: 12,
-    color: '#666',
+    color: 'red',
     marginBottom: 4,
     fontStyle: 'italic',
   },

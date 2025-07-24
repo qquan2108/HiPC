@@ -11,7 +11,12 @@ export default function OptionGroup({ label, options, selected, onSelect, type =
       </View>
       <View style={styles.optionRow}>
         {options.map((option, index) => {
-          const isSelected = selected === option;
+          // Determine display label and selection status
+          const displayLabel = option && typeof option === 'object' && 'label' in option
+            ? option.label
+            : option;
+          const isSelected = displayLabel === selected;
+
           return (
             <TouchableOpacity
               key={index}
@@ -32,7 +37,7 @@ export default function OptionGroup({ label, options, selected, onSelect, type =
                   end={{ x: 1, y: 0 }}
                 >
                   <Text style={[styles.optionText, styles.variantTextSelected]}>
-                    {option}
+                    {displayLabel}
                   </Text>
                   <View style={styles.selectedIndicator} />
                 </LinearGradient>
@@ -45,13 +50,15 @@ export default function OptionGroup({ label, options, selected, onSelect, type =
                       type === "variant" && styles.variantText,
                     ]}
                   >
-                    {option}
+                    {displayLabel}
                   </Text>
                   {type === "variant" && (
-                    <View style={[
-                      styles.variantDot,
-                      isSelected && styles.variantDotSelected
-                    ]} />
+                    <View
+                      style={[
+                        styles.variantDot,
+                        isSelected && styles.variantDotSelected,
+                      ]}
+                    />
                   )}
                 </>
               )}
@@ -85,33 +92,28 @@ const styles = StyleSheet.create({
   optionRow: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 8,
   },
   optionButton: {
-    borderWidth: 1.5,
-    borderColor: "#e0e0e0",
-    borderRadius: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    backgroundColor: "#fafafa",
-    minWidth: 80,
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: "#ccc",
+    marginRight: 8,
+    marginBottom: 8,
+    backgroundColor: "#f9f9f9",
   },
   optionButtonSelected: {
+    backgroundColor: "#e0f0ff",
     borderColor: "#4285f4",
-    backgroundColor: "#e8f0fe",
-    shadowColor: "#4285f4",
-    shadowOpacity: 0.3,
-    elevation: 4,
+  },
+  optionText: {
+    fontSize: 14,
+    color: "#333",
+  },
+  optionTextSelected: {
+    fontWeight: "700",
+    color: "#4285f4",
   },
   variantButton: {
     borderRadius: 16,
@@ -127,45 +129,23 @@ const styles = StyleSheet.create({
     borderColor: "#4285f4",
     backgroundColor: "transparent",
   },
-  gradientBackground: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
-    flexDirection: "row",
-  },
-  optionText: {
-    fontSize: 14,
-    color: "#5f6368",
-    fontWeight: "500",
-  },
-  optionTextSelected: {
-    color: "#4285f4",
-    fontWeight: "700",
-  },
   variantText: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#3c4043",
+    fontSize: 14,
+    color: "#333",
   },
   variantTextSelected: {
-    color: "#ffffff",
     fontWeight: "700",
-    fontSize: 15,
+    color: "#ffffff",
   },
-  variantDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: "#dadce0",
-    marginLeft: 8,
-  },
-  variantDotSelected: {
-    backgroundColor: "#4285f4",
+  gradientBackground: {
+    flex: 1,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
   },
   selectedIndicator: {
     width: 8,
@@ -181,5 +161,16 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 1,
     elevation: 2,
+  },
+  variantDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: "#ccc",
+    marginTop: 4,
+    alignSelf: "center",
+  },
+  variantDotSelected: {
+    backgroundColor: "#4285f4",
   },
 });
