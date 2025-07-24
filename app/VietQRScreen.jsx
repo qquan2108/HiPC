@@ -1,9 +1,48 @@
-import React from 'react';
-import { View, Text, Image, StyleSheet } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
+import React, { useEffect } from 'react';
+import { View, Text, Image, StyleSheet, Alert } from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { io } from 'socket.io-client';
+import axiosInstance from '../utils/AxiosInstance';
 
 export default function VietQRScreen() {
-  const { acc, bank, amount, des } = useLocalSearchParams();
+  const router = useRouter();
+  const {
+    acc,
+    bank,
+    amount,
+    des,
+    orderId,
+    total,
+    products,
+    address,
+    paymentMethod,
+  } = useLocalSearchParams();
+
+  useEffect(() => {
+    const socket = io(axiosInstance.defaults.baseURL);
+    socket.on('payment_success', (payload) => {
+      if (
+        payload.id === Number(orderId) ||
+        String(payload.id) === String(orderId)
+      ) {
+        Alert.alert(
+          'Thanh toán thành công',
+          `Số tiền: ${payload.amount}₫\nNgân hàng: ${payload.gateway}`,
+          [
+            {
+              text: 'OK',
+              onPress: () =>
+                router.replace({
+                  pathname: '/CheckoutSuccess',
+                  params: { orderId, total, products, address, paymentMethod },
+                }),
+            },
+          ],
+        );
+      }
+    });
+    return () => socket.disconnect();
+  }, [orderId]);
 
   if (!acc || !bank) {
     return (

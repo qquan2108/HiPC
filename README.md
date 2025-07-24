@@ -27,3 +27,6 @@ Trang `app/VietQRScreen.jsx` cho phép hiển thị QR Code động dùng dịch
 ```
 
 Ứng dụng sẽ hiển thị hình ảnh QR Code để người dùng quét bằng ứng dụng ngân hàng.
+Khi thanh toán thành công, backend sẽ phát sự kiện `payment_success` qua Socket.IO.
+Trang `VietQRScreen` lắng nghe sự kiện này và hiển thị hộp thoại thông báo.
+Nhấn **OK** trong hộp thoại sẽ chuyển đến trang `CheckoutSuccess`.

@@ -525,6 +525,11 @@ export default function PayScreen() {
             bank: VIETQR_BANK,
             amount: total.toString(),
             des: `Thanh toan don hang ${res.data.orderId}`,
+            orderId: res.data.orderId,
+            total,
+            products: JSON.stringify(products),
+            address: selectedAddress?.address || addressText,
+            paymentMethod: selectedPayment,
           },
         });
         return;
