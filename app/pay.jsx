@@ -9,9 +9,7 @@ import {
   Text,
   TouchableOpacity,
   View,
-  Platform,
 } from "react-native";
-import { WebView } from "react-native-webview";
 import Toast from "react-native-toast-message";
 import axiosInstance from "../utils/AxiosInstance";
 import VnPayModal from "../compomentPay/Vnpaymodal";
@@ -59,8 +57,6 @@ export default function PayScreen() {
   const [showCardModal, setShowCardModal] = useState(false);
   const [selectedCard, setSelectedCard] = useState(null);
   const [showStripe, setShowStripe] = useState(false);
-  const [showPayOS, setShowPayOS] = useState(false);
-  const [payOSUrl, setPayOSUrl] = useState(null);
 
   const [provinces, setProvinces] = useState([]);
   const [districts, setDistricts] = useState([]);
@@ -611,8 +607,7 @@ export default function PayScreen() {
   };
 
   return (
-    <View style={{ flex: 1 }}>
-      <ScrollView style={styles.container}>
+    <ScrollView style={styles.container}>
       {/* Address Selection */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Địa chỉ giao hàng</Text>
@@ -737,101 +732,78 @@ export default function PayScreen() {
       <TouchableOpacity style={styles.orderButton} onPress={handleOrder}>
         <Text style={styles.orderButtonText}>Đặt hàng</Text>
       </TouchableOpacity>
+
+      {/* Modals */}
+      <AddressModal
+        visible={showAddressModal}
+        onClose={() => setShowAddressModal(false)}
+        addressList={addressList}
+        selectedAddress={selectedAddress}
+        onSelectAddress={handleAddressSelect}
+        onAddressAdded={handleAddressAdded}
+        provinces={provinces}
+        districts={districts}
+        wards={wards}
+        selectedProvince={selectedProvince}
+        selectedDistrict={selectedDistrict}
+        selectedWard={selectedWard}
+        setSelectedProvince={setSelectedProvince}
+        setSelectedDistrict={setSelectedDistrict}
+        setSelectedWard={setSelectedWard}
+      />
+
+      <PayCardModal
+        visible={showCardModal}
+        onClose={() => setShowCardModal(false)}
+        selectedCard={selectedCard}
+        onSelectCard={setSelectedCard}
+      />
+
+      <VnPayModal
+        visible={showVnPayModal}
+        orderId={vnpayData?.orderId}
+        amount={vnpayData?.amount}
+        orderInfo={vnpayData?.orderInfo}
+        onClose={handleVnPayClose}
+      />
+
+      <StripeModal
+        visible={showStripe}
+        amount={orderAmount}
+        orderId={orderId}
+        onClose={(result) => {
+          setShowStripe(false);
+          if (result?.success) {
+            Toast.show({
+              type: "success",
+              text1: "Thanh toán thành công!",
+            });
+            router.push({
+              pathname: "/CheckoutSuccess",
+              params: {
+                orderId,
+                total: orderAmount,
+                products: JSON.stringify(products),
+                address: selectedAddress?.address || addressText,
+                paymentMethod: "stripe",
+              },
+            });
+          } else if (result?.message) {
+            Toast.show({
+              type: "error",
+              text1: "Thanh toán thất bại!",
+              text2: result.message,
+            });
+          }
+        }}
+      />
+
+      <PayStatusModal
+        visible={payStatus !== null}
+        status={payStatus}
+        onClose={() => setPayStatus(null)}
+      />
     </ScrollView>
-
-    {/* Modals */}
-    <AddressModal
-      visible={showAddressModal}
-      onClose={() => setShowAddressModal(false)}
-      addressList={addressList}
-      selectedAddress={selectedAddress}
-      onSelectAddress={handleAddressSelect}
-      onAddressAdded={handleAddressAdded}
-      provinces={provinces}
-      districts={districts}
-      wards={wards}
-      selectedProvince={selectedProvince}
-      selectedDistrict={selectedDistrict}
-      selectedWard={selectedWard}
-      setSelectedProvince={setSelectedProvince}
-      setSelectedDistrict={setSelectedDistrict}
-      setSelectedWard={setSelectedWard}
-    />
-
-    <PayCardModal
-      visible={showCardModal}
-      onClose={() => setShowCardModal(false)}
-      selectedCard={selectedCard}
-      onSelectCard={setSelectedCard}
-    />
-
-    <VnPayModal
-      visible={showVnPayModal}
-      orderId={vnpayData?.orderId}
-      amount={vnpayData?.amount}
-      orderInfo={vnpayData?.orderInfo}
-      onClose={handleVnPayClose}
-    />
-
-    <StripeModal
-      visible={showStripe}
-      amount={orderAmount}
-      orderId={orderId}
-      onClose={(result) => {
-        setShowStripe(false);
-        if (result?.success) {
-          Toast.show({
-            type: "success",
-            text1: "Thanh toán thành công!",
-          });
-          router.push({
-            pathname: "/CheckoutSuccess",
-            params: {
-              orderId,
-              total: orderAmount,
-              products: JSON.stringify(products),
-              address: selectedAddress?.address || addressText,
-              paymentMethod: "stripe",
-            },
-          });
-        } else if (result?.message) {
-          Toast.show({
-            type: "error",
-            text1: "Thanh toán thất bại!",
-            text2: result.message,
-          });
-        }
-      }}
-    />
-
-    {/* PayOS WebView */}
-    {showPayOS && payOSUrl && (
-      <View style={{ flex: 1 }}>
-        <TouchableOpacity
-          style={styles.closeBtn}
-          onPress={() => setShowPayOS(false)}
-        >
-          <Feather name="x" size={24} color="#000" />
-        </TouchableOpacity>
-        <WebView
-          source={{ uri: payOSUrl }}
-          style={{ flex: 1 }}
-          onNavigationStateChange={(navState) => {
-            if (navState.url.includes("/success")) {
-              setShowPayOS(false);
-              setPayStatus("success");
-            }
-          }}
-        />
-      </View>
-    )}
-
-    <PayStatusModal
-      visible={payStatus !== null}
-      status={payStatus}
-      onClose={() => setPayStatus(null)}
-    />
-  </View>
   );
 }
 
@@ -981,13 +953,6 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 18,
     fontWeight: "bold",
-  },
-  closeBtn: {
-    position: "absolute",
-    top: Platform.OS === "ios" ? 50 : 20,
-    right: 16,
-    zIndex: 1,
-    padding: 8,
   },
   // PayScreen styles
   voucherContainer: {

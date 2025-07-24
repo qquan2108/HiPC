@@ -22,7 +22,7 @@ import CartProductList from "../compomentCart/CartProductList";
 import CartTotalBar from "../compomentCart/CartTotalBar";
 import CartWishlist from "../compomentCart/CartWishlist";
 import PayVoucherModal from "../compomentPay/PayVoucherModal";
-
+const base = axiosInstance.defaults.baseURL; 
 const { width } = Dimensions.get("window");
 const defaultAddresses = [
   {
@@ -127,13 +127,19 @@ export default function CartScreen() {
         let imageUri = require("../assets/images/pc1.png");
         const img = item.productId.image;
         if (img) {
-          if (typeof img === "string") {
-            imageUri = { uri: img };
-          } else if (Array.isArray(img) && img.length > 0) {
-            imageUri = { uri: img[0] };
-          } else if (typeof img === "object" && img.uri) {
-            imageUri = { uri: img.uri };
-          }
+     if (typeof img === "string") {
+       // thêm base nếu img là đường dẫn server
+       imageUri = { uri: `${base}${img}` };
+     } else if (Array.isArray(img) && img.length > 0) {
+       // nếu mảng, prefix element đầu
+       imageUri = { uri: `${base}${img[0]}` };
+     } else if (typeof img === "object" && img.uri) {
+       // nếu đã là object, check xem có http rồi hay chưa
+       const raw = img.uri;
+       imageUri = {
+         uri: raw.startsWith("http") ? raw : `${base}${raw}`
+       };
+     }
         }
 
         return {

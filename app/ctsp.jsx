@@ -16,6 +16,9 @@ import { SectionLiked, SectionPopular } from '../compomentCTSP/SectionBox';
 import SpecsBox from '../compomentCTSP/SpecsBox';
 import ProductDescription from '../compomentCTSP/Description';
 
+// right after importing axiosInstance
+const base = axiosInstance.defaults.baseURL;  // e.g. "http://192.168.0.5:3000"
+
 // Fetch product detail
 const fetchProductById = async (productId) => {
   const { data: product } = await axiosInstance.get(`/product/${productId}`);
@@ -59,9 +62,11 @@ const fetchProductById = async (productId) => {
     description: product.description,
     oldPrice: product.price,
     images: Array.isArray(product.images) && product.images.length
-      ? product.images.map((url) => ({ uri: url }))
+      ? product.images.map((url) => ({ uri: `${base}${url}` }))
       : [require('../assets/images/pc1.png')],
-    image: product.image ? { uri: product.image } : require('../assets/images/pc1.png'),
+    image: product.image
+   ? { uri: `${base}${product.image}` }
+   : require('../assets/images/pc1.png'),
     rating: product.rating || 4.5,
     sold: product.sold || 0,
     origin: product.origin || 'Unknown',
@@ -81,7 +86,9 @@ const fetchAllProducts = async () => {
       id: p._id,
       name: p.name,
       price: p.price,
-      image: p.image ? { uri: p.image } : require('../assets/images/pc1.png'),
+      image: p.image
+   ? { uri: `${base}${p.image}` }
+   : require('../assets/images/pc1.png'),
       sold: p.sold || 0,
     }));
     console.log('allProducts ›', list);
