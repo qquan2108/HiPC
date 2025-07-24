@@ -26,6 +26,10 @@ const SHOP_DISTRICT_ID = 1461;
 const SHOP_WARD_CODE = "21308";
 const GHN_BASE_URL = "https://dev-online-gateway.ghn.vn/shiip/public-api";
 
+// VietQR config
+const VIETQR_ACCOUNT = "0010000000355";
+const VIETQR_BANK = "Vietcombank";
+
 const paymentMethods = [
   { key: "cod", label: "Thanh toán khi nhận hàng" },
   { key: "bank", label: "Thanh toán bằng thẻ ngân hàng" },
@@ -507,6 +511,23 @@ export default function PayScreen() {
         setOrderId(res.data.orderId);
         setOrderAmount(total);
         setShowStripe(true);
+        return;
+      }
+      if (selectedPayment === "bank") {
+        router.push({
+          pathname: "/VietQRScreen",
+          params: {
+            acc: VIETQR_ACCOUNT,
+            bank: VIETQR_BANK,
+            amount: total.toString(),
+            des: `Thanh toan don hang ${res.data.orderId}`,
+            orderId: res.data.orderId,
+            total,
+            products: JSON.stringify(products),
+            address: selectedAddress?.address || addressText,
+            paymentMethod: selectedPayment,
+          },
+        });
         return;
       }
 
