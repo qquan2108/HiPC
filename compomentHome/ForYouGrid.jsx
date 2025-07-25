@@ -60,6 +60,7 @@ export default function ForYouGrid({
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [selectedOption, setSelectedOption] = useState(null);
   const [quantity, setQuantity] = useState(1);
+ 
 
   // 🆕 Khi bấm icon giỏ hàng
   const handleAddToCart = async (product) => {
@@ -94,7 +95,6 @@ export default function ForYouGrid({
       return;
     }
 
-    // Lấy số lượng tồn kho của option (ưu tiên option.stock, nếu không có thì lấy product.stock, nếu không có thì 99)
     const maxStock =
       (selectedOption && selectedOption.stock) ||
       (selectedProduct && selectedProduct.stock) ||
@@ -123,14 +123,21 @@ export default function ForYouGrid({
       const userId = userObj._id || userObj.id;
       await axiosInstance.post('/cartt/add-to-cart', {
         user_id: userId,
-        productId: selectedProduct.id,
+        productId: selectedProduct.id || selectedProduct._id,
         quantity,
-        variant: selectedOption,
+        variant: selectedOption
+          ? {
+              key: selectedOption.key || selectedOption.value || selectedOption.label,
+              label: selectedOption.label || selectedOption.value || selectedOption.key,
+              priceDiff: selectedOption.priceDiff || 0
+            }
+          : undefined,
       });
       setShowOptionDialog(false);
       Toast.show({ type:'success', text1:'Đã thêm vào giỏ hàng!', position:'bottom' });
-    } catch {
+    } catch (err) {
       Toast.show({ type:'error', text1:'Thêm giỏ hàng thất bại!', position:'top' });
+      console.error('add-to-cart error:', err?.response?.data || err);
     }
   };
 

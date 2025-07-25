@@ -93,15 +93,17 @@ export default function DanhMucPCScreen() {
           axios.get('/images')
         ]);
         const imgs = imgRes.data;
-        setCategories(catRes.data.map(cat => {
+        const cats = catRes.data.map(cat => {
           const found = imgs.find(i => i.category_id?._id === cat._id);
           return {
             _id: cat._id,
             name: cat.name,
             icon: found ? { uri: found.url } : require('../assets/images/pc.png'),
           };
-        }));
-        if (catRes.data[0]) setSelectedCat(catRes.data[0]._id);
+        });
+        setCategories(cats);
+        // Sửa ở đây: chỉ setSelectedCat nếu có ít nhất 1 category
+        if (cats.length > 0) setSelectedCat(cats[0]._id);
       } catch (e) { console.error(e); }
     })();
   }, []);

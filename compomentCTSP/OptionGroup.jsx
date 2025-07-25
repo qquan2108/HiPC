@@ -1,6 +1,7 @@
 import React from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { LinearGradient } from 'expo-linear-gradient';
+import { Feather } from '@expo/vector-icons';
 
 export default function OptionGroup({ label, options, selected, onSelect, type = "default" }) {
   return (
@@ -15,7 +16,9 @@ export default function OptionGroup({ label, options, selected, onSelect, type =
           const displayLabel = option && typeof option === 'object' && 'label' in option
             ? option.label
             : option;
-          const isSelected = displayLabel === selected;
+          const isSelected =
+            (typeof selected === "string" && displayLabel === selected) ||
+            (typeof selected === "object" && selected.label === displayLabel);
 
           return (
             <TouchableOpacity
@@ -25,6 +28,7 @@ export default function OptionGroup({ label, options, selected, onSelect, type =
                 isSelected && styles.optionButtonSelected,
                 type === "variant" && styles.variantButton,
                 isSelected && type === "variant" && styles.variantButtonSelected,
+                isSelected && type === "variant" && styles.selectedGlow,
               ]}
               onPress={() => onSelect(option)}
               activeOpacity={0.7}
@@ -36,9 +40,24 @@ export default function OptionGroup({ label, options, selected, onSelect, type =
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                 >
-                  <Text style={[styles.optionText, styles.variantTextSelected]}>
+                  <Text
+                    style={[
+                      styles.optionText,
+                      isSelected && styles.optionTextSelected,
+                      type === "variant" && styles.variantText,
+                    ]}
+                  >
                     {displayLabel}
                   </Text>
+
+                  {isSelected && (
+                    <Feather
+                      name="check-circle"
+                      size={18}
+                      color={type === "variant" ? "#fff" : "#4285f4"}
+                      style={{ marginLeft: 6 }}
+                    />
+                  )}
                   <View style={styles.selectedIndicator} />
                 </LinearGradient>
               ) : (
@@ -104,7 +123,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#f9f9f9",
   },
   optionButtonSelected: {
-    backgroundColor: "#e0f0ff",
+    backgroundColor: "#e8f0fe",
     borderColor: "#4285f4",
   },
   optionText: {
@@ -127,7 +146,7 @@ const styles = StyleSheet.create({
   },
   variantButtonSelected: {
     borderColor: "#4285f4",
-    backgroundColor: "transparent",
+    backgroundColor: "#f0f7ff",
   },
   variantText: {
     fontSize: 14,
@@ -141,11 +160,16 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 14,
     paddingHorizontal: 20,
-    borderRadius: 16,
+    borderRadius: 20,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     position: "relative",
+    shadowColor: "#1976d2",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 6,
   },
   selectedIndicator: {
     width: 8,
@@ -172,5 +196,14 @@ const styles = StyleSheet.create({
   },
   variantDotSelected: {
     backgroundColor: "#4285f4",
+  },
+  selectedGlow: {
+    borderWidth: 2,
+    borderColor: "#4285f4",
+    shadowColor: "#4285f4",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 5,
   },
 });
