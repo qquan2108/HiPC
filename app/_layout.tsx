@@ -5,6 +5,7 @@ import { WishlistProvider } from "../context/WishlistContext";
 import { ThemeProvider, useTheme } from "../context/ThemeContext";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { useEffect } from "react";
+import { cacheImages } from "../utils/cacheImages";
 import {
   Ionicons,
   MaterialCommunityIcons,
@@ -19,6 +20,10 @@ export default function RootLayout() {
     MaterialCommunityIcons.loadFont();
     FontAwesome.loadFont();
     AntDesign.loadFont();
+    cacheImages([
+      require("../assets/images/backroundLogin.png"),
+      require("../assets/images/avatar.png"),
+    ]);
   }, []);
 
   return (
