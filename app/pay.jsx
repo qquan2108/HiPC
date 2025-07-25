@@ -88,7 +88,7 @@ export default function PayScreen() {
     : 0;
   const total = subtotal + shippingFee - discount;
   const totalWeight = products.reduce(
-    (sum, p) => sum + (p.weight || 10000) * p.quantity, // Default weight 100g
+    (sum, p) => sum + (p.weight || 100) * p.quantity, // Default weight 100g
     0
   );
 
@@ -172,6 +172,7 @@ export default function PayScreen() {
 
       // Payload cơ bản
       const baseData = {
+        service_id: service.service_id,
         service_type_id: service.service_type_id,
         from_district_id: SHOP_DISTRICT_ID,
         from_ward_code: SHOP_WARD_CODE,
@@ -185,9 +186,10 @@ export default function PayScreen() {
 
       // Phân biệt theo loại dịch vụ
       if (service.service_type_id === 5) {
-        // Dịch vụ hàng nặng - sử dụng mảng items
+        // Dịch vụ hàng nặng - yêu cầu truyền weight tổng và chi tiết từng kiện
         requestData = {
           ...baseData,
+          weight: calculatedWeight,
           items: products.map((p) => ({
             length: p.length || 20, // cm
             width: p.width || 20, // cm
@@ -235,27 +237,31 @@ export default function PayScreen() {
       );
       let addresses = Array.isArray(res.data) ? res.data : [];
 
-      // Nếu chưa có địa chỉ nào, tạo 1 phần tử từ profile của user
-      if (addresses.length === 0 && user.address) {
-        addresses = [
-          {
-            id: "self", // id riêng, khác với server
-            recipientName: user.full_name, // tên người nhận
-            phoneNumber: user.phone, // số điện thoại
-            address: user.address, // địa chỉ chi tiết profile
-            provinceId: user.provinceId, // có thể undefined nếu chưa lưu
-            districtId: user.districtId,
-            wardCode: user.wardCode,
-            isDefault: true,
-          },
-        ];
+      // Luôn thêm địa chỉ trong hồ sơ người dùng nếu có
+      if (user.address) {
+        const selfAddr = {
+          id: "self",
+          recipientName: user.full_name,
+          phoneNumber: user.phone,
+          address: user.address,
+          provinceId: user.provinceId,
+          districtId: user.districtId,
+          wardCode: user.wardCode,
+          // chỉ mặc định khi chưa có địa chỉ nào trong server
+          isDefault: addresses.length === 0,
+        };
+        if (!addresses.some((a) => a.id === "self")) {
+          addresses = [selfAddr, ...addresses];
+        }
       }
       setAddressList(addresses);
 
-      // Chỉ set selectedAddress nếu chưa có hoặc địa chỉ hiện tại không còn trong danh sách
       const defaultAddr =
         addresses.find((a) => a.isDefault) || addresses[0] || null;
-      setSelectedAddress(defaultAddr);
+      setSelectedAddress((cur) => {
+        if (cur && addresses.some((a) => a.id === cur.id)) return cur;
+        return defaultAddr;
+      });
     } catch (err) {
       console.error("Error loading addresses:", err);
     }
@@ -269,10 +275,11 @@ export default function PayScreen() {
 
   // Handle new address added
   const handleAddressAdded = async (newAddress) => {
-    // Refresh address list
+    // Refresh address list để lấy các địa chỉ mới nhất
     await loadAddresses();
-    // Select the new address
-    setSelectedAddress(newAddress);
+    if (newAddress) {
+      setSelectedAddress(newAddress);
+    }
     setShowAddressModal(false);
   };
 
