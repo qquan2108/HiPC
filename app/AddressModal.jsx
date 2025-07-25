@@ -246,7 +246,7 @@ export default function AddressModal({
   ];
 
   const renderAddressItem = ({ item }) => {
-    const isValid = item.isUserDefault || (item.provinceId && item.districtId && item.wardCode);
+    const isValid = !!(item.provinceId && item.districtId && item.wardCode);
     const isSelected = selectedAddress?.id === item.id;
 
     return (

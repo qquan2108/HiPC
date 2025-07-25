@@ -144,7 +144,16 @@ export default function PayScreen() {
 
   // Fetch available shipping services
   const fetchShippingServices = async (address) => {
-    if (!address || !address.districtId) return;
+    if (!address || !address.districtId) {
+      setShippingServices([]);
+      setSelectedService(null);
+      Toast.show({
+        type: "error",
+        text1: "Vui lòng tạo địa chỉ đúng tại sổ địa chỉ",
+        text2: "Để tính phí giao hàng nhanh",
+      });
+      return;
+    }
 
     setIsLoadingShipping(true);
     try {
@@ -158,10 +167,20 @@ export default function PayScreen() {
       );
 
       const services = response.data || [];
-      setShippingServices(services);
-
-      if (services.length > 0 && !selectedService) {
-        setSelectedService(services[0]);
+      const fastService = services.find((s) => s.service_type_id === 5);
+      if (!fastService) {
+        setShippingServices([]);
+        setSelectedService(null);
+        Toast.show({
+          type: "error",
+          text1: "Vui lòng tạo địa chỉ đúng tại sổ địa chỉ",
+          text2: "Để tính phí giao hàng nhanh",
+        });
+      } else {
+        setShippingServices([fastService]);
+        if (!selectedService) {
+          setSelectedService(fastService);
+        }
       }
     } catch (error) {
       console.error("Error fetching shipping services:", error);
@@ -253,9 +272,6 @@ export default function PayScreen() {
     }
   };
 
-  const hasFastShipping = shippingServices.some(
-  (s) => s.service_type_id === 5
-);
 
   const getServiceLabel = (service) => {
     if (!service) return "";
@@ -326,7 +342,11 @@ export default function PayScreen() {
       setAddressList(addresses);
 
       const defaultAddr =
-        addresses.find((a) => a.isDefault) || addresses[0] || null;
+        addresses.find(
+          (a) => a.isDefault && a.provinceId && a.districtId && a.wardCode
+        ) ||
+        addresses.find((a) => a.provinceId && a.districtId && a.wardCode) ||
+        null;
       setSelectedAddress((cur) => {
         if (cur && addresses.some((a) => a.id === cur.id)) return cur;
         return defaultAddr;
@@ -907,10 +927,18 @@ export default function PayScreen() {
           <TouchableOpacity 
             style={[
               styles.orderButton,
-              (!selectedAddress || products.length === 0) && styles.orderButtonDisabled
-            ]} 
+              (!selectedAddress ||
+                products.length === 0 ||
+                !selectedService ||
+                shippingFee <= 0) && styles.orderButtonDisabled
+            ]}
             onPress={handleOrder}
-            disabled={!selectedAddress || products.length === 0}
+            disabled={
+              !selectedAddress ||
+              products.length === 0 ||
+              !selectedService ||
+              shippingFee <= 0
+            }
           >
             <Text style={styles.orderButtonText}>
               Đặt hàng · {formatCurrency(total)}
