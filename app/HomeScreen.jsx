@@ -25,6 +25,7 @@ import Header from "../compomentHome/Header";
 import NewProducts from "../compomentHome/NewProducts";
 import PromoPopup from "../compomentHome/PromoPopup";
 import axiosInstance from "../utils/AxiosInstance";
+import { cacheImages } from "../utils/cacheImages";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
 const { width } = Dimensions.get("window");
@@ -184,13 +185,14 @@ export default function HomeScreen() {
             isHot: (p.sold || 0) > 50,
             isBestSeller: p.isBestSeller ?? false,
             price: (p.price ?? 0).toLocaleString('vi-VN') + ' đ',
-            originalPrice: p.originalPrice
-              ? p.originalPrice.toLocaleString('vi-VN') + ' đ'
-              : undefined,
-          };
+          originalPrice: p.originalPrice
+            ? p.originalPrice.toLocaleString('vi-VN') + ' đ'
+            : undefined,
+        };
         });
 
         setProducts(mapped);
+        cacheImages(mapped.map((p) => p.image?.uri || p.image));
         setBestSellers(mapped.filter(p => p.isBestSeller));
         // Lọc flash sale: chỉ những sản phẩm có discount > 0
         setFlashSaleProducts(mapped.filter(p => p.discount > 0));
@@ -238,6 +240,7 @@ export default function HomeScreen() {
           });
 
           setProducts(mapped);
+          cacheImages(mapped.map((p) => p.image?.uri || p.image));
           setBestSellers(mapped.filter(p => p.isBestSeller));
           // Lọc flash sale: chỉ những sản phẩm có discount > 0
           setFlashSaleProducts(mapped.filter(p => p.discount > 0));
