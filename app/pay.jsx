@@ -326,15 +326,19 @@ export default function PayScreen() {
 
       if (user.address) {
         const selfAddr = {
-          id: "self",
-          recipientName: user.full_name,
-          phoneNumber: user.phone,
-          address: user.address,
-          provinceId: user.provinceId,
-          districtId: user.districtId,
-          wardCode: user.wardCode,
-          isDefault: addresses.length === 0,
-        };
+        id: "self",
+        // Dành cho PayScreen
+        recipientName: user.full_name,
+        phoneNumber: user.phone,
+        // Dành cho AddressModal
+        label: "Địa chỉ của tôi",
+        phone: user.phone,
+        address: user.address,
+        provinceId: user.provinceId,
+        districtId: user.districtId,
+        wardCode: user.wardCode,
+        isDefault: addresses.length === 0,
+      };
         if (!addresses.some((a) => a.id === "self")) {
           addresses = [selfAddr, ...addresses];
         }

@@ -2,6 +2,7 @@ import { Feather, MaterialIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Picker } from "@react-native-picker/picker";
 import React, { useEffect, useState } from "react";
+import axios from "axios";
 import {
   FlatList,
   Modal,
@@ -69,16 +70,18 @@ export default function AddressModal({
       if (userStr) {
         const user = JSON.parse(userStr);
         // Tạo địa chỉ mặc định từ thông tin user
-        if (user.address || user.phone || user.name) {
-          setUserDefaultAddress({
-            id: 'user-default',
-            label: 'Địa chỉ của tôi',
-            address: user.address || 'Chưa cập nhật địa chỉ',
-            phone: user.phone || '',
-            name: user.name || '',
-            isUserDefault: true,
-            isDefault: true,
-          });
+        if (user.address) {
+         setUserDefaultAddress({
+           id: 'user-default',
+           label: 'Địa chỉ của tôi',
+           address: user.address,
+           phone: user.phone || '',
+           isUserDefault: true,
+           isDefault: true,
+           provinceId: user.provinceId,
+           districtId: user.districtId,
+           wardCode: user.wardCode,
+         });
         }
       }
     } catch (error) {
@@ -88,7 +91,7 @@ export default function AddressModal({
 
   const fetchProvinces = async () => {
     try {
-      const res = await axiosInstance.post(
+      const res = await axios.post(
         "https://dev-online-gateway.ghn.vn/shiip/public-api/master-data/province",
         {},
         { headers: { Token: GHN_TOKEN, ShopId: GHN_SHOP_ID } }
@@ -106,7 +109,7 @@ export default function AddressModal({
 
   const fetchDistricts = async (pid) => {
     try {
-      const res = await axiosInstance.post(
+      const res = await axios.post(
         "https://dev-online-gateway.ghn.vn/shiip/public-api/master-data/district",
         { province_id: Number(pid) },
         { headers: { Token: GHN_TOKEN, ShopId: GHN_SHOP_ID } }
@@ -125,7 +128,7 @@ export default function AddressModal({
 
   const fetchWards = async (did) => {
     try {
-      const res = await axiosInstance.post(
+      const res = await axios.post(
         "https://dev-online-gateway.ghn.vn/shiip/public-api/master-data/ward",
         { district_id: Number(did) },
         { headers: { Token: GHN_TOKEN, ShopId: GHN_SHOP_ID } }
