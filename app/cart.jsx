@@ -22,7 +22,7 @@ import CartProductList from "../compomentCart/CartProductList";
 import CartTotalBar from "../compomentCart/CartTotalBar";
 import CartWishlist from "../compomentCart/CartWishlist";
 import PayVoucherModal from "../compomentPay/PayVoucherModal";
-const base = axiosInstance.defaults.baseURL; 
+const base = axiosInstance.defaults.baseURL;
 const { width } = Dimensions.get("window");
 const defaultAddresses = [
   {
@@ -31,6 +31,9 @@ const defaultAddresses = [
     isDefault: true,
   },
 ];
+const resolveImageUri = (img) =>
+  img?.startsWith("http") ? img : `${base}${img}`;
+
 
 function formatCurrency(num) {
   if (typeof num !== "number" || isNaN(num)) return "0 đ";
@@ -108,7 +111,7 @@ export default function CartScreen() {
       setLoading(false);
       return;
     }
-    
+
     console.log('Fetching cart for userId:', userId);
     console.log('Base URL:', base);
     setLoading(true);
@@ -116,17 +119,17 @@ export default function CartScreen() {
     try {
       const requestUrl = `/cartt/user/${userId}`;
       console.log('Making request to:', requestUrl);
-      
+
       const res = await axiosInstance.get(requestUrl);
       console.log('Response status:', res.status);
       console.log('Response data:', res.data);
-      
+
       const products = Array.isArray(res.data.products) ? res.data.products : [];
       console.log("Fetched cart items count:", products.length);
 
       // 🆕 Xử lý cả product và combo items
       const items = [];
-      
+
       for (const item of products) {
         // Xử lý regular products
         if (item.productId && typeof item.productId === "object") {
@@ -140,8 +143,9 @@ export default function CartScreen() {
           const img = item.productId.image;
           if (img) {
             if (typeof img === "string") {
-              imageUri = { uri: `${base}${img}` };
-            } else if (Array.isArray(img) && img.length > 0) {
+              imageUri = { uri: resolveImageUri(img) };
+            }
+            else if (Array.isArray(img) && img.length > 0) {
               imageUri = { uri: `${base}${img[0]}` };
             } else if (img.uri) {
               const raw = img.uri;
@@ -162,17 +166,17 @@ export default function CartScreen() {
             type: 'product' // 🆕 Thêm type để phân biệt
           });
         }
-        
+
         // 🆕 Xử lý combo items
         else if (item.comboId) {
           try {
             // Fetch combo details
             const comboRes = await axiosInstance.get(`/combo/${item.comboId}`);
             const combo = comboRes.data;
-            
+
             if (combo) {
               let imageUri = require("../assets/images/pc1.png");
-              
+
               // Xử lý ảnh combo
               if (combo.image) {
                 if (typeof combo.image === "string") {
@@ -226,11 +230,11 @@ export default function CartScreen() {
       console.error("Error response:", err.response?.data);
       console.error("Error status:", err.response?.status);
       console.error("Error config:", err.config);
-      
+
       setCart([]);
-      
+
       Toast.show({
-        type: "error", 
+        type: "error",
         text1: "Không thể tải giỏ hàng",
         text2: err.response?.data?.error || err.message,
         position: "top",
@@ -249,51 +253,51 @@ export default function CartScreen() {
   );
 
   // Change quantity
-const handleQuantity = async (id, delta) => {
-  const prod = cart.find((item) => item.id === id);
-  if (!prod) return;
+  const handleQuantity = async (id, delta) => {
+    const prod = cart.find((item) => item.id === id);
+    if (!prod) return;
 
-  const newQty = Math.max(1, prod.quantity + delta);
+    const newQty = Math.max(1, prod.quantity + delta);
 
-  // Optimistic update
-  setCart((prev) =>
-    prev.map((item) =>
-      item.id === id ? { ...item, quantity: newQty } : item
-    )
-  );
-
-  try {
-    if (prod.type === 'combo') {
-      await axiosInstance.put("/cartt/update-quantity", {
-        user_id: userId,
-        comboId: prod.comboId,
-        quantity: newQty
-      });
-    } else {
-      await axiosInstance.put("/cartt/update-quantity", {
-        user_id: userId,
-        productId: prod.id,
-        variant: prod.variant,
-        quantity: newQty
-      });
-    }
-    // Không cần fetchCart() ở đây nữa
-  } catch (err) {
-    // Nếu lỗi, rollback lại số lượng cũ và báo lỗi
+    // Optimistic update
     setCart((prev) =>
       prev.map((item) =>
-        item.id === id ? { ...item, quantity: prod.quantity } : item
+        item.id === id ? { ...item, quantity: newQty } : item
       )
     );
-    console.error("Lỗi khi cập nhật số lượng:", err);
-    Toast.show({
-      type: "error",
-      text1: "Có lỗi khi cập nhật số lượng sản phẩm",
-      position: "top",
-      visibilityTime: 2000,
-    });
-  }
-};
+
+    try {
+      if (prod.type === 'combo') {
+        await axiosInstance.put("/cartt/update-quantity", {
+          user_id: userId,
+          comboId: prod.comboId,
+          quantity: newQty
+        });
+      } else {
+        await axiosInstance.put("/cartt/update-quantity", {
+          user_id: userId,
+          productId: prod.id,
+          variant: prod.variant,
+          quantity: newQty
+        });
+      }
+      // Không cần fetchCart() ở đây nữa
+    } catch (err) {
+      // Nếu lỗi, rollback lại số lượng cũ và báo lỗi
+      setCart((prev) =>
+        prev.map((item) =>
+          item.id === id ? { ...item, quantity: prod.quantity } : item
+        )
+      );
+      console.error("Lỗi khi cập nhật số lượng:", err);
+      Toast.show({
+        type: "error",
+        text1: "Có lỗi khi cập nhật số lượng sản phẩm",
+        position: "top",
+        visibilityTime: 2000,
+      });
+    }
+  };
 
   useEffect(() => {
     (async () => {
@@ -307,40 +311,40 @@ const handleQuantity = async (id, delta) => {
   }, []);
 
   // Remove product
-const handleRemove = async (id) => {
-  const prod = cart.find((item) => item.id === id);
-  if (!prod) return;
+  const handleRemove = async (id) => {
+    const prod = cart.find((item) => item.id === id);
+    if (!prod) return;
 
-  try {
-    if (prod.type === 'combo') {
-      // Remove combo
-      await axiosInstance.delete("/cartt/remove-combo", {
-        data: {
-          user_id: userId,
-          comboId: prod.comboId
-        }
-      });
-    } else {
-      // Remove product
-      await axiosInstance.delete("/cartt/remove-product", {
-        data: {
-          user_id: userId,
-          productId: prod.id,
-          variant: prod.variant
-        }
+    try {
+      if (prod.type === 'combo') {
+        // Remove combo
+        await axiosInstance.delete("/cartt/remove-combo", {
+          data: {
+            user_id: userId,
+            comboId: prod.comboId
+          }
+        });
+      } else {
+        // Remove product
+        await axiosInstance.delete("/cartt/remove-product", {
+          data: {
+            user_id: userId,
+            productId: prod.id,
+            variant: prod.variant
+          }
+        });
+      }
+      setCart((prev) => prev.filter((item) => item.id !== id));
+    } catch (err) {
+      console.error("Lỗi khi xóa sản phẩm:", err);
+      Toast.show({
+        type: "error",
+        text1: "Có lỗi khi xóa sản phẩm khỏi giỏ hàng",
+        position: "top",
+        visibilityTime: 2000,
       });
     }
-    setCart((prev) => prev.filter((item) => item.id !== id));
-  } catch (err) {
-    console.error("Lỗi khi xóa sản phẩm:", err);
-    Toast.show({
-      type: "error",
-      text1: "Có lỗi khi xóa sản phẩm khỏi giỏ hàng",
-      position: "top",
-      visibilityTime: 2000,
-    });
-  }
-};
+  };
 
   // Remove selected products
   const handleRemoveSelected = async () => {
@@ -387,71 +391,71 @@ const handleRemove = async (id) => {
   // 4) Tổng cuối cùng = selectedTotal – discount
   const finalTotal = Math.max(0, selectedTotal - discount);
   // Thêm hàm này sau hàm handleQuantity
-const handleQuantityInput = async (id, newQuantity) => {
-  const prod = cart.find((item) => item.id === id);
-  if (!prod) return;
+  const handleQuantityInput = async (id, newQuantity) => {
+    const prod = cart.find((item) => item.id === id);
+    if (!prod) return;
 
-  // Kiểm tra với stock từ server (giả sử bạn có thông tin stock)
-  // Nếu không có stock info, có thể set max là 99
-  const maxStock = prod.stock || 99;
-  
-  if (newQuantity > maxStock) {
-    Toast.show({
-      type: "error",
-      text1: "Số lượng vượt quá kho",
-      text2: `Sản phẩm này chỉ còn ${maxStock} trong kho`,
-      position: "top",
-      visibilityTime: 3000,
-    });
-    
-    // Reset về số lượng tối đa có thể
+    // Kiểm tra với stock từ server (giả sử bạn có thông tin stock)
+    // Nếu không có stock info, có thể set max là 99
+    const maxStock = prod.stock || 99;
+
+    if (newQuantity > maxStock) {
+      Toast.show({
+        type: "error",
+        text1: "Số lượng vượt quá kho",
+        text2: `Sản phẩm này chỉ còn ${maxStock} trong kho`,
+        position: "top",
+        visibilityTime: 3000,
+      });
+
+      // Reset về số lượng tối đa có thể
+      try {
+        if (prod.type === 'combo') {
+          await axiosInstance.put("/cartt/update-quantity", {
+            user_id: userId,
+            comboId: prod.comboId,
+            quantity: maxStock,
+          });
+        } else {
+          await axiosInstance.put("/cartt/update-quantity", {
+            user_id: userId,
+            productId: prod.id,
+            quantity: maxStock,
+          });
+        }
+        await fetchCart();
+      } catch (err) {
+        console.error("Lỗi khi cập nhật số lượng:", err);
+      }
+      return;
+    }
+
+    // Cập nhật số lượng bình thường
     try {
       if (prod.type === 'combo') {
         await axiosInstance.put("/cartt/update-quantity", {
           user_id: userId,
           comboId: prod.comboId,
-          quantity: maxStock,
+          quantity: Math.max(1, newQuantity),
         });
       } else {
         await axiosInstance.put("/cartt/update-quantity", {
           user_id: userId,
           productId: prod.id,
-          quantity: maxStock,
+          quantity: Math.max(1, newQuantity),
         });
       }
       await fetchCart();
     } catch (err) {
       console.error("Lỗi khi cập nhật số lượng:", err);
-    }
-    return;
-  }
-
-  // Cập nhật số lượng bình thường
-  try {
-    if (prod.type === 'combo') {
-      await axiosInstance.put("/cartt/update-quantity", {
-        user_id: userId,
-        comboId: prod.comboId,
-        quantity: Math.max(1, newQuantity),
-      });
-    } else {
-      await axiosInstance.put("/cartt/update-quantity", {
-        user_id: userId,
-        productId: prod.id,
-        quantity: Math.max(1, newQuantity),
+      Toast.show({
+        type: "error",
+        text1: "Có lỗi khi cập nhật số lượng sản phẩm",
+        position: "top",
+        visibilityTime: 2000,
       });
     }
-    await fetchCart();
-  } catch (err) {
-    console.error("Lỗi khi cập nhật số lượng:", err);
-    Toast.show({
-      type: "error",
-      text1: "Có lỗi khi cập nhật số lượng sản phẩm",
-      position: "top",
-      visibilityTime: 2000,
-    });
-  }
-};
+  };
   // danh sách sản phẩm đã chọn
   const isEmpty = cart.length === 0;
   const isNothingSelected = selectedProducts.length === 0;
@@ -537,12 +541,12 @@ const handleQuantityInput = async (id, newQuantity) => {
   }
 
   // Xử lý nhấn vào sản phẩm
-const handleProductPress = (item) => {
-  // Nếu là combo thì không chuyển, chỉ chuyển với sản phẩm thường
-  if (item.type === 'product' && item.id) {
-    router.push(`/ctsp?id=${item.id}`);
-  }
-};
+  const handleProductPress = (item) => {
+    // Nếu là combo thì không chuyển, chỉ chuyển với sản phẩm thường
+    if (item.type === 'product' && item.id) {
+      router.push(`/ctsp?id=${item.id}`);
+    }
+  };
 
   return (
     <View style={styles.container}>

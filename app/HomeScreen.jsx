@@ -107,7 +107,7 @@ export default function HomeScreen() {
           duration: 500,
           useNativeDriver: true,
         }).start(() => setShowPromoPopup(false));
-      }, 5000);
+      }, 2000);
       return () => {
         clearTimeout(timer);
         fadeAnim.setValue(1);

@@ -54,6 +54,8 @@ const fetchProductById = async (productId) => {
     }
   }
 
+  const resolveImageUri = (url) =>
+    url?.startsWith('http') ? url : `${base}${url}`;
 
   return {
     id: product._id,
@@ -61,18 +63,19 @@ const fetchProductById = async (productId) => {
     price: product.price,
     description: product.description,
     oldPrice: product.price,
-    images: Array.isArray(product.images) && product.images.length
-      ? product.images.map((url) => ({ uri: `${base}${url}` }))
-      : [require('../assets/images/pc1.png')],
+    images:
+      Array.isArray(product.images) && product.images.length
+        ? product.images.map((url) => ({ uri: resolveImageUri(url) }))
+        : [require('../assets/images/pc1.png')],
     image: product.image
-   ? { uri: `${base}${product.image}` }
-   : require('../assets/images/pc1.png'),
+      ? { uri: resolveImageUri(product.image) }
+      : require('../assets/images/pc1.png'),
     rating: product.rating || 4.5,
     sold: product.sold || 0,
     origin: product.origin || 'Unknown',
     specs: specsArr,
     buyWith: product.relatedProducts || product.buyWith || [],
-    variants: variantOptions, // Thêm variants vào product data
+    variants: variantOptions,
     brand: product.brand_id?.name || 'Unknown',
     category: product.category?.name || 'Unknown',
   };
@@ -87,8 +90,8 @@ const fetchAllProducts = async () => {
       name: p.name,
       price: p.price,
       image: p.image
-   ? { uri: `${base}${p.image}` }
-   : require('../assets/images/pc1.png'),
+        ? { uri: `${base}${p.image}` }
+        : require('../assets/images/pc1.png'),
       sold: p.sold || 0,
     }));
     console.log('allProducts ›', list);
