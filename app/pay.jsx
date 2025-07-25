@@ -186,9 +186,10 @@ export default function PayScreen() {
 
       // Phân biệt theo loại dịch vụ
       if (service.service_type_id === 5) {
-        // Dịch vụ hàng nặng - sử dụng mảng items
+        // Dịch vụ hàng nặng - yêu cầu truyền weight tổng và chi tiết từng kiện
         requestData = {
           ...baseData,
+          weight: calculatedWeight,
           items: products.map((p) => ({
             length: p.length || 20, // cm
             width: p.width || 20, // cm
