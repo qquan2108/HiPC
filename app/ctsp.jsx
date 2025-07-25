@@ -6,6 +6,7 @@ import { ActivityIndicator, FlatList, Image, Modal, SafeAreaView, StyleSheet, Te
 
 import Toast from 'react-native-toast-message';
 import axiosInstance from '../utils/AxiosInstance';
+import { cacheImages } from '../utils/cacheImages';
 
 import BuyWithList from '../compomentCTSP/BuyWithList';
 import OptionGroup from '../compomentCTSP/OptionGroup';
@@ -95,6 +96,7 @@ const fetchAllProducts = async () => {
       sold: p.sold || 0,
     }));
     console.log('allProducts ›', list);
+    cacheImages(list.map((p) => p.image?.uri || p.image));
     return list;
   } catch {
     return [];
@@ -136,6 +138,10 @@ export default function CTSP() {
         if (!productId) throw new Error('Thiếu ID sản phẩm');
         const fetched = await fetchProductById(productId);
         setProduct(fetched);
+        cacheImages([
+          fetched.image?.uri || fetched.image,
+          ...((fetched.images || []).map((img) => img.uri || img)),
+        ]);
         // Lưu biến thể vào state
         setVariants(fetched.variants || []);
         setCompareProducts([fetched]);
