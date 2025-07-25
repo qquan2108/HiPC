@@ -30,6 +30,7 @@ export default function DanhMucPCScreen() {
   const [showLoginDialog, setShowLoginDialog] = useState(false); // Thêm state này
   const [loading, setLoading] = useState(true); // Thêm state này
   const [brands, setBrands] = useState([]);
+  const [bestSellers, setBestSellers] = useState([]);
   const router = useRouter();
 
   // Kiểm tra đăng nhập
@@ -111,6 +112,14 @@ export default function DanhMucPCScreen() {
       .then(res => setProducts(res.data.products || []))
       .catch(() => setProducts([]));
   }, []);
+
+  // Fetch best sellers mỗi khi đổi danh mục
+  useEffect(() => {
+    if (!selectedCat) return;
+    axios.get(`/product/best-sellers?category=${selectedCat}&limit=5`)
+      .then(res => setBestSellers(res.data || []))
+      .catch(() => setBestSellers([]));
+  }, [selectedCat]);
 
   // Tìm object category đang chọn
   const catObj = categories.find(c => c._id === selectedCat);
@@ -213,48 +222,14 @@ export default function DanhMucPCScreen() {
           {/* TITLE + “Xem tất cả” */}
           <View style={styles.titleRow}>
             <Text style={styles.titleText}>{catObj?.name || '—'}</Text>
-            <TouchableOpacity>
+            <TouchableOpacity onPress={() => router.push("./danhmucall")}>
               <Text style={styles.viewAll}>Xem tất cả</Text>
+
             </TouchableOpacity>
           </View>
 
           {/* DANH SÁCH SẢN PHẨM */}
-          {filteredProducts.length === 0 ? (
-            <Text style={{ color: '#888', textAlign: 'center', marginTop: 24 }}>
-              Không có sản phẩm nào
-            </Text>
-          ) : (
-            filteredProducts.map(p => (
-              <TouchableOpacity
-                key={p._id || p.id}
-                style={{
-                  backgroundColor: '#fff',
-                  borderRadius: 8,
-                  marginBottom: 12,
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  padding: 12,
-                  shadowColor: '#eee',
-                  shadowOffset: { width: 0, height: 1 },
-                  shadowOpacity: 0.2,
-                  shadowRadius: 2,
-                  elevation: 2,
-                }}
-                onPress={() => router.push({ pathname: '/ctsp', params: { id: p._id || p.id } })}
-              >
-                <Image
-                  source={p.image ? { uri: p.image } : require('../assets/images/pc1.png')}
-                  style={{ width: 54, height: 54, borderRadius: 8, marginRight: 12, backgroundColor: '#f2f2f2' }}
-                />
-                <View style={{ flex: 1 }}>
-                  <Text numberOfLines={2} style={{ fontWeight: '700' }}>{p.name}</Text>
-                  <Text style={{ color: '#009688', marginTop: 2 }}>
-                    {Number(p.price).toLocaleString('vi-VN')}₫
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            ))
-          )}
+          
           {/* Filter: Hãng */}
           <FilterSection
             title="Hãng"
@@ -291,8 +266,19 @@ export default function DanhMucPCScreen() {
             }
           />
 
-          {/* Các filter */}
+          {/* 🟢 Sản phẩm bán nhiều nhất trong tháng */}
+          <FilterSection
+            title="Bán nhiều nhất tháng này"
+            data={bestSellers}
+            onSelect={p =>
+              router.push({
+                pathname: '/ctsp',
+                params: { id: p._id }
+              })
+            }
+          />
 
+          {/* Các filter khác... */}
           <View style={{ height: 80 }} />
         </ScrollView>
       </View>

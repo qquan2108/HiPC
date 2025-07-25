@@ -18,7 +18,8 @@ export default function CartProductList({
   formatCurrency, 
   onToggleSelect, 
   selectedIds,
-  onQuantityInput // Thêm prop mới để xử lý input số lượng
+  onQuantityInput, // Thêm prop mới để xử lý input số lượng
+  onProductPress // Thêm prop cho sự kiện nhấn vào sản phẩm
 }) {
   const [editingQuantity, setEditingQuantity] = useState({});
   const [tempQuantity, setTempQuantity] = useState({});
@@ -50,118 +51,148 @@ export default function CartProductList({
   return (
     <View style={styles.cartBox}>
       {cart.map(item => (
-        <View key={item.id} style={styles.productCard}>
-          {/* Checkbox với animation */}
-          <TouchableOpacity
+        <TouchableOpacity
+          key={item.id}
+          activeOpacity={0.85}
+          onPress={() => onProductPress && onProductPress(item)}
+          disabled={item.type === 'combo'} // Không cho click combo
+        >
+          <View
             style={[
-              styles.checkbox,
-              selectedIds.includes(item.id) && styles.checkboxSelected
+              styles.productCard,
+              item.type === 'combo' && { backgroundColor: '#fef7f0' }
             ]}
-            onPress={() => onToggleSelect(item.id)}
-            activeOpacity={0.8}
           >
-            <Feather
-              name={selectedIds.includes(item.id) ? "check" : ""}
-              size={16}
-              color="#fff"
-            />
-          </TouchableOpacity>
+            {/* Checkbox với animation */}
+            <TouchableOpacity
+              style={[
+                styles.checkbox,
+                selectedIds.includes(item.id) && styles.checkboxSelected
+              ]}
+              onPress={() => onToggleSelect(item.id)}
+              activeOpacity={0.8}
+            >
+              <Feather
+                name={selectedIds.includes(item.id) ? "check" : ""}
+                size={16}
+                color="#fff"
+              />
+            </TouchableOpacity>
 
-          {/* Product Image với shadow */}
-          <View style={styles.imageContainer}>
-            <Image source={item.image} style={styles.productImage} />
-            {/* Badge discount nếu có */}
-            {item.discount && (
-              <View style={styles.discountBadge}>
-                <Text style={styles.discountText}>-{item.discount}%</Text>
-              </View>
-            )}
-          </View>
+            {/* Product Image với shadow */}
+            <View style={styles.imageContainer}>
+              <Image source={item.image} style={styles.productImage} />
+              {/* Badge discount nếu có */}
+              {item.discount && (
+                <View style={styles.discountBadge}>
+                  <Text style={styles.discountText}>-{item.discount}%</Text>
+                </View>
+              )}
+              {/* 🟠 Combo badge */}
+              {item.type === 'combo' && (
+                <View style={styles.comboBadge}>
+                  <Text style={styles.comboBadgeText}>COMBO</Text>
+                </View>
+              )}
+            </View>
 
-          {/* Product Info */}
-          <View style={styles.productInfo}>
-            <Text style={styles.productName} numberOfLines={2}>
-              {item.name}
-            </Text>
-            {item.variant && (
-          <Text style={styles.variantText} numberOfLines={1}>
-            Phiên bản: {item.variant.label}
-          </Text>
-        )}
-            {/* Price section với styling giống Shopee/Tiki */}
-            <View style={styles.priceSection}>
-              <Text style={styles.currentPrice}>
-                {formatCurrency(item.price)}
+            {/* Product Info */}
+            <View style={styles.productInfo}>
+              <Text
+                style={[
+                  styles.productName,
+                  item.type === 'combo' && { color: '#ff6b35' }
+                ]}
+                numberOfLines={2}
+              >
+                {item.name}
               </Text>
-              {item.originalPrice && item.originalPrice > item.price && (
-                <Text style={styles.originalPrice}>
-                  {formatCurrency(item.originalPrice)}
+              {/* 🟠 Số lượng sản phẩm trong combo */}
+              {item.type === 'combo' && item.productCount && (
+                <Text style={styles.productCountText}>
+                  {item.productCount} sản phẩm trong combo
+                </Text>
+              )}
+              {item.variant && (
+            <Text style={styles.variantText} numberOfLines={1}>
+              Phiên bản: {item.variant.label}
+            </Text>
+          )}
+              {/* Price section với styling giống Shopee/Tiki */}
+              <View style={styles.priceSection}>
+                <Text style={styles.currentPrice}>
+                  {formatCurrency(item.price)}
+                </Text>
+                {item.originalPrice && item.originalPrice > item.price && (
+                  <Text style={styles.originalPrice}>
+                    {formatCurrency(item.originalPrice)}
+                  </Text>
+                )}
+              </View>
+
+              {/* Quantity controls với input */}
+              <View style={styles.quantityContainer}>
+                <TouchableOpacity 
+                  onPress={() => onQuantity(item.id, -1)} 
+                  style={[styles.quantityBtn, styles.decreaseBtn]}
+                  disabled={item.quantity <= 1}
+                >
+                  <Feather 
+                    name="minus" 
+                    size={14} 
+                    color={item.quantity <= 1 ? "#ccc" : "#666"} 
+                  />
+                </TouchableOpacity>
+
+                {/* Input số lượng có thể chỉnh sửa */}
+                <View style={styles.quantityInputContainer}>
+                  {editingQuantity[item.id] ? (
+                    <TextInput
+                      style={styles.quantityInput}
+                      value={tempQuantity[item.id] || ''}
+                      onChangeText={(text) => handleQuantityTextChange(item.id, text)}
+                      onBlur={() => handleQuantityInputBlur(item.id)}
+                      keyboardType="numeric"
+                      selectTextOnFocus
+                      maxLength={3}
+                      autoFocus
+                    />
+                  ) : (
+                    <TouchableOpacity 
+                      onPress={() => handleQuantityInputFocus(item.id, item.quantity)}
+                      style={styles.quantityDisplay}
+                    >
+                      <Text style={styles.quantityText}>{item.quantity}</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+
+                <TouchableOpacity 
+                  onPress={() => onQuantity(item.id, 1)} 
+                  style={[styles.quantityBtn, styles.increaseBtn]}
+                >
+                  <Feather name="plus" size={14} color="#666" />
+                </TouchableOpacity>
+              </View>
+
+              {/* Stock info nếu có */}
+              {item.stock && item.stock < 10 && (
+                <Text style={styles.stockWarning}>
+                  Chỉ còn {item.stock} sản phẩm
                 </Text>
               )}
             </View>
 
-            {/* Quantity controls với input */}
-            <View style={styles.quantityContainer}>
-              <TouchableOpacity 
-                onPress={() => onQuantity(item.id, -1)} 
-                style={[styles.quantityBtn, styles.decreaseBtn]}
-                disabled={item.quantity <= 1}
-              >
-                <Feather 
-                  name="minus" 
-                  size={14} 
-                  color={item.quantity <= 1 ? "#ccc" : "#666"} 
-                />
-              </TouchableOpacity>
-
-              {/* Input số lượng có thể chỉnh sửa */}
-              <View style={styles.quantityInputContainer}>
-                {editingQuantity[item.id] ? (
-                  <TextInput
-                    style={styles.quantityInput}
-                    value={tempQuantity[item.id] || ''}
-                    onChangeText={(text) => handleQuantityTextChange(item.id, text)}
-                    onBlur={() => handleQuantityInputBlur(item.id)}
-                    keyboardType="numeric"
-                    selectTextOnFocus
-                    maxLength={3}
-                    autoFocus
-                  />
-                ) : (
-                  <TouchableOpacity 
-                    onPress={() => handleQuantityInputFocus(item.id, item.quantity)}
-                    style={styles.quantityDisplay}
-                  >
-                    <Text style={styles.quantityText}>{item.quantity}</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-
-              <TouchableOpacity 
-                onPress={() => onQuantity(item.id, 1)} 
-                style={[styles.quantityBtn, styles.increaseBtn]}
-              >
-                <Feather name="plus" size={14} color="#666" />
-              </TouchableOpacity>
-            </View>
-
-            {/* Stock info nếu có */}
-            {item.stock && item.stock < 10 && (
-              <Text style={styles.stockWarning}>
-                Chỉ còn {item.stock} sản phẩm
-              </Text>
-            )}
+            {/* Remove button với animation */}
+            <TouchableOpacity
+              onPress={() => onRemove(item.id)}
+              style={styles.removeButton}
+              activeOpacity={0.7}
+            >
+              <Feather name="trash-2" size={18} color="#ff4757" />
+            </TouchableOpacity>
           </View>
-
-          {/* Remove button với animation */}
-          <TouchableOpacity
-            onPress={() => onRemove(item.id)}
-            style={styles.removeButton}
-            activeOpacity={0.7}
-          >
-            <Feather name="trash-2" size={18} color="#ff4757" />
-          </TouchableOpacity>
-        </View>
+        </TouchableOpacity>
       ))}
     </View>
   );
@@ -320,5 +351,24 @@ const styles = StyleSheet.create({
     color: 'red',
     marginBottom: 4,
     fontStyle: 'italic',
+  },
+  comboBadge: {
+    position: 'absolute',
+    left: 0,
+    bottom: 0,
+    backgroundColor: '#ff6b35',
+    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  comboBadgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
+  productCountText: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 4,
   },
 });

@@ -176,6 +176,55 @@ export default function OrderDetailScreen() {
             contentContainerStyle={{ paddingVertical: 4 }}
           />
         </View>
+
+        {order.status === 'delivered' && order.products?.length > 0 && (
+          <View style={{ paddingHorizontal: 0, paddingTop: 8 }}>
+            {order.products.map((prod) => (
+              <TouchableOpacity
+                key={prod._id}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor: '#6366F1',
+                  borderRadius: 10,
+                  paddingVertical: 12,
+                  paddingHorizontal: 16,
+                  marginTop: 8,
+                }}
+                onPress={() => {
+                  router.push({
+                    pathname: '/danhgia',
+                    params: {
+                      product_id: prod.productId._id,
+                      product_name: prod.productId.name,
+                      product_image: prod.productId.image,
+                      order_id: order._id,
+                      user_id: order.user_id?._id || order.user_id?.id,
+                    },
+                  });
+                }}
+                activeOpacity={0.8}
+              >
+                <Feather name="star" size={16} color="#fff" />
+                <Text
+                  style={{
+                    color: '#fff',
+                    fontWeight: '600',
+                    fontSize: 13,
+                    marginLeft: 6,
+                  }}
+                >
+                  Đánh giá "
+                  {prod.productId.name.length > 20
+                    ? prod.productId.name.substring(0, 20) + '...'
+                    : prod.productId.name}
+                  "
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
       </ScrollView>
     </View>
   );

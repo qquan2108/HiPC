@@ -231,7 +231,7 @@ export default function CTSP() {
       console.log('AddToCart với cấu hình:', selectedConfig);
 
       // Gửi request với thông tin cấu hình
-      await axiosInstance.post('/orders/add-to-cart', {
+      await axiosInstance.post('/cartt/add-to-cart', {
         user_id: userId,
         productId: prod.id,
         quantity: 1,

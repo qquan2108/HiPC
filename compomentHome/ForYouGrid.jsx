@@ -1,3 +1,4 @@
+import React, { useState } from "react";
 import { AntDesign, Ionicons, MaterialIcons } from "@expo/vector-icons";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -8,6 +9,10 @@ import {
   Text,
   TouchableOpacity,
   View,
+  Modal,
+  TextInput,
+  Pressable,
+  ScrollView,
 } from "react-native";
 import Toast from 'react-native-toast-message';
 import { useWishlist } from "../context/WishlistContext";
@@ -50,7 +55,22 @@ export default function ForYouGrid({
 
   const { wishlist, addToWishlist, removeFromWishlist } = useWishlist();
 
+  // 🆕 State cho dialog chọn option và số lượng
+  const [showOptionDialog, setShowOptionDialog] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [selectedOption, setSelectedOption] = useState(null);
+  const [quantity, setQuantity] = useState(1);
+
+  // 🆕 Khi bấm icon giỏ hàng
   const handleAddToCart = async (product) => {
+    if (product.variants && product.variants.length > 0) {
+      setSelectedProduct(product);
+      setSelectedOption(null);
+      setQuantity(1);
+      setShowOptionDialog(true);
+      return;
+    }
+
     if (!isLoggedIn) return onRequireLogin();
     try {
       const userStr = await AsyncStorage.getItem('user');
@@ -60,7 +80,54 @@ export default function ForYouGrid({
       }
       const userObj = JSON.parse(userStr);
       const userId = userObj._id || userObj.id;
-      await axiosInstance.post('/orders/add-to-cart', { user_id: userId, productId: product.id, quantity: 1 });
+      await axiosInstance.post('/cartt/add-to-cart', { user_id: userId, productId: product.id, quantity: 1 });
+      Toast.show({ type:'success', text1:'Đã thêm vào giỏ hàng!', position:'bottom' });
+    } catch {
+      Toast.show({ type:'error', text1:'Thêm giỏ hàng thất bại!', position:'top' });
+    }
+  };
+
+  // 🆕 Xử lý xác nhận trong dialog
+  const handleConfirmOption = async () => {
+    if (!selectedOption) {
+      Toast.show({ type: 'info', text1: 'Vui lòng chọn phiên bản/cấu hình!' });
+      return;
+    }
+
+    // Lấy số lượng tồn kho của option (ưu tiên option.stock, nếu không có thì lấy product.stock, nếu không có thì 99)
+    const maxStock =
+      (selectedOption && selectedOption.stock) ||
+      (selectedProduct && selectedProduct.stock) ||
+      99;
+
+    if (quantity > maxStock) {
+      Toast.show({
+        type: "error",
+        text1: "Số lượng vượt quá kho",
+        text2: `Sản phẩm này chỉ còn ${maxStock} trong kho`,
+        position: "bottom",
+        visibilityTime: 3000,
+      });
+      return;
+    }
+
+    if (!isLoggedIn) return onRequireLogin();
+    try {
+      const userStr = await AsyncStorage.getItem('user');
+      if (!userStr) {
+        Toast.show({ type:'error', text1:'Vui lòng đăng nhập để mua hàng!', position:'top' });
+        setShowOptionDialog(false);
+        return router.push('/LoginScreen');
+      }
+      const userObj = JSON.parse(userStr);
+      const userId = userObj._id || userObj.id;
+      await axiosInstance.post('/cartt/add-to-cart', {
+        user_id: userId,
+        productId: selectedProduct.id,
+        quantity,
+        variant: selectedOption,
+      });
+      setShowOptionDialog(false);
       Toast.show({ type:'success', text1:'Đã thêm vào giỏ hàng!', position:'bottom' });
     } catch {
       Toast.show({ type:'error', text1:'Thêm giỏ hàng thất bại!', position:'top' });
@@ -210,14 +277,13 @@ export default function ForYouGrid({
 
                 {/* Enhanced Action Icons */}
                 <View style={styles.actionIcons}>
-                  <TouchableOpacity style={styles.heartButton}>
-                    <LinearGradient
-                      colors={['#ff6b6b', '#ee5a24']}
-                      style={styles.iconGradient}
-                    >
-                      <Ionicons name="share-outline" size={14} color="#fff" />
-                    </LinearGradient>
-                  </TouchableOpacity>
+                  {/* Thay thế icon share bằng rating */}
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <Ionicons name="star" size={14} color="#FFD700" />
+                    <Text style={{ fontSize: 12, fontWeight: '600', color: '#333', marginLeft: 3 }}>
+                      {product.rating || '4.8'}
+                    </Text>
+                  </View>
                   
                   <TouchableOpacity style={styles.cartButton} onPress={() => handleAddToCart(product)}>
                     <LinearGradient
@@ -233,6 +299,122 @@ export default function ForYouGrid({
           </TouchableOpacity>
         ))}
       </View>
+
+      {/* 🆕 Dialog chọn option và số lượng */}
+      <Modal
+        visible={showOptionDialog}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowOptionDialog(false)}
+      >
+        <View style={{
+          flex: 1,
+          backgroundColor: 'rgba(0,0,0,0.25)',
+          justifyContent: 'center',
+          alignItems: 'center'
+        }}>
+          <View style={{
+            backgroundColor: '#fff',
+            borderRadius: 16,
+            padding: 20,
+            width: '85%',
+            maxWidth: 340,
+            elevation: 10,
+          }}>
+            <Text style={{ fontWeight: 'bold', fontSize: 16, marginBottom: 10 }}>
+              Chọn phiên bản & số lượng
+            </Text>
+            {selectedProduct && (
+              <>
+                <Text style={{ fontWeight: '600', marginBottom: 8 }}>{selectedProduct.name}</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
+                  {selectedProduct.variants[0]?.options?.map((option, idx) => (
+                    <Pressable
+                      key={idx}
+                      onPress={() => setSelectedOption(option)}
+                      style={{
+                        paddingHorizontal: 14,
+                        paddingVertical: 8,
+                        borderRadius: 10,
+                        backgroundColor: selectedOption === option ? '#667eea' : '#f3f4f6',
+                        marginRight: 8,
+                        borderWidth: selectedOption === option ? 2 : 1,
+                        borderColor: selectedOption === option ? '#667eea' : '#e0e7ef',
+                      }}
+                    >
+                      <Text style={{
+                        color: selectedOption === option ? '#fff' : '#333',
+                        fontWeight: selectedOption === option ? 'bold' : '500'
+                      }}>
+                        {option.label || option}
+                      </Text>
+                      {option.priceDiff ? (
+                        <Text style={{ color: selectedOption === option ? '#fff' : '#888', fontSize: 11 }}>
+                          +{option.priceDiff.toLocaleString('vi-VN')}₫
+                        </Text>
+                      ) : null}
+                    </Pressable>
+                  ))}
+                </ScrollView>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
+                  <Text style={{ fontWeight: '500', marginRight: 10 }}>Số lượng:</Text>
+                  <TouchableOpacity
+                    onPress={() => setQuantity(q => Math.max(1, q - 1))}
+                    style={{
+                      width: 32, height: 32, borderRadius: 16,
+                      backgroundColor: '#f3f4f6', alignItems: 'center', justifyContent: 'center'
+                    }}
+                  >
+                    <Ionicons name="remove" size={18} color="#667eea" />
+                  </TouchableOpacity>
+                  <TextInput
+                    style={{
+                      width: 40, height: 32, borderRadius: 8,
+                      borderWidth: 1, borderColor: '#e0e7ef',
+                      marginHorizontal: 8, textAlign: 'center', fontWeight: 'bold'
+                    }}
+                    keyboardType="numeric"
+                    value={quantity.toString()}
+                    onChangeText={txt => {
+                      const val = parseInt(txt.replace(/[^0-9]/g, '')) || 1;
+                      setQuantity(val);
+                    }}
+                  />
+                  <TouchableOpacity
+                    onPress={() => setQuantity(q => q + 1)}
+                    style={{
+                      width: 32, height: 32, borderRadius: 16,
+                      backgroundColor: '#f3f4f6', alignItems: 'center', justifyContent: 'center'
+                    }}
+                  >
+                    <Ionicons name="add" size={18} color="#667eea" />
+                  </TouchableOpacity>
+                </View>
+                <View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}>
+                  <TouchableOpacity
+                    onPress={() => setShowOptionDialog(false)}
+                    style={{
+                      paddingVertical: 8, paddingHorizontal: 18,
+                      borderRadius: 8, backgroundColor: '#e0e7ef', marginRight: 8
+                    }}
+                  >
+                    <Text style={{ color: '#333', fontWeight: '600' }}>Huỷ</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={handleConfirmOption}
+                    style={{
+                      paddingVertical: 8, paddingHorizontal: 18,
+                      borderRadius: 8, backgroundColor: '#667eea'
+                    }}
+                  >
+                    <Text style={{ color: '#fff', fontWeight: '600' }}>Thêm vào giỏ</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }

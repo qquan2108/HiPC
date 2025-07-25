@@ -23,11 +23,10 @@ import axiosInstance from '../utils/AxiosInstance';
 
 const TAB_CONFIG = {
   pending:   { label: 'Chờ xác nhận', icon: 'clock-outline' },
-  confirmed: { label: 'Chờ lấy hàng', icon: 'truck-outline' },
-  packed:    { label: 'Đã đóng gói', icon: 'package-variant-closed' },
-  picked:    { label: 'Đã lấy hàng', icon: 'cube-send' },
-  shipping:  { label: 'Đang giao', icon: 'truck-fast-outline' },
+  packed:    { label: 'Chờ lấy hàng', icon: 'package-variant-closed' },
+  shipping:  { label: 'Chờ giao hàng', icon: 'truck-fast-outline' },
   delivered: { label: 'Đã giao', icon: 'check-circle-outline' },
+  return_requested: { label: 'Trả hàng', icon: 'backup-restore' },
   cancelled: { label: 'Đã huỷ', icon: 'close-circle-outline' },
 };
 const API_URL = '/orders';
@@ -136,24 +135,7 @@ const OrderCard = React.memo(({ order, tab, onCancel, onStatusChange, onReview }
       </View>
 
 
-      {/* Review Buttons */}
-      {order.status === 'delivered' && order.products?.filter(p => p.productId).length > 0 && (
-        <View style={styles.reviewSection}>
-          {order.products.filter(p => p.productId).map(prod => (
-            <TouchableOpacity 
-              key={prod._id} 
-              style={styles.reviewButton} 
-              onPress={() => onReview(order, prod.productId)}
-              activeOpacity={0.8}
-            > 
-              <MaterialCommunityIcons name="star-outline" size={16} color="#FFFFFF" />
-              <Text style={styles.reviewButtonText}> 
-                Đánh giá "{prod.productId.name.length > 20 ? prod.productId.name.substring(0, 20) + '...' : prod.productId.name}" 
-              </Text> 
-            </TouchableOpacity> 
-          ))}
-        </View>
-      )}
+
     </TouchableOpacity>
   );
 });
@@ -184,10 +166,11 @@ export default function TrackOrderScreen() {
     // Fetch tabs từ API hoặc sử dụng config cố định
     axiosInstance.get('/orders/status-tabs')
       .then(res => {
-        setTabs(res.data);
+        // Lọc chỉ giữ các key hợp lệ
+        const allowed = Object.keys(TAB_CONFIG);
+        setTabs(res.data.filter(tab => allowed.includes(tab.key)));
       })
       .catch(() => {
-        // Fallback về config cố định nếu API lỗi
         const defaultTabs = Object.keys(TAB_CONFIG).map(key => ({
           key,
           ...TAB_CONFIG[key]
@@ -213,6 +196,13 @@ export default function TrackOrderScreen() {
       setLoading(false);
     }
   }, [userId]);
+
+ 
+
+  useEffect(() => {
+    // Chạy lại khi activeTab đổi
+    fetchOrders(activeTab);
+  }, [activeTab]);
 
   useEffect(() => { fetchOrders(); }, [fetchOrders]);
   useFocusEffect(

@@ -42,6 +42,7 @@ export default function HomeScreen() {
   const [bestSellers, setBestSellers] = useState([]);
   const [flashSaleProducts, setFlashSaleProducts] = useState([]);
   const [avatarUri, setAvatarUri] = useState(null);
+  const [userName, setUserName] = useState("User"); // 🟢 Thêm state
 
   // Badge renderers
   const renderDiscountBadge = (discount) => (
@@ -73,11 +74,11 @@ export default function HomeScreen() {
           const raw = await AsyncStorage.getItem("user");
           if (!raw) return;
           const local = JSON.parse(raw);
-          // local.id (được login trả về) hoặc nếu bạn dùng _id thì dùng local._id
           const userId = local.id ?? local._id;
           if (!userId) return;
 
-          // Nếu trước đó có avatarUrl, dùng luôn
+          setUserName(local.full_name || local.name || local.email || "User"); // 🟢 Lấy tên user
+
           if (local.avatarUrl) {
             setAvatarUri(local.avatarUrl);
           } else {
@@ -307,8 +308,9 @@ export default function HomeScreen() {
           {/* Header */}
           <Header
             router={router}
-            notificationCount={3} // hoặc state quản lý thật
+            notificationCount={3}
             avatarUri={avatarUri}
+            userName={userName} // 🟢 Truyền vào đây
           />
 
           <View

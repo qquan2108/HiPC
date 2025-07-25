@@ -27,12 +27,12 @@ const SHOP_WARD_CODE = "21308";
 const GHN_BASE_URL = "https://dev-online-gateway.ghn.vn/shiip/public-api";
 
 // VietQR config
-const VIETQR_ACCOUNT = "0010000000355";
-const VIETQR_BANK = "Vietcombank";
+const VIETQR_ACCOUNT = "699496";
+const VIETQR_BANK = "MBBank";
 
 const paymentMethods = [
   { key: "cod", label: "Thanh toán khi nhận hàng" },
-  { key: "bank", label: "Thanh toán bằng thẻ ngân hàng" },
+  { key: "sepay", label: "Thanh toán chuyen khoan" },
   { key: "vnpay", label: "Thanh toán qua VNPAY" },
   { key: "stripe", label: "Thanh toán bằng Stripe" },
 ];
@@ -291,7 +291,7 @@ export default function PayScreen() {
         if (!userStr) return;
         const user = JSON.parse(userStr);
         const userId = user.id || user._id;
-        const res = await axiosInstance.get(`/orders/user/${userId}`);
+        const res = await axiosInstance.get(`/cartt/user/${userId}`);
         const orders = Array.isArray(res.data) ? res.data : [];
         const pending = orders.find((o) => o.status === "pending") || {
           products: [],
@@ -513,14 +513,14 @@ export default function PayScreen() {
         setShowStripe(true);
         return;
       }
-      if (selectedPayment === "bank") {
+      if (selectedPayment === "sepay") {
         router.push({
           pathname: "/VietQRScreen",
           params: {
             acc: VIETQR_ACCOUNT,
             bank: VIETQR_BANK,
             amount: total.toString(),
-            des: `Thanh toan don hang ${res.data.orderId}`,
+            des: `${res.data.orderId}`,
             orderId: res.data.orderId,
             total,
             products: JSON.stringify(products),

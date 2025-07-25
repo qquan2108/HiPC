@@ -179,14 +179,7 @@ export default function Header({
 
             <View style={styles.rightSection}>
               {/* Menu Button */}
-              <TouchableOpacity style={styles.iconButton} activeOpacity={0.7}>
-                <LinearGradient 
-                  colors={['rgba(102, 126, 234, 0.1)', 'rgba(118, 75, 162, 0.1)']} 
-                  style={styles.iconGradient}
-                >
-                  <Feather name="menu" size={20} color="#667eea" />
-                </LinearGradient>
-              </TouchableOpacity>
+              
 
               {/* Notification Button */}
               <TouchableOpacity onPress={onNotificationPress} activeOpacity={0.7}>
@@ -250,12 +243,25 @@ export default function Header({
             {[
               { icon: 'zap', label: 'Nhanh' },
               { icon: 'gift', label: 'Khuyến mãi' },
-              { icon: 'star', label: 'Yêu thích' },
+              { icon: 'heart', label: 'Yêu thích' },
               { icon: 'help-circle', label: 'Hỗ trợ' }
             ].map((item, index) => (
-              <TouchableOpacity key={index} style={styles.quickActionButton} activeOpacity={0.7}>
-                <LinearGradient 
-                  colors={['rgba(102, 126, 234, 0.1)', 'rgba(118, 75, 162, 0.1)']} 
+              <TouchableOpacity
+                key={index}
+                style={styles.quickActionButton}
+                activeOpacity={0.7}
+                onPress={() => {
+                  if (item.icon === 'gift') {
+                    router.push('./VoucherList');
+                  }
+                  if (item.icon === 'heart') {
+                    router.push('./favorite'); // 🟢 Chuyển sang trang favorite khi bấm heart
+                  }
+                  // Có thể thêm các điều kiện khác cho các icon khác nếu muốn
+                }}
+              >
+                <LinearGradient
+                  colors={['rgba(102, 126, 234, 0.1)', 'rgba(118, 75, 162, 0.1)']}
                   style={styles.quickActionGradient}
                 >
                   <Feather name={item.icon} size={14} color="#667eea" />

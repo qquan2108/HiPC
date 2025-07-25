@@ -180,41 +180,7 @@ export default function CheckoutSuccess() {
             </View>
           </View>
 
-          <View style={{ flex: 1, width: "100%" }}>
-            {/* Products list */}
-            <Text style={styles.sectionTitle}>Chi tiết đơn hàng</Text>
-            <Animated.View style={{ opacity: productItemOpacity, width: '100%', flex: 1 }}>
-              <FlatList
-                data={products}
-                keyExtractor={(item, idx) => (item.id ? item.id.toString() : "item-") + idx}
-                renderItem={({ item, index }) => (
-                  <Animated.View 
-                    style={[
-                      styles.productCard,
-                      {
-                        opacity: productItemOpacity,
-                        transform: [{
-                          translateY: productItemOpacity.interpolate({
-                            inputRange: [0, 1],
-                            outputRange: [20 * (index + 1), 0],
-                          })
-                        }]
-                      }
-                    ]}
-                  >
-                    <View style={styles.productInfo}>
-                      <Text style={styles.productName} numberOfLines={1}>{item.name}</Text>
-                      <Text style={styles.productQty}>x{item.quantity}</Text>
-                    </View>
-                    <Text style={styles.productPrice}>{formatCurrency(item.price)}</Text>
-                  </Animated.View>
-                )}
-                style={{ marginBottom: 24 }}
-                scrollEnabled={false}
-                contentContainerStyle={{ paddingBottom: 180 }}
-              />
-            </Animated.View>
-          </View>
+
         </Animated.View>
       </ScrollView>
 

@@ -127,15 +127,18 @@ const handleAddToCart = async (comboId) => {
       return Alert.alert("Lỗi", "Vui lòng đăng nhập để thêm vào giỏ hàng");
     }
 
-    const res = await axiosInstance.post("/admin/api/cart", {
+    // 🆕 Sử dụng API mới cho combo
+    const res = await axiosInstance.post("cartt/add-combo", {
       user_id: userId,
       comboId: comboId,
+      quantity: 1
     });
 
+    console.log("✅ Combo added successfully:", res.data);
     Alert.alert("Thành công", "Combo đã được thêm vào giỏ hàng");
   } catch (err) {
     console.error("Lỗi khi thêm combo:", err.response?.data || err.message);
-    Alert.alert("Lỗi", err.response?.data?.message || "Không thể thêm combo vào giỏ hàng");
+    Alert.alert("Lỗi", err.response?.data?.error || err.response?.data?.message || "Không thể thêm combo vào giỏ hàng");
   }
 };
 
@@ -599,15 +602,23 @@ const styles = StyleSheet.create({
   // Enhanced Combo Section
   comboSection: {
     position: "absolute",
-    bottom: 20,
-    left: 16,
-    width: 360,
-    borderRadius: 16,
+    bottom: 16,
+    left: 12,
+    width: width * 0.56, // nhỏ lại, khoảng 1/2.5 màn hình
+    minWidth: 200,
+    maxWidth: 320,
+    height: height / 3.2, // chỉ chiếm 1/3 chiều cao màn hình
+    borderRadius: 14,
     overflow: 'hidden',
+    zIndex: 20,
+    elevation: 10,
+    backgroundColor: "transparent",
   },
   gradientBackground: {
-    padding: 16,
-    borderRadius: 16,
+    flex: 1,
+    padding: 10,
+    borderRadius: 14,
+    justifyContent: "flex-start",
   },
   comboHeader: {
     flexDirection: "row",
@@ -660,28 +671,29 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   comboCard: {
-    width: 170,
-    marginHorizontal: 8,
+    width: 120,
+    marginHorizontal: 4,
     backgroundColor: "rgba(255,255,255,0.95)",
-    borderRadius: 12,
+    borderRadius: 10,
     overflow: 'hidden',
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
   },
   cardContent: {
     flex: 1,
   },
   imageContainer: {
     position: "relative",
-    height: 100,
+    height: 60,
   },
   comboImage: {
     width: "100%",
     height: "100%",
     backgroundColor: "#f0f0f0",
+    borderRadius: 8,
   },
   discountBadge: {
     position: "absolute",
@@ -712,28 +724,28 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   cardInfo: {
-    padding: 8,
+    padding: 6,
   },
   comboName: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "600",
     color: "#333",
-    marginBottom: 6,
-    lineHeight: 16,
+    marginBottom: 2,
+    lineHeight: 14,
   },
   priceRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 6,
+    marginBottom: 2,
   },
   originalPrice: {
-    fontSize: 10,
+    fontSize: 9,
     color: "#999",
     textDecorationLine: "line-through",
-    marginRight: 8,
+    marginRight: 4,
   },
   currentPrice: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: "bold",
     color: "#FF6B6B",
   },

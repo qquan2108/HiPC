@@ -102,69 +102,144 @@ export default function CartScreen() {
   }, []);
 
   // Fetch cart (pending order only)
- const fetchCart = useCallback(async () => {
-  if (!userId) {
-    setLoading(false);
-    return;
-  }
-  setLoading(true);
-  try {
-    const res = await axiosInstance.get(`/orders/user/${userId}`);
-    const orders = Array.isArray(res.data) ? res.data : [];
-    console.log("Fetched orders:", orders);
-    const pending = orders.find((o) => o.status === "pending") || { products: [] };
+  const fetchCart = useCallback(async () => {
+    if (!userId) {
+      console.log('No userId, skipping cart fetch');
+      setLoading(false);
+      return;
+    }
+    
+    console.log('Fetching cart for userId:', userId);
+    console.log('Base URL:', base);
+    setLoading(true);
 
-    const items = (pending.products || [])
-      // lọc bỏ những item không load được productId
-      .filter(item => item.productId && typeof item.productId === "object")
-      .map((item) => {
-        const variant = item.variant || {};
-        const basePrice = item.productId.price || 0;
-        // tính giá hiển thị đã cộng priceDiff
-        const displayPrice = basePrice + (variant.priceDiff || 0);
+    try {
+      const requestUrl = `/cartt/user/${userId}`;
+      console.log('Making request to:', requestUrl);
+      
+      const res = await axiosInstance.get(requestUrl);
+      console.log('Response status:', res.status);
+      console.log('Response data:', res.data);
+      
+      const products = Array.isArray(res.data.products) ? res.data.products : [];
+      console.log("Fetched cart items count:", products.length);
 
-        // xử lý ảnh như cũ
-        let imageUri = require("../assets/images/pc1.png");
-        const img = item.productId.image;
-        if (img) {
-     if (typeof img === "string") {
-       // thêm base nếu img là đường dẫn server
-       imageUri = { uri: `${base}${img}` };
-     } else if (Array.isArray(img) && img.length > 0) {
-       // nếu mảng, prefix element đầu
-       imageUri = { uri: `${base}${img[0]}` };
-     } else if (typeof img === "object" && img.uri) {
-       // nếu đã là object, check xem có http rồi hay chưa
-       const raw = img.uri;
-       imageUri = {
-         uri: raw.startsWith("http") ? raw : `${base}${raw}`
-       };
-     }
+      // 🆕 Xử lý cả product và combo items
+      const items = [];
+      
+      for (const item of products) {
+        // Xử lý regular products
+        if (item.productId && typeof item.productId === "object") {
+          const variant = item.variant || {};
+          const basePrice = item.productId.price || 0;
+          const priceDiff = variant.priceDiff || 0;
+          const displayPrice = basePrice + priceDiff;
+
+          // xử lý ảnh
+          let imageUri = require("../assets/images/pc1.png");
+          const img = item.productId.image;
+          if (img) {
+            if (typeof img === "string") {
+              imageUri = { uri: `${base}${img}` };
+            } else if (Array.isArray(img) && img.length > 0) {
+              imageUri = { uri: `${base}${img[0]}` };
+            } else if (img.uri) {
+              const raw = img.uri;
+              imageUri = { uri: raw.startsWith("http") ? raw : `${base}${raw}` };
+            }
+          }
+
+          items.push({
+            id: item.productId._id,
+            name: item.productId.name || "Không có tên",
+            price: displayPrice,
+            originalPrice: item.productId.originalPrice,
+            discount: item.productId.discount,
+            stock: item.productId.stock ?? 0,
+            image: imageUri,
+            quantity: item.quantity ?? 1,
+            variant,
+            type: 'product' // 🆕 Thêm type để phân biệt
+          });
         }
+        
+        // 🆕 Xử lý combo items
+        else if (item.comboId) {
+          try {
+            // Fetch combo details
+            const comboRes = await axiosInstance.get(`/combo/${item.comboId}`);
+            const combo = comboRes.data;
+            
+            if (combo) {
+              let imageUri = require("../assets/images/pc1.png");
+              
+              // Xử lý ảnh combo
+              if (combo.image) {
+                if (typeof combo.image === "string") {
+                  imageUri = { uri: combo.image.startsWith("http") ? combo.image : `${base}${combo.image}` };
+                }
+              } else if (combo.productIds && combo.productIds.length > 0 && combo.productIds[0].image) {
+                const firstProductImage = combo.productIds[0].image;
+                imageUri = { uri: firstProductImage.startsWith("http") ? firstProductImage : `${base}${firstProductImage}` };
+              }
 
-        return {
-          id: item.productId._id,
-          name: item.productId.name || "Không có tên",
-          // đây là giá đã cộng priceDiff
-          price: displayPrice,
-          originalPrice: item.productId.originalPrice,
-          discount: item.productId.discount,
-          stock: item.productId.stock ?? 0,
-          image: imageUri,
-          quantity: item.quantity ?? 1,
-          variant
-        };
+              items.push({
+                id: `combo_${item.comboId}`, // 🆕 Unique ID for combo
+                comboId: item.comboId, // 🆕 Keep original comboId
+                name: `🎁 ${combo.name}` || "Combo không có tên",
+                price: item.price || combo.price || 0,
+                originalPrice: combo.originalPrice,
+                discount: combo.discount,
+                stock: 99, // Combos usually don't have stock limit
+                image: imageUri,
+                quantity: item.quantity ?? 1,
+                variant: item.variant || {},
+                type: 'combo', // 🆕 Mark as combo
+                productCount: combo.productIds ? combo.productIds.length : 0 // 🆕 Show product count
+              });
+            }
+          } catch (comboErr) {
+            console.error('Error fetching combo details:', comboErr);
+            // Fallback: add basic combo info
+            items.push({
+              id: `combo_${item.comboId}`,
+              comboId: item.comboId,
+              name: "🎁 Combo sản phẩm",
+              price: item.price || 0,
+              stock: 99,
+              image: require("../assets/images/pc1.png"),
+              quantity: item.quantity ?? 1,
+              variant: item.variant || {},
+              type: 'combo'
+            });
+          }
+        } else {
+          console.log('Filtered out item with invalid productId/comboId:', item);
+        }
+      }
+
+      console.log('Final mapped items:', items.length);
+      setCart(items);
+    } catch (err) {
+      console.error("Detailed error when fetching cart:");
+      console.error("Error message:", err.message);
+      console.error("Error response:", err.response?.data);
+      console.error("Error status:", err.response?.status);
+      console.error("Error config:", err.config);
+      
+      setCart([]);
+      
+      Toast.show({
+        type: "error", 
+        text1: "Không thể tải giỏ hàng",
+        text2: err.response?.data?.error || err.message,
+        position: "top",
+        visibilityTime: 3000,
       });
-
-    setCart(items);
-  } catch (err) {
-    console.error("Lỗi khi lấy giỏ hàng:", err);
-    setCart([]);
-  } finally {
-    setLoading(false);
-  }
-}, [userId]);
-
+    } finally {
+      setLoading(false);
+    }
+  }, [userId, base]);
 
   // Reload on focus
   useFocusEffect(
@@ -175,21 +250,41 @@ export default function CartScreen() {
 
   // Change quantity
 const handleQuantity = async (id, delta) => {
-  // tìm item trong cart theo id
   const prod = cart.find((item) => item.id === id);
   if (!prod) return;
 
   const newQty = Math.max(1, prod.quantity + delta);
+
+  // Optimistic update
+  setCart((prev) =>
+    prev.map((item) =>
+      item.id === id ? { ...item, quantity: newQty } : item
+    )
+  );
+
   try {
-    await axiosInstance.put("/orders/update-quantity", {
-      user_id:   userId,
-      productId: id,
-      variant:   prod.variant,   // <-- gửi luôn object variant
-      quantity:  newQty
-    });
-    // refresh cart để lấy giá mới + image URL
-    await fetchCart();
+    if (prod.type === 'combo') {
+      await axiosInstance.put("/cartt/update-quantity", {
+        user_id: userId,
+        comboId: prod.comboId,
+        quantity: newQty
+      });
+    } else {
+      await axiosInstance.put("/cartt/update-quantity", {
+        user_id: userId,
+        productId: prod.id,
+        variant: prod.variant,
+        quantity: newQty
+      });
+    }
+    // Không cần fetchCart() ở đây nữa
   } catch (err) {
+    // Nếu lỗi, rollback lại số lượng cũ và báo lỗi
+    setCart((prev) =>
+      prev.map((item) =>
+        item.id === id ? { ...item, quantity: prod.quantity } : item
+      )
+    );
     console.error("Lỗi khi cập nhật số lượng:", err);
     Toast.show({
       type: "error",
@@ -213,19 +308,28 @@ const handleQuantity = async (id, delta) => {
 
   // Remove product
 const handleRemove = async (id) => {
-  // tìm item để lấy variant
   const prod = cart.find((item) => item.id === id);
   if (!prod) return;
 
   try {
-    await axiosInstance.delete("/orders/remove-product", {
-      data: {
-        user_id:   userId,
-        productId: id,
-        variant:   prod.variant   // <-- gửi object variant để backend biết phải pull đúng
-      }
-    });
-    // cập nhật state local ngay lập tức
+    if (prod.type === 'combo') {
+      // Remove combo
+      await axiosInstance.delete("/cartt/remove-combo", {
+        data: {
+          user_id: userId,
+          comboId: prod.comboId
+        }
+      });
+    } else {
+      // Remove product
+      await axiosInstance.delete("/cartt/remove-product", {
+        data: {
+          user_id: userId,
+          productId: prod.id,
+          variant: prod.variant
+        }
+      });
+    }
     setCart((prev) => prev.filter((item) => item.id !== id));
   } catch (err) {
     console.error("Lỗi khi xóa sản phẩm:", err);
@@ -244,7 +348,7 @@ const handleRemove = async (id) => {
     try {
       await Promise.all(
         selectedIds.map((id) =>
-          axiosInstance.delete(`/orders/remove-product/${userId}/${id}`)
+          axiosInstance.delete(`/cartt/remove-product/${userId}/${id}`)
         )
       );
       setCart((prev) => prev.filter((item) => !selectedIds.includes(item.id)));
@@ -302,11 +406,19 @@ const handleQuantityInput = async (id, newQuantity) => {
     
     // Reset về số lượng tối đa có thể
     try {
-      await axiosInstance.put("/orders/update-quantity", {
-        user_id: userId,
-        productId: id,
-        quantity: maxStock,
-      });
+      if (prod.type === 'combo') {
+        await axiosInstance.put("/cartt/update-quantity", {
+          user_id: userId,
+          comboId: prod.comboId,
+          quantity: maxStock,
+        });
+      } else {
+        await axiosInstance.put("/cartt/update-quantity", {
+          user_id: userId,
+          productId: prod.id,
+          quantity: maxStock,
+        });
+      }
       await fetchCart();
     } catch (err) {
       console.error("Lỗi khi cập nhật số lượng:", err);
@@ -316,11 +428,19 @@ const handleQuantityInput = async (id, newQuantity) => {
 
   // Cập nhật số lượng bình thường
   try {
-    await axiosInstance.put("/orders/update-quantity", {
-      user_id: userId,
-      productId: id,
-      quantity: Math.max(1, newQuantity),
-    });
+    if (prod.type === 'combo') {
+      await axiosInstance.put("/cartt/update-quantity", {
+        user_id: userId,
+        comboId: prod.comboId,
+        quantity: Math.max(1, newQuantity),
+      });
+    } else {
+      await axiosInstance.put("/cartt/update-quantity", {
+        user_id: userId,
+        productId: prod.id,
+        quantity: Math.max(1, newQuantity),
+      });
+    }
     await fetchCart();
   } catch (err) {
     console.error("Lỗi khi cập nhật số lượng:", err);
@@ -416,6 +536,14 @@ const handleQuantityInput = async (id, newQuantity) => {
     );
   }
 
+  // Xử lý nhấn vào sản phẩm
+const handleProductPress = (item) => {
+  // Nếu là combo thì không chuyển, chỉ chuyển với sản phẩm thường
+  if (item.type === 'product' && item.id) {
+    router.push(`/ctsp?id=${item.id}`);
+  }
+};
+
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -468,10 +596,11 @@ const handleQuantityInput = async (id, newQuantity) => {
             cart={cart}
             onRemove={handleRemove}
             onQuantity={handleQuantity}
-            onQuantityInput={handleQuantityInput} // Thêm prop mới
+            onQuantityInput={handleQuantityInput}
             formatCurrency={formatCurrency}
             selectedIds={selectedIds}
             onToggleSelect={toggleSelect}
+            onProductPress={handleProductPress} // 🆕 truyền prop này
           />
         ) : (
           <CartEmpty />
