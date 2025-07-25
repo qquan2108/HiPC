@@ -2,7 +2,7 @@ import { Feather, MaterialIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Picker } from "@react-native-picker/picker";
 import React, { useEffect, useState } from "react";
-import axios from "axios";
+import ghnApi from "../utils/ghnApi";
 import {
   FlatList,
   Modal,
@@ -17,9 +17,6 @@ import {
 } from "react-native";
 import Toast from "react-native-toast-message";
 import axiosInstance from "../utils/AxiosInstance";
-
-const GHN_TOKEN = "08749195-4da3-11f0-bf1c-e283f3defbd9";
-const GHN_SHOP_ID = "196957";
 
 export default function AddressModal({
   visible,
@@ -41,6 +38,14 @@ export default function AddressModal({
   const [userDefaultAddress, setUserDefaultAddress] = useState(null);
   const [fadeAnim] = useState(new Animated.Value(0));
 
+  // Reset form khi modal đóng
+  useEffect(() => {
+    if (!visible) {
+      setShowAdd(false);
+      resetForm();
+    }
+  }, [visible]);
+
   useEffect(() => {
     if (visible) {
       Animated.timing(fadeAnim, {
@@ -49,6 +54,8 @@ export default function AddressModal({
         useNativeDriver: true,
       }).start();
       loadUserDefaultAddress();
+      // Luôn fetch provinces khi modal mở
+      fetchProvinces();
     } else {
       Animated.timing(fadeAnim, {
         toValue: 0,
@@ -58,12 +65,6 @@ export default function AddressModal({
     }
   }, [visible]);
 
-  useEffect(() => {
-    if (showAdd) {
-      fetchProvinces();
-    }
-  }, [showAdd]);
-
   const loadUserDefaultAddress = async () => {
     try {
       const userStr = await AsyncStorage.getItem("user");
@@ -71,17 +72,17 @@ export default function AddressModal({
         const user = JSON.parse(userStr);
         // Tạo địa chỉ mặc định từ thông tin user
         if (user.address) {
-         setUserDefaultAddress({
-           id: 'user-default',
-           label: 'Địa chỉ của tôi',
-           address: user.address,
-           phone: user.phone || '',
-           isUserDefault: true,
-           isDefault: true,
-           provinceId: user.provinceId,
-           districtId: user.districtId,
-           wardCode: user.wardCode,
-         });
+          setUserDefaultAddress({
+            id: 'user-default',
+            label: 'Địa chỉ của tôi',
+            address: user.address,
+            phone: user.phone || '',
+            isUserDefault: true,
+            isDefault: true,
+            provinceId: user.provinceId,
+            districtId: user.districtId,
+            wardCode: user.wardCode,
+          });
         }
       }
     } catch (error) {
@@ -91,14 +92,11 @@ export default function AddressModal({
 
   const fetchProvinces = async () => {
     try {
-      const res = await axios.post(
-        "https://dev-online-gateway.ghn.vn/shiip/public-api/master-data/province",
-        {},
-        { headers: { Token: GHN_TOKEN, ShopId: GHN_SHOP_ID } }
-      );
-      setProvinces(res.data.data || []);
+      const data = await ghnApi.getProvinces();
+      setProvinces(data);
+      console.log('Provinces loaded:', data.length);
     } catch (error) {
-      console.error(error);
+      console.error('Error fetching provinces:', error);
       Toast.show({
         type: "error",
         text1: "Lỗi tải dữ liệu",
@@ -109,15 +107,12 @@ export default function AddressModal({
 
   const fetchDistricts = async (pid) => {
     try {
-      const res = await axios.post(
-        "https://dev-online-gateway.ghn.vn/shiip/public-api/master-data/district",
-        { province_id: Number(pid) },
-        { headers: { Token: GHN_TOKEN, ShopId: GHN_SHOP_ID } }
-      );
-      setDistricts(res.data.data || []);
+      const data = await ghnApi.getDistricts(pid);
+      setDistricts(data);
       setWards([]); // Reset wards when district changes
+      console.log('Districts loaded:', data.length);
     } catch (error) {
-      console.error(error);
+      console.error('Error fetching districts:', error);
       Toast.show({
         type: "error",
         text1: "Lỗi tải dữ liệu",
@@ -128,14 +123,11 @@ export default function AddressModal({
 
   const fetchWards = async (did) => {
     try {
-      const res = await axios.post(
-        "https://dev-online-gateway.ghn.vn/shiip/public-api/master-data/ward",
-        { district_id: Number(did) },
-        { headers: { Token: GHN_TOKEN, ShopId: GHN_SHOP_ID } }
-      );
-      setWards(res.data.data || []);
+      const data = await ghnApi.getWards(did);
+      setWards(data);
+      console.log('Wards loaded:', data.length);
     } catch (error) {
-      console.error(error);
+      console.error('Error fetching wards:', error);
       Toast.show({
         type: "error",
         text1: "Lỗi tải dữ liệu",
@@ -146,10 +138,10 @@ export default function AddressModal({
 
   const handleAdd = async () => {
     if (!label.trim() || !address.trim() || !provinceId || !districtId || !wardCode) {
-      Toast.show({ 
-        type: "error", 
+      Toast.show({
+        type: "error",
         text1: "Thông tin chưa đầy đủ",
-        text2: "Vui lòng điền đầy đủ thông tin địa chỉ" 
+        text2: "Vui lòng điền đầy đủ thông tin địa chỉ"
       });
       return;
     }
@@ -167,21 +159,21 @@ export default function AddressModal({
 
       const user = JSON.parse(userStr);
       const res = await axiosInstance.post(
-        `/users/${user.id || user._id}/addresses`, 
-        { label: label.trim(), address: address.trim(), provinceId, districtId, wardCode } 
-      ); 
-      const newAddress = res.data; 
-      
+        `/users/${user.id || user._id}/addresses`,
+        { label: label.trim(), address: address.trim(), provinceId, districtId, wardCode }
+      );
+      const newAddress = res.data;
+
       Toast.show({
         type: "success",
         text1: "Thành công",
         text2: "Đã thêm địa chỉ mới"
       });
 
-      onAddressAdded(newAddress); 
+      onAddressAdded(newAddress);
       resetForm();
     } catch (error) {
-      console.error(error);
+      console.error('Error adding address:', error);
       Toast.show({
         type: "error",
         text1: "Lỗi thêm địa chỉ",
@@ -194,13 +186,13 @@ export default function AddressModal({
     try {
       const userStr = await AsyncStorage.getItem("user");
       if (!userStr) return;
-      
+
       const user = JSON.parse(userStr);
       const res = await axiosInstance.delete(
         `/users/${user.id || user._id}/addresses/${id}`
       );
       const addresses = res.data;
-      
+
       Toast.show({
         type: "success",
         text1: "Đã xóa",
@@ -210,7 +202,7 @@ export default function AddressModal({
       const def = addresses.find((a) => a.isDefault) || addresses[0] || userDefaultAddress;
       onAddressAdded(def);
     } catch (error) {
-      console.error(error);
+      console.error('Error deleting address:', error);
       Toast.show({
         type: "error",
         text1: "Lỗi xóa địa chỉ",
@@ -227,7 +219,23 @@ export default function AddressModal({
     setWardCode("");
     setDistricts([]);
     setWards([]);
+  };
+
+  const handleShowAddForm = () => {
+    console.log('Showing add form...');
+    console.log('Current showAdd state:', showAdd);
+    setShowAdd(true);
+    console.log('After setShowAdd(true)');
+    // Đảm bảo provinces đã được load
+    if (provinces.length === 0) {
+      fetchProvinces();
+    }
+  };
+
+  const handleCancelAdd = () => {
+    console.log('Canceling add form...');
     setShowAdd(false);
+    resetForm();
   };
 
   const getAddressIcon = (item) => {
@@ -277,10 +285,10 @@ export default function AddressModal({
         <View style={styles.addressContent}>
           <View style={styles.addressHeader}>
             <View style={styles.addressTitleRow}>
-              <MaterialIcons 
-                name={getAddressIcon(item)} 
-                size={20} 
-                color={isSelected ? "#007AFF" : "#666"} 
+              <MaterialIcons
+                name={getAddressIcon(item)}
+                size={20}
+                color={isSelected ? "#007AFF" : "#666"}
               />
               <Text style={[styles.addressLabel, isSelected && styles.selectedText]}>
                 {item.label}
@@ -294,10 +302,10 @@ export default function AddressModal({
               )}
             </View>
             {!item.isUserDefault && (
-              <TouchableOpacity 
+              <TouchableOpacity
                 onPress={() => handleDelete(item.id)}
                 style={styles.deleteButton}
-                hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
                 <Feather name="trash-2" size={16} color="#FF3B30" />
               </TouchableOpacity>
@@ -329,7 +337,7 @@ export default function AddressModal({
     >
       <StatusBar backgroundColor="rgba(0,0,0,0.5)" barStyle="light-content" />
       <Animated.View style={[styles.overlay, { opacity: fadeAnim }]}>
-        <Animated.View 
+        <Animated.View
           style={[
             styles.container,
             {
@@ -350,24 +358,35 @@ export default function AddressModal({
             </TouchableOpacity>
           </View>
 
-          {/* Address List */}
+          {/* Content */}
           <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
-            <FlatList
-              data={allAddresses}
-              keyExtractor={(item) => item.id.toString()}
-              renderItem={renderAddressItem}
-              style={styles.list}
-              scrollEnabled={false}
-              ItemSeparatorComponent={() => <View style={styles.separator} />}
-            />
+            {/* Debug info */}
+            {__DEV__ && (
+              <Text style={{padding: 10, color: 'red'}}>
+                Debug: showAdd={showAdd.toString()}, provinces={provinces.length}
+              </Text>
+            )}
+            
+            {/* Address List - Chỉ hiện khi không ở chế độ thêm */}
+            {!showAdd && (
+              <FlatList
+                data={allAddresses}
+                keyExtractor={(item) => item.id.toString()}
+                renderItem={renderAddressItem}
+                style={styles.list}
+                scrollEnabled={false}
+                ItemSeparatorComponent={() => <View style={styles.separator} />}
+              />
+            )}
 
             {/* Add New Address Form */}
             {showAdd && (
               <View style={styles.addForm}>
+                <Text style={{color: 'green', marginBottom: 10}}>Form is showing!</Text>
                 <View style={styles.formHeader}>
                   <MaterialIcons name="add-location" size={24} color="#007AFF" />
                   <Text style={styles.formTitle}>Thêm địa chỉ mới</Text>
-                  <TouchableOpacity onPress={resetForm} style={styles.cancelButton}>
+                  <TouchableOpacity onPress={handleCancelAdd} style={styles.cancelButton}>
                     <Text style={styles.cancelText}>Hủy</Text>
                   </TouchableOpacity>
                 </View>
@@ -402,6 +421,7 @@ export default function AddressModal({
                     <Picker
                       selectedValue={provinceId}
                       onValueChange={(v) => {
+                        console.log('Province selected:', v);
                         setProvinceId(v);
                         setDistrictId("");
                         setWardCode("");
@@ -427,6 +447,7 @@ export default function AddressModal({
                     <Picker
                       selectedValue={districtId}
                       onValueChange={(v) => {
+                        console.log('District selected:', v);
                         setDistrictId(v);
                         setWardCode("");
                         if (v) fetchWards(v);
@@ -451,7 +472,10 @@ export default function AddressModal({
                   <View style={[styles.pickerWrapper, !districtId && styles.disabledPicker]}>
                     <Picker
                       selectedValue={wardCode}
-                      onValueChange={setWardCode}
+                      onValueChange={(v) => {
+                        console.log('Ward selected:', v);
+                        setWardCode(v);
+                      }}
                       style={styles.picker}
                       enabled={!!districtId}
                     >
@@ -475,11 +499,11 @@ export default function AddressModal({
             )}
           </ScrollView>
 
-          {/* Add Button */}
+          {/* Add Button - Chỉ hiện khi không ở chế độ thêm */}
           {!showAdd && (
             <TouchableOpacity
               style={styles.addNewButton}
-              onPress={() => setShowAdd(true)}
+              onPress={handleShowAddForm}
             >
               <MaterialIcons name="add" size={20} color="#007AFF" />
               <Text style={styles.addNewButtonText}>Thêm địa chỉ mới</Text>
@@ -502,6 +526,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     maxHeight: "90%",
+    minHeight: "50%", // Thêm minHeight
     paddingTop: 8,
   },
   header: {
@@ -523,6 +548,7 @@ const styles = StyleSheet.create({
   },
   scrollContainer: {
     flex: 1,
+    minHeight: 300, // Thêm minHeight
   },
   list: {
     paddingHorizontal: 20,

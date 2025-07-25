@@ -34,29 +34,29 @@ const VIETQR_ACCOUNT = "699496";
 const VIETQR_BANK = "MBBank";
 
 const paymentMethods = [
-  { 
-    key: "cod", 
+  {
+    key: "cod",
     label: "Thanh toán khi nhận hàng",
     icon: "local-shipping",
     iconLib: "MaterialIcons",
     color: "#FF9500"
   },
-  { 
-    key: "sepay", 
+  {
+    key: "sepay",
     label: "Chuyển khoản ngân hàng",
     icon: "account-balance",
-    iconLib: "MaterialIcons", 
+    iconLib: "MaterialIcons",
     color: "#34C759"
   },
-  { 
-    key: "vnpay", 
+  {
+    key: "vnpay",
     label: "Ví điện tử VNPAY",
     icon: "account-balance-wallet",
     iconLib: "MaterialIcons",
     color: "#007AFF"
   },
-  { 
-    key: "stripe", 
+  {
+    key: "stripe",
     label: "Thẻ tín dụng/ghi nợ",
     icon: "card",
     iconLib: "Ionicons",
@@ -326,22 +326,23 @@ export default function PayScreen() {
 
       if (user.address) {
         const selfAddr = {
-        id: "self",
-        // Dành cho PayScreen
-        recipientName: user.full_name,
-        phoneNumber: user.phone,
-        // Dành cho AddressModal
-        label: "Địa chỉ của tôi",
-        phone: user.phone,
-        address: user.address,
-        provinceId: user.provinceId,
-        districtId: user.districtId,
-        wardCode: user.wardCode,
-        isDefault: addresses.length === 0,
-      };
+          id: "self",
+          // Dành cho PayScreen
+          recipientName: user.full_name,
+          phoneNumber: user.phone,
+          // Dành cho AddressModal
+          label: "Địa chỉ của tôi",
+          phone: user.phone,
+          address: user.address,
+          provinceId: user.provinceId,
+          districtId: user.districtId,
+          wardCode: user.wardCode,
+          isDefault: addresses.length === 0,
+        };
         if (!addresses.some((a) => a.id === "self")) {
           addresses = [selfAddr, ...addresses];
         }
+
       }
       setAddressList(addresses);
 
@@ -650,6 +651,9 @@ export default function PayScreen() {
       setPayStatus("fail");
     }
   };
+  useEffect(() => {
+    console.log('▶ showAddressModal changed:', showAddressModal);
+  }, [showAddressModal]);
 
   const handleVnPayClose = async (result) => {
     setShowVnPayModal(false);
@@ -713,10 +717,10 @@ export default function PayScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
-      
+
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.headerButton}
           onPress={() => router.back()}
         >
@@ -735,19 +739,21 @@ export default function PayScreen() {
               <Text style={styles.sectionTitle}>Địa chỉ giao hàng</Text>
             </View>
           </View>
-          
+
           <TouchableOpacity
             style={styles.addressCard}
+
             onPress={() => setShowAddressModal(true)}
+
           >
             {selectedAddress ? (
               <View style={styles.addressContent}>
                 <View style={styles.addressInfo}>
                   <Text style={styles.addressName}>
-                    {selectedAddress.recipientName}
+                    {selectedAddress.label || selectedAddress.recipientName}
                   </Text>
                   <Text style={styles.addressPhone}>
-                    {selectedAddress.phoneNumber}
+                    {selectedAddress.phone || selectedAddress.phoneNumber}
                   </Text>
                   <Text style={styles.addressText} numberOfLines={2}>
                     {selectedAddress.address}
@@ -782,7 +788,7 @@ export default function PayScreen() {
                 <Text style={styles.sectionTitle}>Phương thức vận chuyển</Text>
               </View>
             </View>
-            
+
             <View style={styles.servicesList}>
               {shippingServices.map((service, index) => (
                 <TouchableOpacity
@@ -795,10 +801,10 @@ export default function PayScreen() {
                   onPress={() => setSelectedService(service)}
                 >
                   <View style={styles.serviceIcon}>
-                    <Ionicons 
-                      name={getServiceIcon(service)} 
-                      size={20} 
-                      color={getServiceColor(service)} 
+                    <Ionicons
+                      name={getServiceIcon(service)}
+                      size={20}
+                      color={getServiceColor(service)}
                     />
                   </View>
                   <View style={styles.serviceInfo}>
@@ -827,7 +833,7 @@ export default function PayScreen() {
               <Text style={styles.sectionTitle}>Mã giảm giá</Text>
             </View>
           </View>
-          
+
           <TouchableOpacity
             style={styles.voucherCard}
             onPress={() => setShowVoucher(true)}
@@ -856,7 +862,7 @@ export default function PayScreen() {
               <Text style={styles.sectionTitle}>Phương thức thanh toán</Text>
             </View>
           </View>
-          
+
           <View style={styles.paymentList}>
             {paymentMethods.map((method, index) => (
               <TouchableOpacity
@@ -894,20 +900,20 @@ export default function PayScreen() {
               <Text style={styles.sectionTitle}>Tóm tắt đơn hàng</Text>
             </View>
           </View>
-          
+
           <View style={styles.summaryCard}>
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Tạm tính</Text>
               <Text style={styles.summaryValue}>{formatCurrency(subtotal)}</Text>
             </View>
-            
+
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Phí vận chuyển</Text>
               <Text style={styles.summaryValue}>
                 {isLoadingShipping ? "Đang tính..." : formatCurrency(shippingFee)}
               </Text>
             </View>
-            
+
             {discount > 0 && (
               <View style={styles.summaryRow}>
                 <Text style={styles.summaryLabel}>Giảm giá</Text>
@@ -916,9 +922,9 @@ export default function PayScreen() {
                 </Text>
               </View>
             )}
-            
+
             <View style={styles.divider} />
-            
+
             <View style={styles.summaryRow}>
               <Text style={styles.totalLabel}>Tổng cộng</Text>
               <Text style={styles.totalValue}>{formatCurrency(total)}</Text>
@@ -928,7 +934,7 @@ export default function PayScreen() {
 
         {/* Order Button */}
         <View style={styles.bottomSection}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[
               styles.orderButton,
               (!selectedAddress ||
@@ -954,20 +960,21 @@ export default function PayScreen() {
       {/* Modals */}
       <AddressModal
         visible={showAddressModal}
-        onClose={() => setShowAddressModal(false)}
+        onClose={() => {
+          console.log('▶ AddressModal onClose called');
+          setShowAddressModal(false);
+        }}
         addressList={addressList}
+        animationType="slide"
         selectedAddress={selectedAddress}
-        onSelectAddress={handleAddressSelect}
-        onAddressAdded={handleAddressAdded}
-        provinces={provinces}
-        districts={districts}
-        wards={wards}
-        selectedProvince={selectedProvince}
-        selectedDistrict={selectedDistrict}
-        selectedWard={selectedWard}
-        setSelectedProvince={setSelectedProvince}
-        setSelectedDistrict={setSelectedDistrict}
-        setSelectedWard={setSelectedWard}
+        onSelectAddress={(address) => {
+          console.log('▶ Address selected:', address);
+          handleAddressSelect(address);
+        }}
+        onAddressAdded={(newAddress) => {
+          console.log('▶ Address added:', newAddress);
+          handleAddressAdded(newAddress);
+        }}
       />
 
       <PayCardModal
@@ -1032,7 +1039,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#fff",
   },
-  
+
   // Header Styles
   header: {
     flexDirection: "row",
@@ -1055,13 +1062,13 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#1C1C1E",
   },
-  
+
   // Container Styles
   container: {
     flex: 1,
     backgroundColor: "#F2F2F7",
   },
-  
+
   // Section Styles
   section: {
     backgroundColor: "#fff",
@@ -1088,7 +1095,7 @@ const styles = StyleSheet.create({
     color: "#1C1C1E",
     marginLeft: 8,
   },
-  
+
   // Address Styles
   addressCard: {
     paddingHorizontal: 16,
@@ -1124,7 +1131,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#8E8E93",
   },
-  
+
   // Service Styles
   servicesList: {
     paddingHorizontal: 16,
@@ -1167,7 +1174,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: "#8E8E93",
   },
-  
+
   // Voucher Styles
   voucherCard: {
     flexDirection: "row",
@@ -1192,7 +1199,7 @@ const styles = StyleSheet.create({
     color: "#1C1C1E",
     fontWeight: "500",
   },
-  
+
   // Payment Styles
   paymentList: {
     paddingHorizontal: 16,
@@ -1229,7 +1236,7 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     color: "#1C1C1E",
   },
-  
+
   // Radio Button Styles
   radioButton: {
     width: 20,
@@ -1249,7 +1256,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: "#007AFF",
   },
-  
+
   // Summary Styles
   summaryCard: {
     paddingHorizontal: 16,
@@ -1288,7 +1295,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#1C1C1E",
   },
-  
+
   // Bottom Section Styles
   bottomSection: {
     paddingHorizontal: 16,
