@@ -98,30 +98,19 @@ export default function HomeScreen() {
       loadAvatar();
     }, [])
   );
-  useEffect(() => {
-    if (showPromoPopup) {
-      fadeAnim.setValue(1);
-      const timer = setTimeout(() => {
-        Animated.timing(fadeAnim, {
-          toValue: 0,
-          duration: 500,
-          useNativeDriver: true,
-        }).start(() => setShowPromoPopup(false));
-      }, 2000);
-      return () => {
-        clearTimeout(timer);
-        fadeAnim.setValue(1);
-      };
-    }
-  }, [showPromoPopup]);
+ useEffect(() => {
+  if (showPromoPopup) {
+    const timer = setTimeout(() => {
+      setShowPromoPopup(false);
+    }, 2000);
+    return () => clearTimeout(timer);
+  }
+}, [showPromoPopup]);
 
-  const handleClosePopup = () => {
-    Animated.timing(fadeAnim, {
-      toValue: 0,
-      duration: 500,
-      useNativeDriver: true,
-    }).start(() => setShowPromoPopup(false));
-  };
+// 2) Bỏ animation khi bấm tắt thủ công
+const handleClosePopup = () => {
+  setShowPromoPopup(false);
+};
 
   useEffect(() => {
     Animated.loop(
@@ -297,11 +286,7 @@ export default function HomeScreen() {
       style={{ flex: 1, justifyContent: "flex-start" }}
       imageStyle={{ opacity: 0.92 }}
     >
-      <PromoPopup
-        visible={showPromoPopup}
-        fadeAnim={fadeAnim}
-        onClose={handleClosePopup}
-      />
+      
 
       <View style={styles.container}>
         <ScrollView showsVerticalScrollIndicator={false}>
