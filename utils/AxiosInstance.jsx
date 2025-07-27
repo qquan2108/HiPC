@@ -3,8 +3,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { Platform } from 'react-native';
 
-const baseURL = 'http://163.61.110.210:3000';
-
+const baseURL = 'http://localhost:3000';
+// http://localhost:3000/
+// http://163.61.110.210:3000
 // Tạo instance
 const axiosInstance = axios.create({
   baseURL,
