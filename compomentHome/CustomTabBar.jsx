@@ -1,6 +1,6 @@
 import React from "react";
 import { View, Text, TouchableOpacity, StyleSheet, Dimensions } from "react-native";
-import { Feather } from "@expo/vector-icons";
+import { Feather ,MaterialCommunityIcons,FontAwesome5 } from "@expo/vector-icons";
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width } = Dimensions.get("window");
@@ -35,9 +35,9 @@ export default function CustomTabBar({ router }) {
         <View style={styles.tabCartWrapperCustom}>
           <TouchableOpacity
             style={styles.tabCartBtnCustom}
-            onPress={() => router.push("/DanhMucPC")}
+            onPress={() => router.push("/buildpc")}
           >
-            <Feather name="grid" size={32} color="#4a90e2" />
+           <MaterialCommunityIcons name="desktop-classic" size={32} color="#4a90e2" />
           </TouchableOpacity>
         </View>
 

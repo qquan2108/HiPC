@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from "expo-router";
-import { useState } from 'react';
+import { useRouter } from 'expo-router';
+import { useEffect, useState ,useRef} from 'react';
 import {
     Dimensions,
     SafeAreaView,
@@ -9,426 +9,1669 @@ import {
     StyleSheet,
     Text,
     TouchableOpacity,
-    View
+    View,
+    Image,
+    ActivityIndicator,
+    Alert,
+    Modal,
+    FlatList,
+    Animated,
+    Platform
 } from 'react-native';
+import axiosInstance from '../utils/AxiosInstance';
 
 const { width, height } = Dimensions.get('window');
 
 export default function UngDungLapPC() {
-  const [loaiCauHinh, setLoaiCauHinh] = useState('gaming');
-  const [tongGia, setTongGia] = useState(2850);
   const router = useRouter();
 
-  const cacLoaiCauHinh = [
-    {
-      id: 'gaming',
-      title: 'Cấu Hình Game Thủ',
-      subtitle: 'Hiệu Năng Cao',
-      icon: '🎮',
-      gradient: ['#FF6B6B', '#FF8E53'],
-      price: 2850,
-    },
-    {
-      id: 'workstation',
-      title: 'Trạm Làm Việc Chuyên Nghiệp',
-      subtitle: 'Cho Dân Văn Phòng',
-      icon: '💼',
-      gradient: ['#4ECDC4', '#44A08D'],
-      price: 3200,
-    },
-    {
-      id: 'budget',
-      title: 'Cấu Hình Giá Rẻ',
-      subtitle: 'Tiết Kiệm, Hiệu Quả',
-      icon: '💰',
-      gradient: ['#A8EDEA', '#FED6E3'],
-      price: 1200,
-    },
-  ];
+  // State khởi tạo luôn là mảng
+  const [cacLoaiCauHinh, setCacLoaiCauHinh] = useState([]);
+  const [presetComponents, setPresetComponents] = useState([]);
+  const [selectedComponents, setSelectedComponents] = useState({});
+  const [categories, setCategories] = useState([]);
+  const [products, setProducts] = useState([]);
+  const [brands, setBrands] = useState([]);
+  const [loaiCauHinh, setLoaiCauHinh] = useState('');
+  const [tongGia, setTongGia] = useState(0);
+  const [isCustomizing, setIsCustomizing] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState(null);
+  const [linhKien, setLinhKien] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [isBuilding, setIsBuilding] = useState(false);
+  const [showPerformanceModal, setShowPerformanceModal] = useState(false);
+  const [showCompatibilityAlert, setShowCompatibilityAlert] = useState(false);
+  const [buildProgress, setBuildProgress] = useState(0);
+  
+  // Modal states
+  const [showProductModal, setShowProductModal] = useState(false);
+  const [currentCategoryForSelection, setCurrentCategoryForSelection] = useState(null);
+  const [productsForSelection, setProductsForSelection] = useState([]);
 
-  const linhKien = [
-    {
-      category: 'CPU',
-      name: 'Intel Core i7-13700K',
-      brand: 'Intel',
-      price: '$429',
-      icon: '🖥️',
-      specs: '16 nhân, xung cơ bản 3.4GHz',
-    },
-    {
-      category: 'GPU',
-      name: 'RTX 4070 Ti SUPER',
-      brand: 'NVIDIA',
-      price: '$799',
-      icon: '🎨',
-      specs: '16GB GDDR6X',
-    },
-    {
-      category: 'RAM',
-      name: 'Corsair Vengeance RGB',
-      brand: 'Corsair',
-      price: '$189',
-      icon: '⚡',
-      specs: '32GB DDR5-5600',
-    },
-    {
-      category: 'Ổ cứng',
-      name: 'Samsung 980 PRO',
-      brand: 'Samsung',
-      price: '$149',
-      icon: '💾',
-      specs: 'SSD NVMe 1TB',
-    },
-    {
-      category: 'Mainboard',
-      name: 'ASUS ROG Strix Z790',
-      brand: 'ASUS',
-      price: '$329',
-      icon: '🔧',
-      specs: 'ATX, WiFi 6E',
-    },
-    {
-      category: 'Nguồn',
-      name: 'Corsair RM850x',
-      brand: 'Corsair',
-      price: '$159',
-      icon: '🔋',
-      specs: '850W 80+ Gold',
-    },
-  ];
+ const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(50)).current;
 
-  const TheLoaiCauHinh = ({ build, isSelected }) => (
-    <TouchableOpacity
-      style={[styles.buildCard, isSelected && styles.selectedBuild]}
-      onPress={() => {
-        setLoaiCauHinh(build.id);
-        setTongGia(build.price);
-      }}
-    >
-      <LinearGradient
-        colors={build.gradient}
-        style={styles.buildGradient}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-      >
-        <Text style={styles.buildIcon}>{build.icon}</Text>
-        <Text style={styles.buildTitle}>{build.title}</Text>
-        <Text style={styles.buildSubtitle}>{build.subtitle}</Text>
-        <Text style={styles.buildPrice}>${build.price}</Text>
-      </LinearGradient>
-    </TouchableOpacity>
-  );
+  const baseURL = axiosInstance.defaults.baseURL;
+  const resolveImageUri = (url) =>
+    url?.startsWith('http') ? url : `${baseURL}${url}`;
 
-  const TheLinhKien = ({ component }) => (
-    <View style={styles.componentCard}>
-      <View style={styles.componentHeader}>
-        <View style={styles.componentIconContainer}>
-          <Text style={styles.componentIcon}>{component.icon}</Text>
+  const formatCurrency = (num) =>
+    typeof num === 'number' && !isNaN(num)
+      ? num.toLocaleString('vi-VN') + ' đ'
+      : '0 đ';
+
+  const getBrandName = (id) => brands.find((b) => b._id === id)?.name || '';
+
+  // Enhanced category icons
+  const getCategoryIcon = (categoryName) => {
+    const iconMap = {
+      'CPU': '🧠',
+      'GPU': '🎮',
+      'RAM': '💾',
+      'Motherboard': '🔌',
+      'Storage': '💿',
+      'PSU': '⚡',
+      'Case': '📦',
+      'Cooling': '❄️',
+      'Monitor': '🖥️',
+      'Keyboard': '⌨️',
+      'Mouse': '🖱️',
+      'Mainboard': '🔌',
+      'VGA': '🎮',
+      'SSD': '💿'
+    };
+    return iconMap[categoryName] || '🔧';
+  };
+
+  // Performance calculation logic
+  const calculatePerformanceScores = () => {
+    const components = Object.values(selectedComponents);
+    const baseScore = 60;
+    let gamingScore = baseScore;
+    let workstationScore = baseScore;
+    let overallScore = baseScore;
+
+    components.forEach(component => {
+      // Simplified scoring based on component price range
+      const price = component.price || 0;
+      if (price > 20000000) { // High-end components
+        gamingScore += 8;
+        workstationScore += 8;
+      } else if (price > 10000000) { // Mid-range
+        gamingScore += 5;
+        workstationScore += 5;
+      } else if (price > 5000000) { // Budget
+        gamingScore += 2;
+        workstationScore += 2;
+      }
+    });
+
+    overallScore = Math.round((gamingScore + workstationScore) / 2);
+    return {
+      gaming: Math.min(gamingScore, 100),
+      workstation: Math.min(workstationScore, 100),
+      overall: Math.min(overallScore, 100)
+    };
+  };
+
+  // Compatibility check
+  const checkCompatibility = () => {
+    const issues = [];
+    const components = Object.values(selectedComponents);
+    
+    // Basic compatibility checks
+    if (components.length < 3) {
+      issues.push('Cần ít nhất 3 linh kiện cơ bản');
+    }
+    
+    // Check power consumption vs PSU capacity
+    const totalPower = components.reduce((sum, comp) => sum + (comp.power || 100), 0);
+    const psu = components.find(c => c.category_id?.name?.includes('PSU'));
+    if (psu && totalPower > (psu.wattage || 500)) {
+      issues.push('Nguồn không đủ công suất');
+    }
+
+    return issues;
+  };
+
+  // Animate components on mount
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 600,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
+
+  const formatProduct = (p) => ({
+    id: p._id,
+    name: p.name,
+    price: p.price,
+    brand_id: p.brand_id,
+    category_id: p.category_id,
+    image: p.image
+      ? { uri: resolveImageUri(p.image) }
+      : require('../assets/images/pc.png'),
+    specs: Array.isArray(p.tskt)
+      ? p.tskt
+      : Array.isArray(p.specifications)
+      ? p.specifications.map((s) => ({ label: s.key || '', value: s.value || '' }))
+      : [],
+    rating: p.rating || 4.5,
+    reviews: p.reviews || Math.floor(Math.random() * 500) + 50
+  });
+
+  // Tính tổng giá bao gồm cả linh kiện đã chọn
+  const calculateTotalPrice = () => {
+    const presetPrice = cacLoaiCauHinh.find(build => 
+      (build.type || build.id) === loaiCauHinh
+    )?.price || 0;
+    
+    const selectedPrice = Object.values(selectedComponents)
+      .reduce((sum, component) => sum + (component?.price || 0), 0);
+    
+    return presetPrice + selectedPrice;
+  };
+
+  useEffect(() => {
+    const newTotal = calculateTotalPrice();
+    setTongGia(newTotal);
+    
+    // Update build progress based on selected components
+    const totalCategories = categories.length;
+    const selectedCount = Object.keys(selectedComponents).length;
+    setBuildProgress(totalCategories > 0 ? (selectedCount / totalCategories) * 100 : 0);
+  }, [selectedComponents, loaiCauHinh, cacLoaiCauHinh, categories]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        setLoading(true);
+        const [preRes, catRes, prodRes, brandRes] = await Promise.all([
+          axiosInstance.get('/pcbuild/presets'),
+          axiosInstance.get('/category'),
+          axiosInstance.get('/product'),
+          axiosInstance.get('/brands')
+        ]);
+        const presets = Array.isArray(preRes.data.data)
+          ? preRes.data.data
+          : Array.isArray(preRes.data)
+          ? preRes.data
+          : [];
+        setCacLoaiCauHinh(presets);
+        setCategories(Array.isArray(catRes.data) ? catRes.data : catRes.data.data || []);
+        setBrands(Array.isArray(brandRes.data) ? brandRes.data : brandRes.data.data || []);
+        const rawProds = prodRes.data.products || prodRes.data || [];
+        setProducts(rawProds.map(formatProduct));
+        if (presets.length) {
+          const first = presets[0];
+          const key = first.type || first.id;
+          setLoaiCauHinh(key);
+          setPresetComponents(first.components || []);
+        }
+      } catch (e) {
+        console.error('Fetch error:', e);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
+
+  useEffect(() => {
+    if (!selectedCategory) return;
+    const filtered = products.filter(
+      (p) => p.category_id === selectedCategory || p.category_id._id === selectedCategory
+    );
+    setLinhKien(filtered);
+  }, [selectedCategory, products]);
+
+  const onSelectBuild = (build) => {
+    const key = build.type || build.id;
+    setLoaiCauHinh(key);
+    setPresetComponents(build.components || []);
+    setSelectedComponents({});
+    setIsCustomizing(false);
+  };
+
+  // Enhanced product selection with animation
+  const openProductSelection = (category) => {
+    const categoryProducts = products.filter(
+      (p) => p.category_id === category._id || p.category_id._id === category._id
+    );
+    setCurrentCategoryForSelection(category);
+    setProductsForSelection(categoryProducts);
+    setShowProductModal(true);
+  };
+
+  const selectProduct = (product) => {
+    setSelectedComponents(prev => ({
+      ...prev,
+      [currentCategoryForSelection._id]: product
+    }));
+    setShowProductModal(false);
+    
+    // Check compatibility after selection
+    setTimeout(() => {
+      const issues = checkCompatibility();
+      if (issues.length > 0) {
+        setShowCompatibilityAlert(true);
+      }
+    }, 500);
+  };
+
+  const removeSelectedProduct = (categoryId) => {
+    setSelectedComponents(prev => {
+      const newSelected = { ...prev };
+      delete newSelected[categoryId];
+      return newSelected;
+    });
+  };
+
+  // Enhanced build card with modern design
+  const TheLoaiCauHinh = ({ build }) => {
+    const key = build.type || build.id;
+    const isSelected = loaiCauHinh === key;
+    
+    return (
+      <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
+        <TouchableOpacity
+          style={[styles.buildCard, isSelected && styles.selectedBuild]}
+          onPress={() => onSelectBuild(build)}
+          activeOpacity={0.8}>
+          <LinearGradient
+            colors={build.gradient || ['#667eea', '#764ba2']}
+            style={styles.buildGradient}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}>
+            <View style={styles.buildIconContainer}>
+              <Text style={styles.buildIcon}>{build.icon}</Text>
+            </View>
+            <Text style={styles.buildTitle}>{build.name}</Text>
+            <Text style={styles.buildSubtitle}>{build.description}</Text>
+            <View style={styles.buildPriceContainer}>
+              <Text style={styles.buildPrice}>{formatCurrency(build.price)}</Text>
+              {isSelected && (
+                <View style={styles.selectedBadge}>
+                  <Text style={styles.selectedBadgeText}>✓</Text>
+                </View>
+              )}
+            </View>
+          </LinearGradient>
+        </TouchableOpacity>
+      </Animated.View>
+    );
+  };
+
+  // Enhanced category selector with modern design - ĐÂY LÀ PHẦN QUAN TRỌNG
+  const CategorySelector = ({ category }) => {
+    const selectedProduct = selectedComponents[category._id];
+    const hasSelected = !!selectedProduct;
+    const icon = getCategoryIcon(category.name);
+
+    return (
+      <Animated.View style={{ opacity: fadeAnim }}>
+        <View style={[styles.categoryCard, hasSelected && styles.categoryCardSelected]}>
+          <View style={styles.categoryHeader}>
+            <View style={[styles.categoryIconContainer, hasSelected && styles.categoryIconSelected]}>
+              {hasSelected ? (
+                <View style={styles.categoryImageWrapper}>
+                  <Image 
+                    source={selectedProduct.image} 
+                    style={styles.categoryProductImage}
+                    resizeMode="cover"
+                  />
+                  <View style={styles.categorySelectedOverlay}>
+                    <Text style={styles.categorySelectedCheck}>✓</Text>
+                  </View>
+                </View>
+              ) : (
+                <Text style={styles.categoryIcon}>{icon}</Text>
+              )}
+            </View>
+            
+            <View style={styles.categoryInfo}>
+              <Text style={styles.categoryName}>{category.name}</Text>
+              {hasSelected ? (
+                <View>
+                  <Text style={styles.selectedProductName} numberOfLines={1}>
+                    {selectedProduct.name}
+                  </Text>
+                  <Text style={styles.selectedProductPrice}>
+                    {formatCurrency(selectedProduct.price)}
+                  </Text>
+                  <View style={styles.productRatingContainer}>
+                    <Text style={styles.productRating}>⭐ {selectedProduct.rating}</Text>
+                    <Text style={styles.productReviews}>({selectedProduct.reviews})</Text>
+                  </View>
+                </View>
+              ) : (
+                <View>
+                  <Text style={styles.categoryPlaceholder}>Chưa chọn sản phẩm</Text>
+                  <Text style={styles.categoryHint}>Nhấn để xem danh sách</Text>
+                </View>
+              )}
+            </View>
+            
+            <View style={styles.categoryActions}>
+              {hasSelected && (
+                <TouchableOpacity 
+                  style={styles.removeButton}
+                  onPress={() => removeSelectedProduct(category._id)}
+                  activeOpacity={0.8}>
+                  <Text style={styles.removeButtonText}>×</Text>
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity 
+                style={[styles.selectButton, hasSelected && styles.selectButtonSelected]}
+                onPress={() => openProductSelection(category)}
+                activeOpacity={0.8}>
+                <Text style={styles.selectButtonText}>
+                  {hasSelected ? 'Thay đổi' : 'Chọn'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
-        <View style={styles.componentInfo}>
-          <Text style={styles.componentCategory}>{component.category}</Text>
-          <Text style={styles.componentName}>{component.name}</Text>
-          <Text style={styles.componentSpecs}>{component.specs}</Text>
+      </Animated.View>
+    );
+  };
+
+  // Enhanced product modal with better UX
+  const ProductSelectionModal = () => {
+    const renderProductItem = ({ item, index }) => (
+      <Animated.View 
+        style={[
+          styles.productItem, 
+          { 
+            opacity: fadeAnim,
+            transform: [{ translateY: slideAnim }] 
+          }
+        ]}>
+        <TouchableOpacity 
+          style={styles.productItemContent}
+          onPress={() => selectProduct(item)}
+          activeOpacity={0.9}>
+          <View style={styles.productImageContainer}>
+            <Image source={item.image} style={styles.productImage} />
+            <View style={styles.productBadge}>
+              <Text style={styles.productBadgeText}>NEW</Text>
+            </View>
+          </View>
+          
+          <View style={styles.productDetails}>
+            <Text style={styles.productName} numberOfLines={2}>{item.name}</Text>
+            <Text style={styles.productBrand}>{getBrandName(item.brand_id)}</Text>
+            
+            <View style={styles.productRatingRow}>
+              <Text style={styles.productRating}>⭐ {item.rating}</Text>
+              <Text style={styles.productReviews}>({item.reviews} đánh giá)</Text>
+            </View>
+            
+            <Text style={styles.productPrice}>{formatCurrency(item.price)}</Text>
+            
+            {item.specs[0] && (
+              <Text style={styles.productSpecs} numberOfLines={1}>
+                {item.specs[0].label}: {item.specs[0].value}
+              </Text>
+            )}
+          </View>
+          
+          <View style={styles.productActionContainer}>
+            <TouchableOpacity style={styles.productSelectButton}>
+              <Text style={styles.productSelectButtonText}>Chọn</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Animated.View>
+    );
+
+    return (
+      <Modal
+        visible={showProductModal}
+        animationType="slide"
+        presentationStyle="pageSheet">
+        <SafeAreaView style={styles.modalContainer}>
+          <LinearGradient colors={['#667eea', '#764ba2']} style={styles.modalHeader}>
+            <View style={styles.modalHeaderContent}>
+              <View>
+                <Text style={styles.modalTitle}>
+                  Chọn {currentCategoryForSelection?.name}
+                </Text>
+                <Text style={styles.modalSubtitle}>
+                  {productsForSelection.length} sản phẩm có sẵn
+                </Text>
+              </View>
+              <TouchableOpacity 
+                style={styles.closeButton}
+                onPress={() => setShowProductModal(false)}
+                activeOpacity={0.8}>
+                <Text style={styles.closeButtonText}>×</Text>
+              </TouchableOpacity>
+            </View>
+          </LinearGradient>
+          
+          <FlatList
+            data={productsForSelection}
+            renderItem={renderProductItem}
+            keyExtractor={(item) => item.id}
+            style={styles.productList}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.productListContent}
+          />
+        </SafeAreaView>
+      </Modal>
+    );
+  };
+
+  // Performance modal
+  const PerformanceModal = () => {
+    const scores = calculatePerformanceScores();
+    
+    return (
+      <Modal
+        visible={showPerformanceModal}
+        animationType="fade"
+        transparent={true}>
+        <View style={styles.performanceModalOverlay}>
+          <View style={styles.performanceModalContent}>
+            <Text style={styles.performanceModalTitle}>Hiệu Năng Dự Kiến</Text>
+            
+            <View style={styles.performanceScores}>
+              <View style={styles.performanceItem}>
+                <Text style={styles.performanceIcon}>🎮</Text>
+                <Text style={styles.performanceLabel}>Gaming</Text>
+                <Text style={styles.performanceScore}>{scores.gaming}/100</Text>
+              </View>
+              
+              <View style={styles.performanceItem}>
+                <Text style={styles.performanceIcon}>💼</Text>
+                <Text style={styles.performanceLabel}>Workstation</Text>
+                <Text style={styles.performanceScore}>{scores.workstation}/100</Text>
+              </View>
+              
+              <View style={styles.performanceItem}>
+                <Text style={styles.performanceIcon}>⚡</Text>
+                <Text style={styles.performanceLabel}>Tổng Thể</Text>
+                <Text style={styles.performanceScore}>{scores.overall}/100</Text>
+              </View>
+            </View>
+            
+            <TouchableOpacity 
+              style={styles.performanceCloseButton}
+              onPress={() => setShowPerformanceModal(false)}>
+              <Text style={styles.performanceCloseButtonText}>Đóng</Text>
+            </TouchableOpacity>
+          </View>
         </View>
-        <View style={styles.componentPriceContainer}>
-          <Text style={styles.componentPrice}>{component.price}</Text>
-          <Text style={styles.componentBrand}>{component.brand}</Text>
-        </View>
+      </Modal>
+    );
+  };
+
+  // Enhanced order function with progress
+  const onOrderNow = async () => {
+    const compatibilityIssues = checkCompatibility();
+    if (compatibilityIssues.length > 0) {
+      Alert.alert(
+        'Cảnh báo tương thích',
+        compatibilityIssues.join('\n'),
+        [
+          { text: 'Tiếp tục', onPress: () => processOrder() },
+          { text: 'Hủy', style: 'cancel' }
+        ]
+      );
+      return;
+    }
+    
+    processOrder();
+  };
+
+  const processOrder = async () => {
+    try {
+      setIsBuilding(true);
+      
+      const allComponents = [
+        ...presetComponents,
+        ...Object.values(selectedComponents).map(comp => ({
+          productId: comp.id,
+          quantity: 1
+        }))
+      ];
+
+      const payload = {
+        userId: 'user-123',
+        name: loaiCauHinh,
+        products: allComponents
+      };
+      
+      // Simulate build progress
+      for (let i = 0; i <= 100; i += 10) {
+        setBuildProgress(i);
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+      
+      const res = await axiosInstance.post('/pcbuild/build', payload);
+      const data = res.data.data || res.data;
+      
+      Alert.alert(
+        'Đặt hàng thành công! 🎉',
+        `Build ID: ${data.buildId}\nTổng giá trị: ${formatCurrency(tongGia)}`,
+        [{ text: 'OK', onPress: () => router.push('/orders') }]
+      );
+    } catch (e) {
+      Alert.alert('Lỗi', e.response?.data?.message || e.message);
+    } finally {
+      setIsBuilding(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <LinearGradient colors={['#667eea', '#764ba2']} style={styles.loadingGradient}>
+          <Text style={styles.loadingLogo}>⚡ HiPC</Text>
+          <ActivityIndicator size="large" color="#FFFFFF" />
+          <Text style={styles.loadingText}>Đang tải dữ liệu...</Text>
+        </LinearGradient>
       </View>
-    </View>
-  );
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#0A0A0A" />
-
-<LinearGradient colors={['#EAF4FF', '#FFFFFF']} style={styles.header}>
-  <View style={styles.headerContent}>
-    <Text style={styles.logo}>⚡ Trình Lắp PC</Text>
-    <Text style={styles.headerSubtitle}>Tự tạo máy tính mơ ước của bạn</Text>
-  </View>
-</LinearGradient>
-
+      <StatusBar barStyle="light-content" backgroundColor="#667eea" />
+      
+      {/* Enhanced Header */}
+      <LinearGradient colors={['#667eea', '#764ba2']} style={styles.header}>
+        <View style={styles.headerContent}>
+          <Text style={styles.logo}>⚡ HiPC Builder</Text>
+          <Text style={styles.headerSubtitle}>Tạo máy tính hoàn hảo cho bạn</Text>
+          
+          {/* Build Progress */}
+          <View style={styles.progressContainer}>
+            <Text style={styles.progressLabel}>Tiến độ: {Math.round(buildProgress)}%</Text>
+            <View style={styles.progressBar}>
+              <View style={[styles.progressFill, { width: `${buildProgress}%` }]} />
+            </View>
+          </View>
+        </View>
+      </LinearGradient>
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+        {/* Build Types Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Chọn loại cấu hình</Text>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>🏗️ Chọn Loại Cấu Hình</Text>
+            <TouchableOpacity 
+              style={styles.performanceButton}
+              onPress={() => setShowPerformanceModal(true)}>
+              <Text style={styles.performanceButtonText}>📊 Hiệu năng</Text>
+            </TouchableOpacity>
+          </View>
+          
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.buildTypesContainer}>
             {cacLoaiCauHinh.map((build) => (
-              <TheLoaiCauHinh key={build.id} build={build} isSelected={loaiCauHinh === build.id} />
+              <TheLoaiCauHinh key={build.type || build.id} build={build} />
             ))}
           </ScrollView>
         </View>
 
+        {/* Price Summary */}
+        <View style={styles.priceSummaryContainer}>
+          <LinearGradient colors={['#667eea', '#764ba2']} style={styles.priceSummary}>
+            <View style={styles.priceSummaryContent}>
+              <View>
+                <Text style={styles.priceSummaryLabel}>Tổng Chi Phí</Text>
+                <Text style={styles.priceSummaryAmount}>{formatCurrency(tongGia)}</Text>
+              </View>
+              <View style={styles.componentCount}>
+                <Text style={styles.componentCountText}>
+                  {Object.keys(selectedComponents).length} linh kiện
+                </Text>
+              </View>
+            </View>
+          </LinearGradient>
+        </View>
+
+        {/* PHẦN CHỌN LINH KIỆN - ĐÂY LÀ PHẦN BỊ MẤT */}
         <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Linh kiện đã chọn</Text>
-            <View style={styles.totalPriceContainer}>
-              <Text style={styles.totalPriceLabel}>Tổng cộng</Text>
-              <Text style={styles.totalPrice}>${tongGia}</Text>
+          <Text style={styles.sectionTitle}>🔧 Chọn Linh Kiện</Text>
+          <Text style={styles.sectionSubtitle}>
+            Chọn linh kiện để tùy chỉnh cấu hình của bạn
+          </Text>
+          {categories.length > 0 ? (
+            categories.map((category) => (
+              <CategorySelector key={category._id} category={category} />
+            ))
+          ) : (
+            <View style={styles.noCategoriesContainer}>
+              <Text style={styles.noCategoriesText}>Đang tải danh mục linh kiện...</Text>
             </View>
+          )}
+        </View>
+
+        {/* Current Build Components */}
+        {(presetComponents.length > 0 || Object.keys(selectedComponents).length > 0) && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>🖥️ Cấu Hình Hiện Tại</Text>
+            
+            {presetComponents.length > 0 && (
+              <View style={styles.presetComponentsContainer}>
+                <Text style={styles.presetTitle}>Linh kiện cơ bản:</Text>
+                {presetComponents.map((component, index) => {
+                  const product = products.find(p => p.id === component.productId);
+                  if (!product) return null;
+                  
+                  return (
+                    <View key={`preset-${index}`} style={styles.presetComponentCard}>
+                      <Image source={product.image} style={styles.presetComponentImage} />
+                      <View style={styles.presetComponentInfo}>
+                        <Text style={styles.presetComponentName}>{product.name}</Text>
+                        <Text style={styles.presetComponentBrand}>
+                          {getBrandName(product.brand_id)}
+                        </Text>
+                        <Text style={styles.presetComponentPrice}>
+                          {formatCurrency(product.price)}
+                        </Text>
+                      </View>
+                      <View style={styles.presetComponentBadge}>
+                        <Text style={styles.presetComponentBadgeText}>Cơ bản</Text>
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+            )}
+            
+            {/* Selected Additional Components */}
+            {Object.keys(selectedComponents).length > 0 && (
+              <View style={styles.selectedComponentsContainer}>
+                <Text style={styles.selectedTitle}>Linh kiện đã chọn:</Text>
+                {Object.entries(selectedComponents).map(([categoryId, component]) => {
+                  const category = categories.find(c => c._id === categoryId);
+                  return (
+                    <View key={`selected-${categoryId}`} style={styles.selectedComponentCard}>
+                      <Image source={component.image} style={styles.selectedComponentImage} />
+                      <View style={styles.selectedComponentInfo}>
+                        <Text style={styles.selectedComponentCategory}>
+                          {category?.name || 'Unknown'}
+                        </Text>
+                        <Text style={styles.selectedComponentName}>{component.name}</Text>
+                        <Text style={styles.selectedComponentBrand}>
+                          {getBrandName(component.brand_id)}
+                        </Text>
+                        <Text style={styles.selectedComponentPrice}>
+                          {formatCurrency(component.price)}
+                        </Text>
+                      </View>
+                      <TouchableOpacity 
+                        style={styles.removeSelectedButton}
+                        onPress={() => removeSelectedProduct(categoryId)}>
+                        <Text style={styles.removeSelectedButtonText}>×</Text>
+                      </TouchableOpacity>
+                    </View>
+                  );
+                })}
+              </View>
+            )}
           </View>
+        )}
 
-          {linhKien.map((component, index) => (
-            <TheLinhKien key={index} component={component} />
-          ))}
-        </View>
-
+        {/* Action Buttons */}
         <View style={styles.actionSection}>
-          <TouchableOpacity style={styles.customizeButton}>
-            <LinearGradient colors={['#667eea', '#764ba2']} style={styles.buttonGradient}>
-              <Text style={styles.buttonText}>🔧 Tuỳ chỉnh cấu hình</Text>
+          <TouchableOpacity 
+            style={[styles.orderButton, isBuilding && styles.orderButtonDisabled]} 
+            onPress={onOrderNow}
+            disabled={isBuilding}
+            activeOpacity={0.8}>
+            <LinearGradient colors={['#28a745', '#20c997']} style={styles.buttonGradient}>
+              {isBuilding ? (
+                <View style={styles.buildingContainer}>
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                  <Text style={styles.buttonText}>Đang xử lý...</Text>
+                </View>
+              ) : (
+                <Text style={styles.buttonText}>🛒 Đặt Hàng Ngay</Text>
+              )}
             </LinearGradient>
           </TouchableOpacity>
-
-          <TouchableOpacity style={styles.orderButton}>
-            <LinearGradient colors={['#f093fb', '#f5576c']} style={styles.buttonGradient}>
-              <Text style={styles.buttonText}>🛒 Đặt hàng ngay</Text>
-            </LinearGradient>
-          </TouchableOpacity>
+          
+          <View style={styles.secondaryActions}>
+            <TouchableOpacity style={styles.secondaryButton}>
+              <Text style={styles.secondaryButtonText}>💾 Lưu Cấu Hình</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity style={styles.secondaryButton}>
+              <Text style={styles.secondaryButtonText}>📤 Chia Sẻ</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
+        {/* Performance Metrics */}
         <View style={styles.metricsSection}>
-          <Text style={styles.sectionTitle}>Chỉ số hiệu năng</Text>
+          <Text style={styles.sectionTitle}>📈 Chỉ Số Hiệu Năng</Text>
           <View style={styles.metricsGrid}>
-            <View style={styles.metricCard}>
-              <Text style={styles.metricIcon}>🎮</Text>
-              <Text style={styles.metricTitle}>Chơi game</Text>
-              <Text style={styles.metricScore}>95/100</Text>
-            </View>
-            <View style={styles.metricCard}>
-              <Text style={styles.metricIcon}>🎬</Text>
-              <Text style={styles.metricTitle}>Dựng video</Text>
-              <Text style={styles.metricScore}>88/100</Text>
-            </View>
-            <View style={styles.metricCard}>
-              <Text style={styles.metricIcon}>⚡</Text>
-              <Text style={styles.metricTitle}>Tổng thể</Text>
-              <Text style={styles.metricScore}>92/100</Text>
-            </View>
+            {[
+              { icon: '🎮', title: 'Gaming', score: calculatePerformanceScores().gaming, color: '#ff6b6b' },
+              { icon: '💼', title: 'Workstation', score: calculatePerformanceScores().workstation, color: '#4ecdc4' },
+              { icon: '⚡', title: 'Tổng Thể', score: calculatePerformanceScores().overall, color: '#45b7d1' }
+            ].map((m) => (
+              <LinearGradient
+                key={m.title}
+                colors={[m.color, `${m.color}80`]}
+                style={styles.metricCard}>
+                <Text style={styles.metricIcon}>{m.icon}</Text>
+                <Text style={styles.metricTitle}>{m.title}</Text>
+                <Text style={styles.metricScore}>{m.score}/100</Text>
+                <View style={styles.metricBar}>
+                  <View style={[styles.metricBarFill, { width: `${m.score}%` }]} />
+                </View>
+              </LinearGradient>
+            ))}
           </View>
         </View>
       </ScrollView>
+
+      <ProductSelectionModal />
+      <PerformanceModal />
+      
+      {/* Compatibility Alert */}
+      <Modal
+        visible={showCompatibilityAlert}
+        animationType="fade"
+        transparent={true}>
+        <View style={styles.compatibilityModalOverlay}>
+          <View style={styles.compatibilityModalContent}>
+            <Text style={styles.compatibilityModalIcon}>⚠️</Text>
+            <Text style={styles.compatibilityModalTitle}>Cảnh báo tương thích</Text>
+            <Text style={styles.compatibilityModalText}>
+              Một số linh kiện có thể không tương thích hoàn toàn. 
+              Vui lòng kiểm tra kỹ trước khi đặt hàng.
+            </Text>
+            <TouchableOpacity 
+              style={styles.compatibilityModalButton}
+              onPress={() => setShowCompatibilityAlert(false)}>
+              <Text style={styles.compatibilityModalButtonText}>Đã hiểu</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
-};
-
+}
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F7F9FB', // nền trắng xanh nhạt
+  container: { flex: 1, backgroundColor: '#f8f9fa' },
+  
+  // Loading styles
+  loadingContainer: { flex: 1 },
+  loadingGradient: { 
+    flex: 1, 
+    justifyContent: 'center', 
+    alignItems: 'center' 
   },
-  header: {
-    paddingTop: 20,
-    paddingBottom: 30,
-    paddingHorizontal: 20,
-    backgroundColor: '#EAF4FF',
+  loadingLogo: { 
+    fontSize: 32, 
+    fontWeight: 'bold', 
+    color: '#FFFFFF', 
+    marginBottom: 20 
   },
-  headerContent: {
-    alignItems: 'center',
-    
+  loadingText: { 
+    fontSize: 16, 
+    color: '#FFFFFF', 
+    marginTop: 20, 
+    opacity: 0.8 
   },
-  logo: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: 'black',
-    marginBottom: 5,
+
+  // Header styles
+  header: { 
+    paddingTop: Platform.OS === 'ios' ? 20 : 40, 
+    paddingBottom: 30, 
+    paddingHorizontal: 20 
   },
-  headerSubtitle: {
-    fontSize: 16,
-    color: '#5A7081',
+  headerContent: { alignItems: 'center' },
+  logo: { 
+    fontSize: 32, 
+    fontWeight: 'bold', 
+    color: '#FFFFFF', 
+    marginBottom: 8,
+    textShadowColor: 'rgba(0,0,0,0.3)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 3
+  },
+  headerSubtitle: { 
+    fontSize: 16, 
+    color: 'rgba(255,255,255,0.9)', 
     fontWeight: '500',
+    marginBottom: 20
   },
-  scrollView: {
-    flex: 1,
+  
+  // Progress bar
+  progressContainer: { width: '100%', alignItems: 'center' },
+  progressLabel: { 
+    fontSize: 14, 
+    color: 'rgba(255,255,255,0.8)', 
+    marginBottom: 8 
   },
-  section: {
-    paddingHorizontal: 20,
-    marginBottom: 30,
+  progressBar: {
+    width: '100%',
+    height: 6,
+    backgroundColor: 'rgba(255,255,255,0.3)',
+    borderRadius: 3,
+    overflow: 'hidden'
   },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 15,
+  progressFill: {
+    height: '100%',
+    backgroundColor: '#28a745',
+    borderRadius: 3
   },
-  sectionTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#1B2A38',
-    marginBottom: 15,
+
+  scrollView: { flex: 1 },
+  section: { paddingHorizontal: 20, marginBottom: 25 },
+  sectionHeader: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'center', 
+    marginBottom: 15 
   },
-  totalPriceContainer: {
-    alignItems: 'flex-end',
+  sectionTitle: { 
+    fontSize: 20, 
+    fontWeight: 'bold', 
+    color: '#1B2A38', 
+    marginBottom: 10 
   },
-  totalPriceLabel: {
-    fontSize: 12,
-    color: '#5A7081',
-    textTransform: 'uppercase',
-  },
-  totalPrice: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#007BFF',
-  },
-  buildTypesContainer: {
-    marginBottom: 10,
-  },
-  buildCard: {
-    width: 160,
-    height: 140,
-    marginRight: 15,
-    borderRadius: 20,
-    overflow: 'hidden',
-  },
-  selectedBuild: {
-    transform: [{ scale: 1.05 }],
-    shadowColor: '#007BFF',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.5,
-    shadowRadius: 15,
-    elevation: 10,
-  },
-  buildGradient: {
-    flex: 1,
-    padding: 15,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  buildIcon: {
-    fontSize: 30,
-    marginBottom: 8,
-  },
-  buildTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    textAlign: 'center',
-    marginBottom: 4,
-  },
-  buildSubtitle: {
-    fontSize: 12,
-    color: '#F1F1F1',
-    opacity: 0.9,
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  buildPrice: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-  },
-  componentCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 15,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#D0E3F1',
-  },
-  componentHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-  },
-  componentIconContainer: {
-    width: 50,
-    height: 50,
-    backgroundColor: '#EAF4FF',
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 15,
-  },
-  componentIcon: {
-    fontSize: 24,
-  },
-  componentInfo: {
-    flex: 1,
-  },
-  componentCategory: {
-    fontSize: 12,
-    color: '#007BFF',
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    marginBottom: 2,
-  },
-  componentName: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#1B2A38',
-    marginBottom: 4,
-  },
-  componentSpecs: {
+  sectionSubtitle: {
     fontSize: 14,
-    color: '#5A7081',
+    color: '#6c757d',
+    marginBottom: 16,
+    fontStyle: 'italic'
   },
-  componentPriceContainer: {
-    alignItems: 'flex-end',
-  },
-  componentPrice: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#1B2A38',
-    marginBottom: 2,
-  },
-  componentBrand: {
-    fontSize: 12,
-    color: '#5A7081',
-  },
-  actionSection: {
-    paddingHorizontal: 20,
-    marginBottom: 30,
-  },
-  customizeButton: {
-    marginBottom: 12,
-    borderRadius: 15,
-    overflow: 'hidden',
-  },
-  orderButton: {
-    borderRadius: 15,
-    overflow: 'hidden',
-  },
-  buttonGradient: {
-    paddingVertical: 16,
-    alignItems: 'center',
-  },
-  buttonText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-  },
-  metricsSection: {
-    paddingHorizontal: 20,
-    marginBottom: 40,
-  },
-  metricsGrid: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  metricCard: {
-    flex: 1,
+
+  // No categories fallback
+  noCategoriesContainer: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 15,
+    borderRadius: 16,
     padding: 20,
     alignItems: 'center',
-    marginHorizontal: 5,
     borderWidth: 1,
-    borderColor: '#D0E3F1',
+    borderColor: '#e9ecef'
   },
-  metricIcon: {
-    fontSize: 28,
-    marginBottom: 8,
+  noCategoriesText: {
+    fontSize: 16,
+    color: '#6c757d',
+    fontStyle: 'italic'
   },
-  metricTitle: {
+
+  // Preset components styles
+  presetComponentsContainer: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#e9ecef',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4
+  },
+  presetTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#2c3e50',
+    marginBottom: 12,
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e9ecef'
+  },
+  presetComponentCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f8f9fa'
+  },
+  presetComponentImage: {
+    width: 50,
+    height: 50,
+    borderRadius: 12,
+    marginRight: 12,
+    backgroundColor: '#f8f9fa'
+  },
+  presetComponentInfo: {
+    flex: 1
+  },
+  presetComponentName: {
     fontSize: 14,
-    color: '#5A7081',
-    marginBottom: 8,
-    textAlign: 'center',
+    fontWeight: '600',
+    color: '#2c3e50',
+    marginBottom: 2
   },
-  metricScore: {
+  presetComponentBrand: {
+    fontSize: 12,
+    color: '#6c757d',
+    marginBottom: 2
+  },
+  presetComponentPrice: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#28a745'
+  },
+  presetComponentBadge: {
+    backgroundColor: '#17a2b8',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12
+  },
+  presetComponentBadgeText: {
+    fontSize: 10,
+    color: '#FFFFFF',
+    fontWeight: 'bold'
+  },
+
+  // Selected components styles
+  selectedComponentsContainer: {
+    backgroundColor: '#f8f9fa',
+    borderRadius: 16,
+    padding: 16,
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: '#667eea',
+    borderStyle: 'dashed'
+  },
+  selectedTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#667eea',
+    marginBottom: 12,
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#667eea'
+  },
+  selectedComponentCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#667eea',
+    shadowColor: '#667eea',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2
+  },
+  selectedComponentImage: {
+    width: 50,
+    height: 50,
+    borderRadius: 12,
+    marginRight: 12,
+    backgroundColor: '#f8f9fa'
+  },
+  selectedComponentInfo: {
+    flex: 1
+  },
+  selectedComponentCategory: {
+    fontSize: 10,
+    color: '#667eea',
+    fontWeight: 'bold',
+    textTransform: 'uppercase',
+    marginBottom: 2
+  },
+  selectedComponentName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#2c3e50',
+    marginBottom: 2
+  },
+  selectedComponentBrand: {
+    fontSize: 12,
+    color: '#6c757d',
+    marginBottom: 2
+  },
+  selectedComponentPrice: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#667eea'
+  },
+  removeSelectedButton: {
+    backgroundColor: '#dc3545',
+    borderRadius: 15,
+    width: 30,
+    height: 30,
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
+  removeSelectedButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold'
+  },
+  
+  performanceButton: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.3)'
+  },
+  performanceButtonText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600'
+  },
+
+  // Price summary
+  priceSummaryContainer: { 
+    paddingHorizontal: 20, 
+    marginBottom: 25 
+  },
+  priceSummary: { 
+    borderRadius: 16, 
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8
+  },
+  priceSummaryContent: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'center' 
+  },
+  priceSummaryLabel: { 
+    fontSize: 14, 
+    color: 'rgba(255,255,255,0.8)', 
+    textTransform: 'uppercase',
+    letterSpacing: 1
+  },
+  priceSummaryAmount: { 
+    fontSize: 28, 
+    fontWeight: 'bold', 
+    color: '#FFFFFF',
+    textShadowColor: 'rgba(0,0,0,0.3)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 3
+  },
+  componentCount: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 15
+  },
+  componentCountText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600'
+  },
+
+  // Build types
+  buildTypesContainer: { marginBottom: 20 },
+  buildCard: { 
+    width: 160, 
+    height: 140, 
+    marginRight: 15, 
+    borderRadius: 20, 
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8
+  },
+  selectedBuild: { 
+    transform: [{ scale: 1.05 }], 
+    shadowColor: '#667eea', 
+    shadowOffset: { width: 0, height: 8 }, 
+    shadowOpacity: 0.6, 
+    shadowRadius: 16, 
+    elevation: 12 
+  },
+  buildGradient: { 
+    flex: 1, 
+    padding: 16, 
+    justifyContent: 'space-between', 
+    alignItems: 'center' 
+  },
+  buildIconContainer: {
+    width: 50,
+    height: 50,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderRadius: 25,
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
+  buildIcon: { fontSize: 24, color: '#FFFFFF' },
+  buildTitle: { 
+    fontSize: 16, 
+    fontWeight: '700', 
+    color: '#FFFFFF', 
+    textAlign: 'center',
+    textShadowColor: 'rgba(0,0,0,0.3)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2
+  },
+  buildSubtitle: { 
+    fontSize: 12, 
+    color: 'rgba(255,255,255,0.8)', 
+    textAlign: 'center',
+    marginBottom: 8
+  },
+  buildPriceContainer: {
+    alignItems: 'center',
+    position: 'relative'
+  },
+  buildPrice: { 
+    fontSize: 14, 
+    fontWeight: 'bold', 
+    color: '#FFFFFF',
+    textShadowColor: 'rgba(0,0,0,0.3)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2
+  },
+  selectedBadge: {
+    position: 'absolute',
+    top: -25,
+    right: -15,
+    backgroundColor: '#28a745',
+    borderRadius: 12,
+    width: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
+  selectedBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: 'bold'
+  },
+
+  // Category styles
+  categoryCard: { 
+    backgroundColor: '#FFFFFF', 
+    borderRadius: 16, 
+    marginBottom: 16, 
+    borderWidth: 1, 
+    borderColor: '#e9ecef',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4
+  },
+  categoryCardSelected: {
+    borderColor: '#667eea',
+    borderWidth: 2,
+    shadowColor: '#667eea',
+    shadowOpacity: 0.3
+  },
+  categoryHeader: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    padding: 20 
+  },
+  categoryIconContainer: { 
+    width: 60, 
+    height: 60, 
+    backgroundColor: '#f8f9fa', 
+    borderRadius: 16, 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    marginRight: 16,
+    borderWidth: 2,
+    borderColor: '#e9ecef'
+  },
+  categoryIconSelected: {
+    backgroundColor: '#667eea',
+    borderColor: '#667eea'
+  },
+  categoryIcon: { fontSize: 28 },
+  categoryImageWrapper: {
+    position: 'relative',
+    width: 48,
+    height: 48
+  },
+  categoryProductImage: { 
+    width: 48, 
+    height: 48, 
+    borderRadius: 12,
+    backgroundColor: '#f8f9fa'
+  },
+  categorySelectedOverlay: {
+    position: 'absolute',
+    top: -5,
+    right: -5,
+    backgroundColor: '#28a745',
+    borderRadius: 10,
+    width: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
+  categorySelectedCheck: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: 'bold'
+  },
+  categoryInfo: { flex: 1 },
+  categoryName: { 
+    fontSize: 18, 
+    fontWeight: 'bold', 
+    color: '#2c3e50', 
+    marginBottom: 4 
+  },
+  categoryPlaceholder: { 
+    fontSize: 14, 
+    color: '#6c757d', 
+    fontStyle: 'italic',
+    marginBottom: 2
+  },
+  categoryHint: {
+    fontSize: 12,
+    color: '#adb5bd'
+  },
+  selectedProductName: { 
+    fontSize: 14, 
+    fontWeight: '600', 
+    color: '#2c3e50', 
+    marginBottom: 4 
+  },
+  selectedProductPrice: { 
+    fontSize: 16, 
+    fontWeight: 'bold', 
+    color: '#667eea', 
+    marginBottom: 4 
+  },
+  productRatingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center'
+  },
+  productRating: {
+    fontSize: 12,
+    color: '#ffc107',
+    marginRight: 4
+  },
+  productReviews: {
+    fontSize: 12,
+    color: '#6c757d'
+  },
+  categoryActions: { 
+    flexDirection: 'row', 
+    alignItems: 'center' 
+  },
+  removeButton: {
+    backgroundColor: '#dc3545',
+    borderRadius: 20,
+    width: 36,
+    height: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12
+  },
+  removeButtonText: { 
+    color: '#FFFFFF', 
+    fontSize: 18, 
+    fontWeight: 'bold' 
+  },
+  selectButton: {
+    backgroundColor: '#667eea',
+    borderRadius: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 10
+  },
+  selectButtonSelected: {
+    backgroundColor: '#28a745'
+  },
+  selectButtonText: { 
+    color: '#FFFFFF', 
+    fontSize: 14, 
+    fontWeight: 'bold' 
+  },
+
+  // Modal styles
+  modalContainer: { flex:1, padding:20, backgroundColor:'#f7f9fb' },
+  modalHeader: {
+    paddingTop: Platform.OS === 'ios' ? 50 : 20,
+    paddingBottom: 20,
+    paddingHorizontal: 20
+  },
+  modalHeaderContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center'
+  },
+  modalTitle: { 
+    fontSize: 24, 
+    fontWeight: 'bold', 
+    color: '#FFFFFF',
+    textShadowColor: 'rgba(0,0,0,0.3)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 3
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.8)',
+    marginTop: 4
+  },
+  closeButton: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderRadius: 20,
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
+  closeButtonText: { 
+    color: '#FFFFFF', 
+    fontSize: 20, 
+    fontWeight: 'bold' 
+  },
+  productList: { flex: 1 },
+  productListContent: { padding: 20 },
+  productItem: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#e9ecef',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4
+  },
+  productItemContent: { 
+    flexDirection: 'row', 
+    padding: 20,
+    alignItems: 'center'
+  },
+  productImageContainer: {
+    position: 'relative',
+    marginRight: 16
+  },
+  productImage: { 
+    width: 80, 
+    height: 80, 
+    borderRadius: 12,
+    backgroundColor: '#f8f9fa'
+  },
+  productBadge: {
+    position: 'absolute',
+    top: -5,
+    right: -5,
+    backgroundColor: '#ff6b6b',
+    borderRadius: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 2
+  },
+  productBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: 'bold'
+  },
+  productDetails: { flex: 1 },
+  productName: { 
+    fontSize: 16, 
+    fontWeight: 'bold', 
+    color: '#2c3e50', 
+    marginBottom: 4 
+  },
+  productBrand: { 
+    fontSize: 12, 
+    color: '#6c757d', 
+    marginBottom: 4 
+  },
+  productRatingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6
+  },
+  productPrice: { 
+    fontSize: 18, 
+    fontWeight: 'bold', 
+    color: '#667eea', 
+    marginBottom: 6 
+  },
+  productSpecs: { 
+    fontSize: 12, 
+    color: '#6c757d',
+    backgroundColor: '#f8f9fa',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8
+  },
+  productActionContainer: {
+    justifyContent: 'center'
+  },
+  productSelectButton: {
+    backgroundColor: '#28a745',
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 10
+  },
+  productSelectButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: 'bold'
+  },
+
+  // Performance modal
+  performanceModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20
+  },
+  performanceModalContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 24,
+    width: '100%',
+    maxWidth: 300
+  },
+  performanceModalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#2c3e50',
+    textAlign: 'center',
+    marginBottom: 20
+  },
+  performanceScores: {
+    marginBottom: 20
+  },
+  performanceItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e9ecef'
+  },
+  performanceIcon: {
+    fontSize: 20,
+    marginRight: 12
+  },
+  performanceLabel: {
+    flex: 1,
+    fontSize: 16,
+    color: '#2c3e50'
+  },
+  performanceScore: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#667eea'
+  },
+  performanceCloseButton: {
+    backgroundColor: '#667eea',
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center'
+  },
+  performanceCloseButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold'
+  },
+
+  // Action section
+  actionSection: { 
+    paddingHorizontal: 20, 
+    marginBottom: 25 
+  },
+  orderButton: { 
+    borderRadius: 16, 
+    overflow: 'hidden',
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8
+  },
+  orderButtonDisabled: {
+    opacity: 0.7
+  },
+  buttonGradient: { 
+    paddingVertical: 16, 
+    alignItems: 'center' 
+  },
+  buttonText: { 
+    fontSize: 18, 
+    fontWeight: 'bold', 
+    color: '#FFFFFF',
+    textShadowColor: 'rgba(0,0,0,0.3)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2
+  },
+  buildingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center'
+  },
+  secondaryActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between'
+  },
+  secondaryButton: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+    marginHorizontal: 8,
+    borderWidth: 1,
+    borderColor: '#e9ecef'
+  },
+  secondaryButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#667eea'
+  },
+
+  // Metrics section
+  metricsSection: { 
+    paddingHorizontal: 20, 
+    marginBottom: 30 
+  },
+  metricsGrid: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between' 
+  },
+  metricCard: { 
+    flex: 1, 
+    borderRadius: 16, 
+    padding: 16, 
+    alignItems: 'center', 
+    marginHorizontal: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 6
+  },
+  metricIcon: { 
+    fontSize: 28, 
+    marginBottom: 8 
+  },
+  metricTitle: { 
+    fontSize: 14, 
+    color: '#FFFFFF', 
+    marginBottom: 8,
+    fontWeight: '600'
+  },
+  metricScore: { 
+    fontSize: 18, 
+    fontWeight: 'bold', 
+    color: '#FFFFFF',
+    marginBottom: 8
+  },
+  metricBar: {
+    width: '100%',
+    height: 4,
+    backgroundColor: 'rgba(255,255,255,0.3)',
+    borderRadius: 2,
+    overflow: 'hidden'
+  },
+  metricBarFill: {
+    height: '100%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 2
+  },
+
+  // Compatibility modal styles
+  compatibilityModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20
+  },
+  compatibilityModalContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 24,
+    alignItems: 'center',
+    width: '100%',
+    maxWidth: 300
+  },
+  compatibilityModalIcon: {
+    fontSize: 48,
+    marginBottom: 16
+  },
+  compatibilityModalTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#007BFF',
+    color: '#dc3545',
+    marginBottom: 12,
+    textAlign: 'center'
   },
+  compatibilityModalText: {
+    fontSize: 14,
+    color: '#6c757d',
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 20
+  },
+  compatibilityModalButton: {
+    backgroundColor: '#dc3545',
+    borderRadius: 12,
+    paddingHorizontal: 24,
+    paddingVertical: 12
+  },
+  compatibilityModalButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: 'bold'
+  }
 });
