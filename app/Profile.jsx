@@ -266,7 +266,7 @@ export default function Profile() {
                   <Feather name="help-circle" size={22} color="#1976ff" />
                 ),
                 label: "Chăm sóc khách hàng",
-                onPress: () => router.push("./danhmucall"),
+                onPress: () => router.push("./buildpc"),
               },
               {
                 icon: (
