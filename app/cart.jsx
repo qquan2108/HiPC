@@ -22,6 +22,7 @@ import CartProductList from "../compomentCart/CartProductList";
 import CartTotalBar from "../compomentCart/CartTotalBar";
 import CartWishlist from "../compomentCart/CartWishlist";
 import PayVoucherModal from "../compomentPay/PayVoucherModal";
+import ImageSkeleton from "../components/ImageSkeleton";
 const base = axiosInstance.defaults.baseURL;
 const { width } = Dimensions.get("window");
 const defaultAddresses = [
@@ -535,7 +536,7 @@ export default function CartScreen() {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#2979ff" />
+        <ImageSkeleton width={120} height={120} visible={loading} />
       </View>
     );
   }

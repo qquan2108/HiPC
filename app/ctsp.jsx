@@ -15,6 +15,7 @@ import ReviewBox from '../compomentCTSP/ReviewBox';
 import { SectionLiked, SectionPopular } from '../compomentCTSP/SectionBox';
 import SpecsBox from '../compomentCTSP/SpecsBox';
 import ProductDescription from '../compomentCTSP/Description';
+import ImageSkeleton from '../components/ImageSkeleton';
 
 // right after importing axiosInstance
 const base = axiosInstance.defaults.baseURL;  // e.g. "http://192.168.0.5:3000"
@@ -280,7 +281,7 @@ export default function CTSP() {
   if (loading) {
     return (
       <View style={styles.loader}>
-        <ActivityIndicator size="large" color="#2979ff" />
+        <ImageSkeleton width={120} height={120} visible={loading} />
       </View>
     );
   }

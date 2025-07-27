@@ -26,9 +26,19 @@ import NewProducts from "../compomentHome/NewProducts";
 import PromoPopup from "../compomentHome/PromoPopup";
 import axiosInstance from "../utils/AxiosInstance";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
+import ImageSkeleton from "../components/ImageSkeleton";
 
 const { width } = Dimensions.get("window");
 const base = axiosInstance.defaults.baseURL;
+const categoryImages = [
+  require('../assets/images/cpu.png'),
+  require('../assets/images/gpu.png'),
+  require('../assets/images/pc1.png'),
+  require('../assets/images/ram.png'),
+  require('../assets/images/banner1.png'),
+  require('../assets/images/icon.png'),
+  require('../assets/images/banner11.jpg'),
+];
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -43,6 +53,9 @@ export default function HomeScreen() {
   const [flashSaleProducts, setFlashSaleProducts] = useState([]);
   const [avatarUri, setAvatarUri] = useState(null);
   const [userName, setUserName] = useState("User"); // 🟢 Thêm state
+  const [loadingCats, setLoadingCats] = useState(true);
+  const [loadingProducts, setLoadingProducts] = useState(true);
+  const loading = loadingCats || loadingProducts;
 
   // Badge renderers
   const renderDiscountBadge = (discount) => (
@@ -156,7 +169,8 @@ export default function HomeScreen() {
         });
         setCategories(cats);
       })
-      .catch(() => setCategories([]));
+      .catch(() => setCategories([]))
+      .finally(() => setLoadingCats(false));
   }, []);
   useEffect(() => {
     axiosInstance
@@ -199,13 +213,16 @@ export default function HomeScreen() {
         setProducts([]);
         setBestSellers([]);
         setFlashSaleProducts([]);
-      });
+      })
+      .finally(() => setLoadingProducts(false));
   }, []);
 
 
   useFocusEffect(
     React.useCallback(() => {
       // Gọi lại API khi HomeScreen được focus
+      setLoadingProducts(true);
+      setLoadingCats(true);
       axiosInstance
         .get('/product')
         .then(({ data }) => {
@@ -246,7 +263,8 @@ export default function HomeScreen() {
           setProducts([]);
           setBestSellers([]);
           setFlashSaleProducts([]);
-        });
+        })
+        .finally(() => setLoadingProducts(false));
 
       // Gọi lại API danh mục
       Promise.all([
@@ -270,7 +288,8 @@ export default function HomeScreen() {
             })
           );
         })
-        .catch(() => setCategories([]));
+        .catch(() => setCategories([]))
+        .finally(() => setLoadingCats(false));
     }, [])
   );
 
@@ -289,6 +308,14 @@ export default function HomeScreen() {
   const requireLogin = () => {
     router.push("/LoginScreen");
   };
+
+  if (loading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <ImageSkeleton width={120} height={120} visible={loading} />
+      </View>
+    );
+  }
 
   return (
     <ImageBackground

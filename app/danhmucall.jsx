@@ -18,6 +18,7 @@ import {
   View
 } from 'react-native';
 import CustomTabBar from '../compomentHome/CustomTabBar';
+import ImageSkeleton from '../components/ImageSkeleton';
 import MultiSlider from '@ptomasroos/react-native-multi-slider';
 import Constants from 'expo-constants';
 import axios from '../utils/AxiosInstance';
@@ -207,7 +208,7 @@ const FilterModal = ({ visible, onClose, onApply, filters, setFilters, categoryI
         <ScrollView style={filterStyles.content} showsVerticalScrollIndicator={false}>
           {loading ? (
             <View style={filterStyles.loadingContainer}>
-              <ActivityIndicator size="large" color="#ee4d2d" />
+              <ImageSkeleton width={100} height={100} visible={loading} />
               <Text>Đang tải bộ lọc...</Text>
             </View>
           ) : (
@@ -438,7 +439,7 @@ params.append('priceMax', filters.priceRange[1].toString());
   if (loading) {
     return (
       <View style={styles.loading}>
-        <ActivityIndicator size="large" color="#ee4d2d" />
+        <ImageSkeleton width={120} height={120} visible={loading} />
         <Text style={styles.loadingText}>Đang tải...</Text>
       </View>
     );
