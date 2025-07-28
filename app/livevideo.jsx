@@ -5,6 +5,7 @@ import { Video } from "expo-av";
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
+import SkeletonLiveVideo from "./SkeletonLiveVideo";
 import {
   ActivityIndicator,
   Alert,
@@ -256,7 +257,7 @@ const handleAddToCart = async (comboId) => {
     </View>
   );
 
-  if (loading) return <ActivityIndicator style={styles.loadingContainer} size="large" color="#0000ff" />;
+  if (loading) return <SkeletonLiveVideo />;
   if (error) return <Text style={styles.errorText}>{error}</Text>;
 
   return (

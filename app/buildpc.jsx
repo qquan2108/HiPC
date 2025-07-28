@@ -1,24 +1,26 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { useEffect, useState ,useRef} from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
-    Dimensions,
-    SafeAreaView,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
-    Image,
-    ActivityIndicator,
-    Alert,
-    Modal,
-    FlatList,
-    Animated,
-    Platform
+  ActivityIndicator,
+  Alert,
+  Animated,
+  Dimensions,
+  FlatList,
+  Image,
+  Modal,
+  Platform,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import axiosInstance from '../utils/AxiosInstance';
+import SkeletonBuildPC from "./SkeletonBuildPC";
 
 const { width, height } = Dimensions.get('window');
 
@@ -42,13 +44,16 @@ export default function UngDungLapPC() {
   const [showPerformanceModal, setShowPerformanceModal] = useState(false);
   const [showCompatibilityAlert, setShowCompatibilityAlert] = useState(false);
   const [buildProgress, setBuildProgress] = useState(0);
-  
+
   // Modal states
   const [showProductModal, setShowProductModal] = useState(false);
   const [currentCategoryForSelection, setCurrentCategoryForSelection] = useState(null);
   const [productsForSelection, setProductsForSelection] = useState([]);
+  const [showVariantDialog, setShowVariantDialog] = useState(false);
+  const [variantProduct, setVariantProduct] = useState(null);
+  const [selectedVariant, setSelectedVariant] = useState(null);
 
- const fadeAnim = useRef(new Animated.Value(0)).current;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
 
   const baseURL = axiosInstance.defaults.baseURL;
@@ -118,12 +123,12 @@ export default function UngDungLapPC() {
   const checkCompatibility = () => {
     const issues = [];
     const components = Object.values(selectedComponents);
-    
+
     // Basic compatibility checks
     if (components.length < 3) {
       issues.push('Cần ít nhất 3 linh kiện cơ bản');
     }
-    
+
     // Check power consumption vs PSU capacity
     const totalPower = components.reduce((sum, comp) => sum + (comp.power || 100), 0);
     const psu = components.find(c => c.category_id?.name?.includes('PSU'));
@@ -151,39 +156,40 @@ export default function UngDungLapPC() {
   }, []);
 
   const formatProduct = (p) => ({
-    id: p._id,
-    name: p.name,
-    price: p.price,
-    brand_id: p.brand_id,
-    category_id: p.category_id,
-    image: p.image
-      ? { uri: resolveImageUri(p.image) }
-      : require('../assets/images/pc.png'),
-    specs: Array.isArray(p.tskt)
-      ? p.tskt
-      : Array.isArray(p.specifications)
+  id: p._id,
+  name: p.name,
+  price: p.price,
+  brand_id: p.brand_id,
+  category_id: p.category_id,
+  image: p.image
+    ? { uri: resolveImageUri(p.image) }
+    : require('../assets/images/pc.png'),
+  specs: Array.isArray(p.tskt)
+    ? p.tskt
+    : Array.isArray(p.specifications)
       ? p.specifications.map((s) => ({ label: s.key || '', value: s.value || '' }))
       : [],
-    rating: p.rating || 4.5,
-    reviews: p.reviews || Math.floor(Math.random() * 500) + 50
-  });
+  rating: p.rating || 4.5,
+  reviews: p.reviews || Math.floor(Math.random() * 500) + 50,
+  variants: p.variants || [] // <-- THÊM DÒNG NÀY
+});
 
   // Tính tổng giá bao gồm cả linh kiện đã chọn
   const calculateTotalPrice = () => {
-    const presetPrice = cacLoaiCauHinh.find(build => 
+    const presetPrice = cacLoaiCauHinh.find(build =>
       (build.type || build.id) === loaiCauHinh
     )?.price || 0;
-    
+
     const selectedPrice = Object.values(selectedComponents)
       .reduce((sum, component) => sum + (component?.price || 0), 0);
-    
+
     return presetPrice + selectedPrice;
   };
 
   useEffect(() => {
     const newTotal = calculateTotalPrice();
     setTongGia(newTotal);
-    
+
     // Update build progress based on selected components
     const totalCategories = categories.length;
     const selectedCount = Object.keys(selectedComponents).length;
@@ -203,8 +209,8 @@ export default function UngDungLapPC() {
         const presets = Array.isArray(preRes.data.data)
           ? preRes.data.data
           : Array.isArray(preRes.data)
-          ? preRes.data
-          : [];
+            ? preRes.data
+            : [];
         setCacLoaiCauHinh(presets);
         setCategories(Array.isArray(catRes.data) ? catRes.data : catRes.data.data || []);
         setBrands(Array.isArray(brandRes.data) ? brandRes.data : brandRes.data.data || []);
@@ -250,21 +256,50 @@ export default function UngDungLapPC() {
     setShowProductModal(true);
   };
 
-  const selectProduct = (product) => {
-    setSelectedComponents(prev => ({
-      ...prev,
-      [currentCategoryForSelection._id]: product
-    }));
-    setShowProductModal(false);
-    
-    // Check compatibility after selection
-    setTimeout(() => {
-      const issues = checkCompatibility();
-      if (issues.length > 0) {
-        setShowCompatibilityAlert(true);
+ const selectProduct = (product) => {
+  // Nếu có variant thì show dialog, KHÔNG cho thêm vào selectedComponents ngay
+  if (product.variants && product.variants.length > 0 && product.variants[0].options?.length > 0) {
+    setVariantProduct(product);
+    setSelectedVariant(null);
+    setShowProductModal(false);      // <-- ĐÓNG MODAL SẢN PHẨM NGAY KHI CHỌN SẢN PHẨM CÓ VARIANT
+    setShowVariantDialog(true);
+    return;
+  }
+  // Nếu không có variant thì thêm luôn
+  setSelectedComponents(prev => ({
+    ...prev,
+    [currentCategoryForSelection._id]: { ...product }
+  }));
+  setShowProductModal(false);
+
+  setTimeout(() => {
+    const issues = checkCompatibility();
+    if (issues.length > 0) setShowCompatibilityAlert(true);
+  }, 500);
+};
+ const handleConfirmVariant = () => {
+  if (!selectedVariant) {
+    Alert.alert('Vui lòng chọn phiên bản/biến thể!');
+    return;
+  }
+  setSelectedComponents(prev => ({
+    ...prev,
+    [currentCategoryForSelection._id]: {
+      ...variantProduct,
+      variant: {
+        key: variantProduct.variants[0]?.key || 'Phiên bản',
+        label: selectedVariant.label,
+        priceDiff: selectedVariant.priceDiff || 0
       }
-    }, 500);
-  };
+    }
+  }));
+  setShowVariantDialog(false); // Đóng dialog variant
+  // KHÔNG gọi lại setShowProductModal(true) hoặc openProductSelection ở đây!
+  setTimeout(() => {
+    const issues = checkCompatibility();
+    if (issues.length > 0) setShowCompatibilityAlert(true);
+  }, 500);
+};
 
   const removeSelectedProduct = (categoryId) => {
     setSelectedComponents(prev => {
@@ -278,7 +313,7 @@ export default function UngDungLapPC() {
   const TheLoaiCauHinh = ({ build }) => {
     const key = build.type || build.id;
     const isSelected = loaiCauHinh === key;
-    
+
     return (
       <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
         <TouchableOpacity
@@ -322,8 +357,8 @@ export default function UngDungLapPC() {
             <View style={[styles.categoryIconContainer, hasSelected && styles.categoryIconSelected]}>
               {hasSelected ? (
                 <View style={styles.categoryImageWrapper}>
-                  <Image 
-                    source={selectedProduct.image} 
+                  <Image
+                    source={selectedProduct.image}
                     style={styles.categoryProductImage}
                     resizeMode="cover"
                   />
@@ -335,7 +370,7 @@ export default function UngDungLapPC() {
                 <Text style={styles.categoryIcon}>{icon}</Text>
               )}
             </View>
-            
+
             <View style={styles.categoryInfo}>
               <Text style={styles.categoryName}>{category.name}</Text>
               {hasSelected ? (
@@ -358,17 +393,17 @@ export default function UngDungLapPC() {
                 </View>
               )}
             </View>
-            
+
             <View style={styles.categoryActions}>
               {hasSelected && (
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={styles.removeButton}
                   onPress={() => removeSelectedProduct(category._id)}
                   activeOpacity={0.8}>
                   <Text style={styles.removeButtonText}>×</Text>
                 </TouchableOpacity>
               )}
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={[styles.selectButton, hasSelected && styles.selectButtonSelected]}
                 onPress={() => openProductSelection(category)}
                 activeOpacity={0.8}>
@@ -385,50 +420,49 @@ export default function UngDungLapPC() {
 
   // Enhanced product modal with better UX
   const ProductSelectionModal = () => {
+    // Trong ProductSelectionModal, thay đổi phần renderProductItem như sau:
+
     const renderProductItem = ({ item, index }) => (
-      <Animated.View 
+      <Animated.View
         style={[
-          styles.productItem, 
-          { 
+          styles.productItem,
+          {
             opacity: fadeAnim,
-            transform: [{ translateY: slideAnim }] 
+            transform: [{ translateY: slideAnim }]
           }
         ]}>
-        <TouchableOpacity 
-          style={styles.productItemContent}
-          onPress={() => selectProduct(item)}
-          activeOpacity={0.9}>
+        <View style={styles.productItemContent}>
           <View style={styles.productImageContainer}>
             <Image source={item.image} style={styles.productImage} />
             <View style={styles.productBadge}>
               <Text style={styles.productBadgeText}>NEW</Text>
             </View>
           </View>
-          
+
           <View style={styles.productDetails}>
             <Text style={styles.productName} numberOfLines={2}>{item.name}</Text>
             <Text style={styles.productBrand}>{getBrandName(item.brand_id)}</Text>
-            
             <View style={styles.productRatingRow}>
               <Text style={styles.productRating}>⭐ {item.rating}</Text>
               <Text style={styles.productReviews}>({item.reviews} đánh giá)</Text>
             </View>
-            
             <Text style={styles.productPrice}>{formatCurrency(item.price)}</Text>
-            
             {item.specs[0] && (
               <Text style={styles.productSpecs} numberOfLines={1}>
                 {item.specs[0].label}: {item.specs[0].value}
               </Text>
             )}
           </View>
-          
+
           <View style={styles.productActionContainer}>
-            <TouchableOpacity style={styles.productSelectButton}>
+            <TouchableOpacity
+              style={styles.productSelectButton}
+              onPress={() => selectProduct(item)} // <-- GỌI ĐÚNG HÀM NÀY
+            >
               <Text style={styles.productSelectButtonText}>Chọn</Text>
             </TouchableOpacity>
           </View>
-        </TouchableOpacity>
+        </View>
       </Animated.View>
     );
 
@@ -448,7 +482,7 @@ export default function UngDungLapPC() {
                   {productsForSelection.length} sản phẩm có sẵn
                 </Text>
               </View>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.closeButton}
                 onPress={() => setShowProductModal(false)}
                 activeOpacity={0.8}>
@@ -456,7 +490,7 @@ export default function UngDungLapPC() {
               </TouchableOpacity>
             </View>
           </LinearGradient>
-          
+
           <FlatList
             data={productsForSelection}
             renderItem={renderProductItem}
@@ -473,7 +507,7 @@ export default function UngDungLapPC() {
   // Performance modal
   const PerformanceModal = () => {
     const scores = calculatePerformanceScores();
-    
+
     return (
       <Modal
         visible={showPerformanceModal}
@@ -482,28 +516,28 @@ export default function UngDungLapPC() {
         <View style={styles.performanceModalOverlay}>
           <View style={styles.performanceModalContent}>
             <Text style={styles.performanceModalTitle}>Hiệu Năng Dự Kiến</Text>
-            
+
             <View style={styles.performanceScores}>
               <View style={styles.performanceItem}>
                 <Text style={styles.performanceIcon}>🎮</Text>
                 <Text style={styles.performanceLabel}>Gaming</Text>
                 <Text style={styles.performanceScore}>{scores.gaming}/100</Text>
               </View>
-              
+
               <View style={styles.performanceItem}>
                 <Text style={styles.performanceIcon}>💼</Text>
                 <Text style={styles.performanceLabel}>Workstation</Text>
                 <Text style={styles.performanceScore}>{scores.workstation}/100</Text>
               </View>
-              
+
               <View style={styles.performanceItem}>
                 <Text style={styles.performanceIcon}>⚡</Text>
                 <Text style={styles.performanceLabel}>Tổng Thể</Text>
                 <Text style={styles.performanceScore}>{scores.overall}/100</Text>
               </View>
             </View>
-            
-            <TouchableOpacity 
+
+            <TouchableOpacity
               style={styles.performanceCloseButton}
               onPress={() => setShowPerformanceModal(false)}>
               <Text style={styles.performanceCloseButtonText}>Đóng</Text>
@@ -522,22 +556,77 @@ export default function UngDungLapPC() {
         'Cảnh báo tương thích',
         compatibilityIssues.join('\n'),
         [
-          { text: 'Tiếp tục', onPress: () => processOrder() },
+          { text: 'Tiếp tục', onPress: () => addAllToCartAndGoCart() },
           { text: 'Hủy', style: 'cancel' }
         ]
       );
       return;
     }
-    
-    processOrder();
+    addAllToCartAndGoCart();
+  };
+
+  const addAllToCartAndGoCart = async () => {
+    try {
+      setIsBuilding(true);
+      const userId = await getUserId();
+      if (!userId) {
+        Alert.alert('Tài khoản không hợp lệ! Vui lòng đăng nhập lại.');
+        setIsBuilding(false);
+        return;
+      }
+
+      // Thêm các linh kiện preset (nếu có)
+      for (const comp of presetComponents) {
+        await axiosInstance.post('/cartt/add-to-cart', {
+          user_id: userId,
+          productId: comp.productId,
+          quantity: comp.quantity || 1
+        });
+      }
+
+      // Thêm các linh kiện đã chọn
+      for (const comp of Object.values(selectedComponents)) {
+        const payload = {
+          user_id: userId,
+          productId: comp.id,
+          quantity: 1
+        };
+        if (comp.variant && comp.variant.key && comp.variant.label) {
+          payload.variant = {
+            key: comp.variant.key,
+            label: comp.variant.label,
+            priceDiff: comp.variant.priceDiff || 0
+          };
+        }
+        await axiosInstance.post('/cartt/add-to-cart', payload);
+      }
+
+      Alert.alert('Đã thêm vào giỏ hàng!', 'Chuyển đến giỏ hàng để thanh toán.', [
+        { text: 'OK', onPress: () => router.push('/cart') }
+      ]);
+    } catch (e) {
+      Alert.alert('Lỗi', e.message || 'Không thể thêm vào giỏ hàng');
+    } finally {
+      setIsBuilding(false);
+    }
   };
 
   const processOrder = async () => {
     try {
       setIsBuilding(true);
-      
+
+      const userId = await getUserId();
+      if (!userId) {
+        Alert.alert('Tài khoản không hợp lệ! Vui lòng đăng nhập lại.');
+        setIsBuilding(false);
+        return;
+      }
+
       const allComponents = [
-        ...presetComponents,
+        ...presetComponents.map(comp => ({
+          productId: comp.productId,
+          quantity: comp.quantity || 1
+        })),
         ...Object.values(selectedComponents).map(comp => ({
           productId: comp.id,
           quantity: 1
@@ -545,54 +634,58 @@ export default function UngDungLapPC() {
       ];
 
       const payload = {
-        userId: 'user-123',
+        userId, // Đảm bảo là ObjectId
         name: loaiCauHinh,
         products: allComponents
       };
-      
+
       // Simulate build progress
       for (let i = 0; i <= 100; i += 10) {
         setBuildProgress(i);
         await new Promise(resolve => setTimeout(resolve, 100));
       }
-      
+
       const res = await axiosInstance.post('/pcbuild/build', payload);
       const data = res.data.data || res.data;
-      
+
       Alert.alert(
         'Đặt hàng thành công! 🎉',
         `Build ID: ${data.buildId}\nTổng giá trị: ${formatCurrency(tongGia)}`,
         [{ text: 'OK', onPress: () => router.push('/orders') }]
       );
     } catch (e) {
-      Alert.alert('Lỗi', e.response?.data?.message || e.message);
+      Alert.alert('Lỗi', e.response?.data?.error || e.message);
     } finally {
       setIsBuilding(false);
     }
   };
 
+  const getUserId = async () => {
+    const userStr = await AsyncStorage.getItem('user');
+    if (!userStr) return null;
+    const userObj = JSON.parse(userStr);
+    // Ưu tiên _id, nếu không có thì lấy id (và phải là ObjectId hợp lệ)
+    const id = userObj._id || userObj.id;
+    if (id && /^[a-f\d]{24}$/i.test(id)) {
+      return id;
+    }
+    return null;
+  };
+
   if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <LinearGradient colors={['#667eea', '#764ba2']} style={styles.loadingGradient}>
-          <Text style={styles.loadingLogo}>⚡ HiPC</Text>
-          <ActivityIndicator size="large" color="#FFFFFF" />
-          <Text style={styles.loadingText}>Đang tải dữ liệu...</Text>
-        </LinearGradient>
-      </View>
-    );
-  }
+  return <SkeletonBuildPC />;
+}
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#667eea" />
-      
+
       {/* Enhanced Header */}
       <LinearGradient colors={['#667eea', '#764ba2']} style={styles.header}>
         <View style={styles.headerContent}>
           <Text style={styles.logo}>⚡ HiPC Builder</Text>
           <Text style={styles.headerSubtitle}>Tạo máy tính hoàn hảo cho bạn</Text>
-          
+
           {/* Build Progress */}
           <View style={styles.progressContainer}>
             <Text style={styles.progressLabel}>Tiến độ: {Math.round(buildProgress)}%</Text>
@@ -608,13 +701,13 @@ export default function UngDungLapPC() {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>🏗️ Chọn Loại Cấu Hình</Text>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.performanceButton}
               onPress={() => setShowPerformanceModal(true)}>
               <Text style={styles.performanceButtonText}>📊 Hiệu năng</Text>
             </TouchableOpacity>
           </View>
-          
+
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.buildTypesContainer}>
             {cacLoaiCauHinh.map((build) => (
               <TheLoaiCauHinh key={build.type || build.id} build={build} />
@@ -660,14 +753,14 @@ export default function UngDungLapPC() {
         {(presetComponents.length > 0 || Object.keys(selectedComponents).length > 0) && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>🖥️ Cấu Hình Hiện Tại</Text>
-            
+
             {presetComponents.length > 0 && (
               <View style={styles.presetComponentsContainer}>
                 <Text style={styles.presetTitle}>Linh kiện cơ bản:</Text>
                 {presetComponents.map((component, index) => {
                   const product = products.find(p => p.id === component.productId);
                   if (!product) return null;
-                  
+
                   return (
                     <View key={`preset-${index}`} style={styles.presetComponentCard}>
                       <Image source={product.image} style={styles.presetComponentImage} />
@@ -688,7 +781,7 @@ export default function UngDungLapPC() {
                 })}
               </View>
             )}
-            
+
             {/* Selected Additional Components */}
             {Object.keys(selectedComponents).length > 0 && (
               <View style={styles.selectedComponentsContainer}>
@@ -710,7 +803,7 @@ export default function UngDungLapPC() {
                           {formatCurrency(component.price)}
                         </Text>
                       </View>
-                      <TouchableOpacity 
+                      <TouchableOpacity
                         style={styles.removeSelectedButton}
                         onPress={() => removeSelectedProduct(categoryId)}>
                         <Text style={styles.removeSelectedButtonText}>×</Text>
@@ -725,8 +818,8 @@ export default function UngDungLapPC() {
 
         {/* Action Buttons */}
         <View style={styles.actionSection}>
-          <TouchableOpacity 
-            style={[styles.orderButton, isBuilding && styles.orderButtonDisabled]} 
+          <TouchableOpacity
+            style={[styles.orderButton, isBuilding && styles.orderButtonDisabled]}
             onPress={onOrderNow}
             disabled={isBuilding}
             activeOpacity={0.8}>
@@ -741,12 +834,16 @@ export default function UngDungLapPC() {
               )}
             </LinearGradient>
           </TouchableOpacity>
-          
+
           <View style={styles.secondaryActions}>
-            <TouchableOpacity style={styles.secondaryButton}>
+            <TouchableOpacity
+              style={styles.secondaryButton}
+              onPress={processOrder}
+              disabled={isBuilding}
+            >
               <Text style={styles.secondaryButtonText}>💾 Lưu Cấu Hình</Text>
             </TouchableOpacity>
-            
+
             <TouchableOpacity style={styles.secondaryButton}>
               <Text style={styles.secondaryButtonText}>📤 Chia Sẻ</Text>
             </TouchableOpacity>
@@ -780,7 +877,7 @@ export default function UngDungLapPC() {
 
       <ProductSelectionModal />
       <PerformanceModal />
-      
+
       {/* Compatibility Alert */}
       <Modal
         visible={showCompatibilityAlert}
@@ -791,14 +888,96 @@ export default function UngDungLapPC() {
             <Text style={styles.compatibilityModalIcon}>⚠️</Text>
             <Text style={styles.compatibilityModalTitle}>Cảnh báo tương thích</Text>
             <Text style={styles.compatibilityModalText}>
-              Một số linh kiện có thể không tương thích hoàn toàn. 
+              Một số linh kiện có thể không tương thích hoàn toàn.
               Vui lòng kiểm tra kỹ trước khi đặt hàng.
             </Text>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.compatibilityModalButton}
               onPress={() => setShowCompatibilityAlert(false)}>
               <Text style={styles.compatibilityModalButtonText}>Đã hiểu</Text>
             </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Variant Selection Dialog */}
+      <Modal
+        visible={showVariantDialog}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowVariantDialog(false)}
+      >
+        <View style={{
+          flex: 1,
+          backgroundColor: 'rgba(0,0,0,0.25)',
+          justifyContent: 'center',
+          alignItems: 'center'
+        }}>
+          <View style={{
+            backgroundColor: '#fff',
+            borderRadius: 16,
+            padding: 20,
+            width: '85%',
+            maxWidth: 340,
+            elevation: 10,
+          }}>
+            <Text style={{ fontWeight: 'bold', fontSize: 16, marginBottom: 10 }}>
+              Chọn phiên bản/biến thể
+            </Text>
+            {variantProduct && (
+              <>
+                <Text style={{ fontWeight: '600', marginBottom: 8 }}>{variantProduct.name}</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
+                  {variantProduct.variants[0]?.options?.map((option, idx) => (
+                    <TouchableOpacity
+                      key={idx}
+                      onPress={() => setSelectedVariant(option)}
+                      style={{
+                        paddingHorizontal: 14,
+                        paddingVertical: 8,
+                        borderRadius: 10,
+                        backgroundColor: selectedVariant === option ? '#667eea' : '#f3f4f6',
+                        marginRight: 8,
+                        borderWidth: selectedVariant === option ? 2 : 1,
+                        borderColor: selectedVariant === option ? '#667eea' : '#e0e7ef',
+                      }}
+                    >
+                      <Text style={{
+                        color: selectedVariant === option ? '#fff' : '#333',
+                        fontWeight: selectedVariant === option ? 'bold' : '500'
+                      }}>
+                        {option.label || option.key}
+                      </Text>
+                      {option.priceDiff ? (
+                        <Text style={{ color: selectedVariant === option ? '#fff' : '#888', fontSize: 11 }}>
+                          +{option.priceDiff.toLocaleString('vi-VN')}₫
+                        </Text>
+                      ) : null}
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+                <View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}>
+                  <TouchableOpacity
+                    onPress={() => setShowVariantDialog(false)}
+                    style={{
+                      paddingVertical: 8, paddingHorizontal: 18,
+                      borderRadius: 8, backgroundColor: '#e0e7ef', marginRight: 8
+                    }}
+                  >
+                    <Text style={{ color: '#333', fontWeight: '600' }}>Huỷ</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={handleConfirmVariant}
+                    style={{
+                      paddingVertical: 8, paddingHorizontal: 18,
+                      borderRadius: 8, backgroundColor: '#667eea'
+                    }}
+                  >
+                    <Text style={{ color: '#fff', fontWeight: '600' }}>Chọn</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
           </View>
         </View>
       </Modal>
@@ -808,56 +987,56 @@ export default function UngDungLapPC() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f8f9fa' },
-  
+
   // Loading styles
   loadingContainer: { flex: 1 },
-  loadingGradient: { 
-    flex: 1, 
-    justifyContent: 'center', 
-    alignItems: 'center' 
+  loadingGradient: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center'
   },
-  loadingLogo: { 
-    fontSize: 32, 
-    fontWeight: 'bold', 
-    color: '#FFFFFF', 
-    marginBottom: 20 
+  loadingLogo: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    marginBottom: 20
   },
-  loadingText: { 
-    fontSize: 16, 
-    color: '#FFFFFF', 
-    marginTop: 20, 
-    opacity: 0.8 
+  loadingText: {
+    fontSize: 16,
+    color: '#FFFFFF',
+    marginTop: 20,
+    opacity: 0.8
   },
 
   // Header styles
-  header: { 
-    paddingTop: Platform.OS === 'ios' ? 20 : 40, 
-    paddingBottom: 30, 
-    paddingHorizontal: 20 
+  header: {
+    paddingTop: Platform.OS === 'ios' ? 20 : 40,
+    paddingBottom: 30,
+    paddingHorizontal: 20
   },
   headerContent: { alignItems: 'center' },
-  logo: { 
-    fontSize: 32, 
-    fontWeight: 'bold', 
-    color: '#FFFFFF', 
+  logo: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
     marginBottom: 8,
     textShadowColor: 'rgba(0,0,0,0.3)',
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 3
   },
-  headerSubtitle: { 
-    fontSize: 16, 
-    color: 'rgba(255,255,255,0.9)', 
+  headerSubtitle: {
+    fontSize: 16,
+    color: 'rgba(255,255,255,0.9)',
     fontWeight: '500',
     marginBottom: 20
   },
-  
+
   // Progress bar
   progressContainer: { width: '100%', alignItems: 'center' },
-  progressLabel: { 
-    fontSize: 14, 
-    color: 'rgba(255,255,255,0.8)', 
-    marginBottom: 8 
+  progressLabel: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.8)',
+    marginBottom: 8
   },
   progressBar: {
     width: '100%',
@@ -874,17 +1053,17 @@ const styles = StyleSheet.create({
 
   scrollView: { flex: 1 },
   section: { paddingHorizontal: 20, marginBottom: 25 },
-  sectionHeader: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
-    alignItems: 'center', 
-    marginBottom: 15 
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 15
   },
-  sectionTitle: { 
-    fontSize: 20, 
-    fontWeight: 'bold', 
-    color: '#1B2A38', 
-    marginBottom: 10 
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#1B2A38',
+    marginBottom: 10
   },
   sectionSubtitle: {
     fontSize: 14,
@@ -1056,7 +1235,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold'
   },
-  
+
   performanceButton: {
     backgroundColor: 'rgba(255,255,255,0.2)',
     paddingHorizontal: 12,
@@ -1072,12 +1251,12 @@ const styles = StyleSheet.create({
   },
 
   // Price summary
-  priceSummaryContainer: { 
-    paddingHorizontal: 20, 
-    marginBottom: 25 
+  priceSummaryContainer: {
+    paddingHorizontal: 20,
+    marginBottom: 25
   },
-  priceSummary: { 
-    borderRadius: 16, 
+  priceSummary: {
+    borderRadius: 16,
     padding: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
@@ -1085,20 +1264,20 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 8
   },
-  priceSummaryContent: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
-    alignItems: 'center' 
+  priceSummaryContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center'
   },
-  priceSummaryLabel: { 
-    fontSize: 14, 
-    color: 'rgba(255,255,255,0.8)', 
+  priceSummaryLabel: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.8)',
     textTransform: 'uppercase',
     letterSpacing: 1
   },
-  priceSummaryAmount: { 
-    fontSize: 28, 
-    fontWeight: 'bold', 
+  priceSummaryAmount: {
+    fontSize: 28,
+    fontWeight: 'bold',
     color: '#FFFFFF',
     textShadowColor: 'rgba(0,0,0,0.3)',
     textShadowOffset: { width: 1, height: 1 },
@@ -1118,11 +1297,11 @@ const styles = StyleSheet.create({
 
   // Build types
   buildTypesContainer: { marginBottom: 20 },
-  buildCard: { 
-    width: 160, 
-    height: 140, 
-    marginRight: 15, 
-    borderRadius: 20, 
+  buildCard: {
+    width: 160,
+    height: 140,
+    marginRight: 15,
+    borderRadius: 20,
     overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
@@ -1130,19 +1309,19 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 8
   },
-  selectedBuild: { 
-    transform: [{ scale: 1.05 }], 
-    shadowColor: '#667eea', 
-    shadowOffset: { width: 0, height: 8 }, 
-    shadowOpacity: 0.6, 
-    shadowRadius: 16, 
-    elevation: 12 
+  selectedBuild: {
+    transform: [{ scale: 1.05 }],
+    shadowColor: '#667eea',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.6,
+    shadowRadius: 16,
+    elevation: 12
   },
-  buildGradient: { 
-    flex: 1, 
-    padding: 16, 
-    justifyContent: 'space-between', 
-    alignItems: 'center' 
+  buildGradient: {
+    flex: 1,
+    padding: 16,
+    justifyContent: 'space-between',
+    alignItems: 'center'
   },
   buildIconContainer: {
     width: 50,
@@ -1153,18 +1332,18 @@ const styles = StyleSheet.create({
     alignItems: 'center'
   },
   buildIcon: { fontSize: 24, color: '#FFFFFF' },
-  buildTitle: { 
-    fontSize: 16, 
-    fontWeight: '700', 
-    color: '#FFFFFF', 
+  buildTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFFFFF',
     textAlign: 'center',
     textShadowColor: 'rgba(0,0,0,0.3)',
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 2
   },
-  buildSubtitle: { 
-    fontSize: 12, 
-    color: 'rgba(255,255,255,0.8)', 
+  buildSubtitle: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.8)',
     textAlign: 'center',
     marginBottom: 8
   },
@@ -1172,9 +1351,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     position: 'relative'
   },
-  buildPrice: { 
-    fontSize: 14, 
-    fontWeight: 'bold', 
+  buildPrice: {
+    fontSize: 14,
+    fontWeight: 'bold',
     color: '#FFFFFF',
     textShadowColor: 'rgba(0,0,0,0.3)',
     textShadowOffset: { width: 1, height: 1 },
@@ -1198,11 +1377,11 @@ const styles = StyleSheet.create({
   },
 
   // Category styles
-  categoryCard: { 
-    backgroundColor: '#FFFFFF', 
-    borderRadius: 16, 
-    marginBottom: 16, 
-    borderWidth: 1, 
+  categoryCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    marginBottom: 16,
+    borderWidth: 1,
     borderColor: '#e9ecef',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -1216,18 +1395,18 @@ const styles = StyleSheet.create({
     shadowColor: '#667eea',
     shadowOpacity: 0.3
   },
-  categoryHeader: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    padding: 20 
+  categoryHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 20
   },
-  categoryIconContainer: { 
-    width: 60, 
-    height: 60, 
-    backgroundColor: '#f8f9fa', 
-    borderRadius: 16, 
-    justifyContent: 'center', 
-    alignItems: 'center', 
+  categoryIconContainer: {
+    width: 60,
+    height: 60,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
     marginRight: 16,
     borderWidth: 2,
     borderColor: '#e9ecef'
@@ -1242,9 +1421,9 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48
   },
-  categoryProductImage: { 
-    width: 48, 
-    height: 48, 
+  categoryProductImage: {
+    width: 48,
+    height: 48,
     borderRadius: 12,
     backgroundColor: '#f8f9fa'
   },
@@ -1265,15 +1444,15 @@ const styles = StyleSheet.create({
     fontWeight: 'bold'
   },
   categoryInfo: { flex: 1 },
-  categoryName: { 
-    fontSize: 18, 
-    fontWeight: 'bold', 
-    color: '#2c3e50', 
-    marginBottom: 4 
+  categoryName: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#2c3e50',
+    marginBottom: 4
   },
-  categoryPlaceholder: { 
-    fontSize: 14, 
-    color: '#6c757d', 
+  categoryPlaceholder: {
+    fontSize: 14,
+    color: '#6c757d',
     fontStyle: 'italic',
     marginBottom: 2
   },
@@ -1281,17 +1460,17 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#adb5bd'
   },
-  selectedProductName: { 
-    fontSize: 14, 
-    fontWeight: '600', 
-    color: '#2c3e50', 
-    marginBottom: 4 
+  selectedProductName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#2c3e50',
+    marginBottom: 4
   },
-  selectedProductPrice: { 
-    fontSize: 16, 
-    fontWeight: 'bold', 
-    color: '#667eea', 
-    marginBottom: 4 
+  selectedProductPrice: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#667eea',
+    marginBottom: 4
   },
   productRatingContainer: {
     flexDirection: 'row',
@@ -1306,9 +1485,9 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#6c757d'
   },
-  categoryActions: { 
-    flexDirection: 'row', 
-    alignItems: 'center' 
+  categoryActions: {
+    flexDirection: 'row',
+    alignItems: 'center'
   },
   removeButton: {
     backgroundColor: '#dc3545',
@@ -1319,10 +1498,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: 12
   },
-  removeButtonText: { 
-    color: '#FFFFFF', 
-    fontSize: 18, 
-    fontWeight: 'bold' 
+  removeButtonText: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: 'bold'
   },
   selectButton: {
     backgroundColor: '#667eea',
@@ -1333,14 +1512,14 @@ const styles = StyleSheet.create({
   selectButtonSelected: {
     backgroundColor: '#28a745'
   },
-  selectButtonText: { 
-    color: '#FFFFFF', 
-    fontSize: 14, 
-    fontWeight: 'bold' 
+  selectButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: 'bold'
   },
 
   // Modal styles
-  modalContainer: { flex:1, padding:20, backgroundColor:'#f7f9fb' },
+  modalContainer: { flex: 1, padding: 20, backgroundColor: '#f7f9fb' },
   modalHeader: {
     paddingTop: Platform.OS === 'ios' ? 50 : 20,
     paddingBottom: 20,
@@ -1351,9 +1530,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center'
   },
-  modalTitle: { 
-    fontSize: 24, 
-    fontWeight: 'bold', 
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
     color: '#FFFFFF',
     textShadowColor: 'rgba(0,0,0,0.3)',
     textShadowOffset: { width: 1, height: 1 },
@@ -1372,10 +1551,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center'
   },
-  closeButtonText: { 
-    color: '#FFFFFF', 
-    fontSize: 20, 
-    fontWeight: 'bold' 
+  closeButtonText: {
+    color: '#FFFFFF',
+    fontSize: 20,
+    fontWeight: 'bold'
   },
   productList: { flex: 1 },
   productListContent: { padding: 20 },
@@ -1391,8 +1570,8 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 4
   },
-  productItemContent: { 
-    flexDirection: 'row', 
+  productItemContent: {
+    flexDirection: 'row',
     padding: 20,
     alignItems: 'center'
   },
@@ -1400,9 +1579,9 @@ const styles = StyleSheet.create({
     position: 'relative',
     marginRight: 16
   },
-  productImage: { 
-    width: 80, 
-    height: 80, 
+  productImage: {
+    width: 80,
+    height: 80,
     borderRadius: 12,
     backgroundColor: '#f8f9fa'
   },
@@ -1421,30 +1600,30 @@ const styles = StyleSheet.create({
     fontWeight: 'bold'
   },
   productDetails: { flex: 1 },
-  productName: { 
-    fontSize: 16, 
-    fontWeight: 'bold', 
-    color: '#2c3e50', 
-    marginBottom: 4 
+  productName: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#2c3e50',
+    marginBottom: 4
   },
-  productBrand: { 
-    fontSize: 12, 
-    color: '#6c757d', 
-    marginBottom: 4 
+  productBrand: {
+    fontSize: 12,
+    color: '#6c757d',
+    marginBottom: 4
   },
   productRatingRow: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 6
   },
-  productPrice: { 
-    fontSize: 18, 
-    fontWeight: 'bold', 
-    color: '#667eea', 
-    marginBottom: 6 
+  productPrice: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#667eea',
+    marginBottom: 6
   },
-  productSpecs: { 
-    fontSize: 12, 
+  productSpecs: {
+    fontSize: 12,
     color: '#6c757d',
     backgroundColor: '#f8f9fa',
     paddingHorizontal: 8,
@@ -1526,12 +1705,12 @@ const styles = StyleSheet.create({
   },
 
   // Action section
-  actionSection: { 
-    paddingHorizontal: 20, 
-    marginBottom: 25 
+  actionSection: {
+    paddingHorizontal: 20,
+    marginBottom: 25
   },
-  orderButton: { 
-    borderRadius: 16, 
+  orderButton: {
+    borderRadius: 16,
     overflow: 'hidden',
     marginBottom: 16,
     shadowColor: '#000',
@@ -1543,13 +1722,13 @@ const styles = StyleSheet.create({
   orderButtonDisabled: {
     opacity: 0.7
   },
-  buttonGradient: { 
-    paddingVertical: 16, 
-    alignItems: 'center' 
+  buttonGradient: {
+    paddingVertical: 16,
+    alignItems: 'center'
   },
-  buttonText: { 
-    fontSize: 18, 
-    fontWeight: 'bold', 
+  buttonText: {
+    fontSize: 18,
+    fontWeight: 'bold',
     color: '#FFFFFF',
     textShadowColor: 'rgba(0,0,0,0.3)',
     textShadowOffset: { width: 1, height: 1 },
@@ -1580,19 +1759,19 @@ const styles = StyleSheet.create({
   },
 
   // Metrics section
-  metricsSection: { 
-    paddingHorizontal: 20, 
-    marginBottom: 30 
+  metricsSection: {
+    paddingHorizontal: 20,
+    marginBottom: 30
   },
-  metricsGrid: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between' 
+  metricsGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between'
   },
-  metricCard: { 
-    flex: 1, 
-    borderRadius: 16, 
-    padding: 16, 
-    alignItems: 'center', 
+  metricCard: {
+    flex: 1,
+    borderRadius: 16,
+    padding: 16,
+    alignItems: 'center',
     marginHorizontal: 6,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
@@ -1600,19 +1779,19 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 6
   },
-  metricIcon: { 
-    fontSize: 28, 
-    marginBottom: 8 
+  metricIcon: {
+    fontSize: 28,
+    marginBottom: 8
   },
-  metricTitle: { 
-    fontSize: 14, 
-    color: '#FFFFFF', 
+  metricTitle: {
+    fontSize: 14,
+    color: '#FFFFFF',
     marginBottom: 8,
     fontWeight: '600'
   },
-  metricScore: { 
-    fontSize: 18, 
-    fontWeight: 'bold', 
+  metricScore: {
+    fontSize: 18,
+    fontWeight: 'bold',
     color: '#FFFFFF',
     marginBottom: 8
   },

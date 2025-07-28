@@ -37,7 +37,9 @@ function formatCurrency(num) {
 
 const OrderCard = React.memo(({ order, tab, onCancel, onStatusChange, onReview }) => {
   const router = useRouter();
-  const itemCount = order.products?.reduce((sum, p) => sum + p.quantity, 0) || 0;
+  const itemCount =
+    (order.products?.reduce((sum, p) => sum + p.quantity, 0) || 0) +
+    (order.combos?.reduce((sum, c) => sum + (c.quantity || 0), 0) || 0);
 
   const getStatusColor = (status) => {
     const colors = {
@@ -85,41 +87,76 @@ const OrderCard = React.memo(({ order, tab, onCancel, onStatusChange, onReview }
 
       {/* Products Section */}
       <View style={styles.productsContainer}>
-        {order.products && order.products.filter(p => p.productId).length > 0 ? ( 
-          order.products 
-            .filter(prod => prod.productId) 
-            .map(prod => ( 
-              <View key={prod._id} style={styles.productRow}> 
+        {/* Sản phẩm lẻ */}
+        {order.products && order.products.filter(p => p.productId).length > 0 && (
+          order.products
+            .filter(prod => prod.productId)
+            .map(prod => (
+              <View key={prod._id} style={styles.productRow}>
                 <View style={styles.productImageContainer}>
-                  <Image 
-                    source={ 
-                      prod.productId?.image 
-                        ? { uri: prod.productId.image } 
-                        : prod.productId?.images?.length > 0 
-                          ? { uri: prod.productId.images[0] } 
-                          : require('../assets/images/pc1.png') 
-                    } 
-                    style={styles.productImg} 
+                  <Image
+                    source={
+                      prod.productId?.image
+                        ? { uri: prod.productId.image }
+                        : prod.productId?.images?.length > 0
+                          ? { uri: prod.productId.images[0] }
+                          : require('../assets/images/pc1.png')
+                    }
+                    style={styles.productImg}
                   />
                 </View>
-                <View style={styles.productInfo}> 
-                  <Text numberOfLines={2} style={styles.productName}> 
-                    {prod.productId?.name ?? 'Sản phẩm không xác định'} 
-                  </Text> 
-                  <Text style={styles.productPrice}> 
-                    {formatCurrency(prod.productId?.price ?? 0)} 
-                  </Text> 
-                </View> 
+                <View style={styles.productInfo}>
+                  <Text numberOfLines={2} style={styles.productName}>
+                    {prod.productId?.name ?? 'Sản phẩm không xác định'}
+                  </Text>
+                  <Text style={styles.productPrice}>
+                    {formatCurrency(prod.productId?.price ?? 0)}
+                  </Text>
+                </View>
                 <View style={styles.quantityContainer}>
                   <Text style={styles.productQty}>x{prod.quantity}</Text>
                 </View>
-              </View> 
-            )) 
-        ) : ( 
-          <View style={styles.noProductContainer}>
-            <MaterialCommunityIcons name="package-variant" size={32} color="#E0E0E0" />
-            <Text style={styles.noProduct}>Không có sản phẩm.</Text> 
+              </View>
+            ))
+        )}
+
+        {/* Combo sản phẩm */}
+        {order.combos && order.combos.length > 0 && order.combos.map((combo, idx) => (
+          <View key={combo._id || idx} style={styles.productRow}>
+            <View style={styles.productImageContainer}>
+              <Image
+                source={
+                  combo.comboId?.image
+                    ? { uri: combo.comboId.image }
+                    : require('../assets/images/pc1.png')
+                }
+                style={styles.productImg}
+              />
+            </View>
+            <View style={styles.productInfo}>
+              <Text numberOfLines={2} style={[styles.productName, { color: '#ff6b35' }]}>
+                🎁 {combo.comboId?.name || 'Combo sản phẩm'}
+              </Text>
+              <Text style={{ fontSize: 13, color: '#374151', marginBottom: 2 }}>
+                {combo.comboId?.productIds?.length || 0} sản phẩm trong combo
+              </Text>
+              <Text style={styles.productPrice}>
+                {formatCurrency(combo.price)}
+              </Text>
+            </View>
+            <View style={styles.quantityContainer}>
+              <Text style={styles.productQty}>x{combo.quantity}</Text>
+            </View>
           </View>
+        ))}
+
+        {/* Nếu không có sản phẩm và combo */}
+        {(!order.products || order.products.length === 0) &&
+          (!order.combos || order.combos.length === 0) && (
+            <View style={styles.noProductContainer}>
+              <MaterialCommunityIcons name="package-variant" size={32} color="#E0E0E0" />
+              <Text style={styles.noProduct}>Không có sản phẩm.</Text>
+            </View>
         )}
       </View>
 

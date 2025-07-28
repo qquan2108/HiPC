@@ -168,6 +168,7 @@ export default function OrderDetailScreen() {
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Sản phẩm</Text>
+          {/* Hiển thị sản phẩm lẻ */}
           <FlatList
             data={order.products || []}
             keyExtractor={(item) => item._id}
@@ -175,6 +176,61 @@ export default function OrderDetailScreen() {
             scrollEnabled={false}
             contentContainerStyle={{ paddingVertical: 4 }}
           />
+          {/* Hiển thị combo nếu có */}
+          {order.combos && order.combos.length > 0 && (
+            <View style={{ marginTop: 12 }}>
+              {order.combos.map((combo, idx) => (
+                <View
+                  key={combo._id || idx}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    marginVertical: 8,
+                    backgroundColor: '#fef7f0',
+                    borderRadius: 10,
+                    padding: 10,
+                  }}
+                >
+                  <Image
+                    source={
+                      combo.comboId?.image
+                        ? { uri: combo.comboId.image }
+                        : require('../assets/images/pc1.png')
+                    }
+                    style={{
+                      width: 56,
+                      height: 56,
+                      borderRadius: 12,
+                      backgroundColor: '#F3F4F6',
+                      marginRight: 12,
+                    }}
+                  />
+                  <View style={{ flex: 1 }}>
+                    <Text
+                      style={{
+                        fontSize: 14,
+                        fontWeight: '600',
+                        color: '#ff6b35',
+                        marginBottom: 4,
+                      }}
+                      numberOfLines={2}
+                    >
+                      🎁 {combo.comboId?.name || 'Combo sản phẩm'}
+                    </Text>
+                    <Text style={{ fontSize: 13, color: '#374151', marginBottom: 2 }}>
+                      {combo.comboId?.productIds?.length || 0} sản phẩm trong combo
+                    </Text>
+                    <Text style={{ fontSize: 14, color: '#DC2626', fontWeight: '600' }}>
+                      {formatCurrency(combo.price)}
+                    </Text>
+                  </View>
+                  <Text style={{ fontSize: 14, color: '#6B7280', marginLeft: 8 }}>
+                    x{combo.quantity}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          )}
         </View>
 
         {order.status === 'delivered' && order.products?.length > 0 && (
@@ -190,7 +246,7 @@ export default function OrderDetailScreen() {
                   borderRadius: 10,
                   paddingVertical: 12,
                   paddingHorizontal: 16,
-                  marginTop: 8,
+                  marginTop: 9,
                 }}
                 onPress={() => {
                   router.push({

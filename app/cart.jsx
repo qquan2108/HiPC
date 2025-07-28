@@ -15,7 +15,7 @@ import {
 import Toast from "react-native-toast-message";
 import { useWishlist } from "../context/WishlistContext";
 import axiosInstance from "../utils/AxiosInstance";
-
+import SkeletonCart from "./SkeletonCart";
 import CartAddressModal from "../compomentCart/CartAddressModal";
 import CartEmpty from "../compomentCart/CartEmpty";
 import CartProductList from "../compomentCart/CartProductList";
@@ -533,12 +533,8 @@ export default function CartScreen() {
   }
 
   if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#2979ff" />
-      </View>
-    );
-  }
+  return <SkeletonCart />;
+}
 
   // Xử lý nhấn vào sản phẩm
   const handleProductPress = (item) => {

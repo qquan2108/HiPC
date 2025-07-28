@@ -1,15 +1,29 @@
+import React, { useState } from "react";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Toast from 'react-native-toast-message';
 import axiosInstance from "../utils/AxiosInstance";
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Dimensions, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Dimensions, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View, Modal, TextInput } from "react-native";
 
 const { width } = Dimensions.get('window');
 
 const FlashSale = ({ flashSale, renderDiscountBadge, renderHotBadge, isLoggedIn, onRequireLogin, router }) => {
+  const [showOptionDialog, setShowOptionDialog] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [selectedOption, setSelectedOption] = useState(null);
+  const [quantity, setQuantity] = useState(1);
+
   // Khi bấm nút thêm giỏ hàng
-  const handleAddToCart = async (product) => {
+ const handleAddToCart = async (product) => {
+  if (product.variants && product.variants.length > 0 && product.variants[0]?.options?.length > 0) {
+    setSelectedProduct(product);
+    setSelectedOption(null);
+    setQuantity(1);
+    setShowOptionDialog(true);
+    return;
+  }
+
   if (!isLoggedIn) return onRequireLogin();
   try {
     const userStr = await AsyncStorage.getItem('user');
@@ -18,11 +32,45 @@ const FlashSale = ({ flashSale, renderDiscountBadge, renderHotBadge, isLoggedIn,
       return router.push('/LoginScreen');
     }
     const userObj = JSON.parse(userStr);
-    const userId = userObj._id || userObj.id; // Ưu tiên _id
-    await axiosInstance.post('/orders/add-to-cart', { user_id: userId, productId: product.id, quantity: 1 });
+    const userId = userObj._id || userObj.id;
+    await axiosInstance.post('/cartt/add-to-cart', { user_id: userId, productId: product.id, quantity: 1 });
     Toast.show({ type:'success', text1:'Đã thêm vào giỏ hàng!', position:'bottom' });
   } catch {
     Toast.show({ type:'error', text1:'Thêm giỏ hàng thất bại!', position:'top' });
+  }
+};
+
+const handleConfirmOption = async () => {
+  if (!selectedOption) {
+    Toast.show({ type: 'info', text1: 'Vui lòng chọn phiên bản/cấu hình!' });
+    return;
+  }
+
+  if (!isLoggedIn) return onRequireLogin();
+  try {
+    const userStr = await AsyncStorage.getItem('user');
+    if (!userStr) {
+      Toast.show({ type:'error', text1:'Vui lòng đăng nhập để mua hàng!', position:'top' });
+      setShowOptionDialog(false);
+      return router.push('/LoginScreen');
+    }
+    const userObj = JSON.parse(userStr);
+    const userId = userObj._id || userObj.id;
+    await axiosInstance.post('/cartt/add-to-cart', {
+      user_id: userId,
+      productId: selectedProduct.id || selectedProduct._id,
+      quantity,
+      variant: {
+        key: selectedProduct.variants[0]?.key || 'Phiên bản',
+        label: selectedOption.label || selectedOption.value || selectedOption.key,
+        priceDiff: selectedOption.priceDiff || 0
+      }
+    });
+    setShowOptionDialog(false);
+    Toast.show({ type:'success', text1:'Đã thêm vào giỏ hàng!', position:'bottom' });
+  } catch (err) {
+    Toast.show({ type:'error', text1:'Thêm giỏ hàng thất bại!', position:'top' });
+    setShowOptionDialog(false);
   }
 };
 
@@ -119,7 +167,7 @@ const FlashSale = ({ flashSale, renderDiscountBadge, renderHotBadge, isLoggedIn,
 
               {/* Product Image với shadow */}
               <TouchableOpacity
-                onPress={() => handleProductPress(item)}
+                onPress={() => router.push({ pathname: '/ctsp', params: { id: item.id } })}
                 style={styles.imageContainer}
               >
                 <Image source={item.image} style={styles.flashSaleImage} />
@@ -127,7 +175,11 @@ const FlashSale = ({ flashSale, renderDiscountBadge, renderHotBadge, isLoggedIn,
 
               {/* Product Info */}
               <View style={styles.productInfo}>
-                <Text numberOfLines={2} style={styles.productNameSmall}>
+                <Text
+                  numberOfLines={2}
+                  style={styles.productNameSmall}
+                  onPress={() => router.push({ pathname: '/ctsp', params: { id: item.id } })}
+                >
                   {item.name}
                 </Text>
                 
@@ -193,6 +245,122 @@ const FlashSale = ({ flashSale, renderDiscountBadge, renderHotBadge, isLoggedIn,
             </View>
           </View>
         </ScrollView>
+
+        {/* Modal chọn phiên bản & số lượng */}
+        <Modal
+          visible={showOptionDialog}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setShowOptionDialog(false)}
+        >
+          <View style={{
+            flex: 1,
+            backgroundColor: 'rgba(0,0,0,0.25)',
+            justifyContent: 'center',
+            alignItems: 'center'
+          }}>
+            <View style={{
+              backgroundColor: '#fff',
+              borderRadius: 16,
+              padding: 20,
+              width: '85%',
+              maxWidth: 340,
+              elevation: 10,
+            }}>
+              <Text style={{ fontWeight: 'bold', fontSize: 16, marginBottom: 10 }}>
+                Chọn phiên bản & số lượng
+              </Text>
+              {selectedProduct && (
+                <>
+                  <Text style={{ fontWeight: '600', marginBottom: 8 }}>{selectedProduct.name}</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
+                    {selectedProduct.variants[0]?.options?.map((option, idx) => (
+                      <TouchableOpacity
+                        key={idx}
+                        onPress={() => setSelectedOption(option)}
+                        style={{
+                          paddingHorizontal: 14,
+                          paddingVertical: 8,
+                          borderRadius: 10,
+                          backgroundColor: selectedOption === option ? '#667eea' : '#f3f4f6',
+                          marginRight: 8,
+                          borderWidth: selectedOption === option ? 2 : 1,
+                          borderColor: selectedOption === option ? '#667eea' : '#e0e7ef',
+                        }}
+                      >
+                        <Text style={{
+                          color: selectedOption === option ? '#fff' : '#333',
+                          fontWeight: selectedOption === option ? 'bold' : '500'
+                        }}>
+                          {option.label || option}
+                        </Text>
+                        {option.priceDiff ? (
+                          <Text style={{ color: selectedOption === option ? '#fff' : '#888', fontSize: 11 }}>
+                            +{option.priceDiff.toLocaleString('vi-VN')}₫
+                          </Text>
+                        ) : null}
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
+                    <Text style={{ fontWeight: '500', marginRight: 10 }}>Số lượng:</Text>
+                    <TouchableOpacity
+                      onPress={() => setQuantity(q => Math.max(1, q - 1))}
+                      style={{
+                        width: 32, height: 32, borderRadius: 16,
+                        backgroundColor: '#f3f4f6', alignItems: 'center', justifyContent: 'center'
+                      }}
+                    >
+                      <Ionicons name="remove" size={18} color="#667eea" />
+                    </TouchableOpacity>
+                    <TextInput
+                      style={{
+                        width: 40, height: 32, borderRadius: 8,
+                        borderWidth: 1, borderColor: '#e0e7ef',
+                        marginHorizontal: 8, textAlign: 'center', fontWeight: 'bold'
+                      }}
+                      keyboardType="numeric"
+                      value={quantity.toString()}
+                      onChangeText={txt => {
+                        const val = parseInt(txt.replace(/[^0-9]/g, '')) || 1;
+                        setQuantity(val);
+                      }}
+                    />
+                    <TouchableOpacity
+                      onPress={() => setQuantity(q => q + 1)}
+                      style={{
+                        width: 32, height: 32, borderRadius: 16,
+                        backgroundColor: '#f3f4f6', alignItems: 'center', justifyContent: 'center'
+                      }}
+                    >
+                      <Ionicons name="add" size={18} color="#667eea" />
+                    </TouchableOpacity>
+                  </View>
+                  <View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}>
+                    <TouchableOpacity
+                      onPress={() => setShowOptionDialog(false)}
+                      style={{
+                        paddingVertical: 8, paddingHorizontal: 18,
+                        borderRadius: 8, backgroundColor: '#e0e7ef', marginRight: 8
+                      }}
+                    >
+                      <Text style={{ color: '#333', fontWeight: '600' }}>Huỷ</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={handleConfirmOption}
+                      style={{
+                        paddingVertical: 8, paddingHorizontal: 18,
+                        borderRadius: 8, backgroundColor: '#667eea'
+                      }}
+                    >
+                      <Text style={{ color: '#fff', fontWeight: '600' }}>Thêm vào giỏ</Text>
+                    </TouchableOpacity>
+                  </View>
+                </>
+              )}
+            </View>
+          </View>
+        </Modal>
       </LinearGradient>
     </View>
   );

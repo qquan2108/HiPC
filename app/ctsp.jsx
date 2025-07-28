@@ -6,6 +6,7 @@ import { ActivityIndicator, FlatList, Image, Modal, SafeAreaView, StyleSheet, Te
 
 import Toast from 'react-native-toast-message';
 import axiosInstance from '../utils/AxiosInstance';
+import SkeletonCTSP from "./SkeletonCTSP";
 
 import BuyWithList from '../compomentCTSP/BuyWithList';
 import OptionGroup from '../compomentCTSP/OptionGroup';
@@ -90,11 +91,10 @@ const fetchAllProducts = async () => {
       name: p.name,
       price: p.price,
       image: p.image
-        ? { uri: `${base}${p.image}` }
+        ? { uri: p.image.startsWith('http') ? p.image : `${base}${p.image}` }
         : require('../assets/images/pc1.png'),
       sold: p.sold || 0,
     }));
-    console.log('allProducts ›', list);
     return list;
   } catch {
     return [];
@@ -278,12 +278,8 @@ export default function CTSP() {
   };
 
   if (loading) {
-    return (
-      <View style={styles.loader}>
-        <ActivityIndicator size="large" color="#2979ff" />
-      </View>
-    );
-  }
+  return <SkeletonCTSP />;
+}
   if (error) {
     return (
       <View style={styles.errorContainer}>

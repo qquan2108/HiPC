@@ -26,6 +26,7 @@ import NewProducts from "../compomentHome/NewProducts";
 import PromoPopup from "../compomentHome/PromoPopup";
 import axiosInstance from "../utils/AxiosInstance";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
+import SkeletonHome from "./SkeletonHome";
 
 const { width } = Dimensions.get("window");
 const base = axiosInstance.defaults.baseURL;
@@ -43,6 +44,7 @@ export default function HomeScreen() {
   const [flashSaleProducts, setFlashSaleProducts] = useState([]);
   const [avatarUri, setAvatarUri] = useState(null);
   const [userName, setUserName] = useState("User"); // 🟢 Thêm state
+  const [loading, setLoading] = useState(true);
 
   // Badge renderers
   const renderDiscountBadge = (discount) => (
@@ -159,6 +161,7 @@ export default function HomeScreen() {
       .catch(() => setCategories([]));
   }, []);
   useEffect(() => {
+    setLoading(true);
     axiosInstance
       .get('/product')
       .then(({ data }) => {
@@ -192,14 +195,14 @@ export default function HomeScreen() {
 
         setProducts(mapped);
         setBestSellers(mapped.filter(p => p.isBestSeller));
-        // Lọc flash sale: chỉ những sản phẩm có discount > 0
         setFlashSaleProducts(mapped.filter(p => p.discount > 0));
       })
       .catch(() => {
         setProducts([]);
         setBestSellers([]);
         setFlashSaleProducts([]);
-      });
+      })
+      .finally(() => setLoading(false));
   }, []);
 
 
@@ -297,182 +300,180 @@ export default function HomeScreen() {
       style={{ flex: 1, justifyContent: "flex-start" }}
       imageStyle={{ opacity: 0.92 }}
     >
-      <PromoPopup
-        visible={showPromoPopup}
-        fadeAnim={fadeAnim}
-        onClose={handleClosePopup}
-      />
+      {loading ? (
+        <SkeletonHome />
+      ) : (
+        <View style={styles.container}>
+          <ScrollView showsVerticalScrollIndicator={false}>
+            {/* Header */}
+            <Header
+              router={router}
+              notificationCount={3}
+              avatarUri={avatarUri}
+              userName={userName} // 🟢 Truyền vào đây
+            />
 
-      <View style={styles.container}>
-        <ScrollView showsVerticalScrollIndicator={false}>
-          {/* Header */}
-          <Header
-            router={router}
-            notificationCount={3}
-            avatarUri={avatarUri}
-            userName={userName} // 🟢 Truyền vào đây
-          />
+            <View
+              style={{ paddingHorizontal: 18, marginTop: 14, marginBottom: 14 }}
+            >
+              <LinearGradient
+                colors={["#2979ff", "#00c6ff"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={{
+                  borderRadius: 18,
+                  padding: 18,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  elevation: 4,
+                  shadowColor: "#2979ff",
+                  shadowOpacity: 0.18,
+                  shadowRadius: 10,
+                  shadowOffset: { width: 0, height: 4 },
+                }}
+              >
+                <Ionicons
+                  name="rocket-outline"
+                  size={40}
+                  color="#fff"
+                  style={{ marginRight: 18 }}
+                />
+                <View style={{ flex: 1 }}>
+                  <Text
+                    style={{
+                      color: "#fff",
+                      fontSize: 22,
+                      fontWeight: "bold",
+                      letterSpacing: 0.5,
+                      marginBottom: 4,
+                      textShadowColor: "rgba(0,0,0,0.18)",
+                      textShadowOffset: { width: 0, height: 2 },
+                      textShadowRadius: 6,
+                    }}
+                  >
+                    HIPC chào bạn!
+                  </Text>
+                  <Text
+                    style={{
+                      color: "#eaf3ff",
+                      fontSize: 15,
+                      fontWeight: "500",
+                      lineHeight: 22,
+                      textShadowColor: "rgba(0,0,0,0.10)",
+                      textShadowOffset: { width: 0, height: 1 },
+                      textShadowRadius: 3,
+                    }}
+                  >
+                    Đừng bỏ lỡ các ưu đãi hấp dẫn hôm nay nhé.
+                  </Text>
+                </View>
+              </LinearGradient>
+            </View>
 
-          <View
-            style={{ paddingHorizontal: 18, marginTop: 14, marginBottom: 14 }}
-          >
-            <LinearGradient
-              colors={["#2979ff", "#00c6ff"]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
+            {/* Banner đầu */}
+            <Banner
+              onPress={() => router.push("./DanhMucPC")}
+              source={require("../assets/images/pcbanner.jpg")}
+              title="Khuyến mãi PC cực sốc"
+              subtitle="Giảm giá lên đến 30% cho các dòng PC mới nhất!"
+              badge="HOT"
+              overlayType="gradient"
+            />
+
+            {/* Danh mục */}
+            <View
               style={{
+                marginHorizontal: 16,
+                marginTop: 10,
+                marginBottom: 18,
                 borderRadius: 18,
-                padding: 18,
-                flexDirection: "row",
-                alignItems: "center",
-                elevation: 4,
-                shadowColor: "#2979ff",
-                shadowOpacity: 0.18,
-                shadowRadius: 10,
-                shadowOffset: { width: 0, height: 4 },
+                borderWidth: 1.5,
+                borderColor: "#e0e7ef",
+                backgroundColor: "#fafdff",
+                paddingVertical: 12,
+                paddingHorizontal: 6,
+                shadowColor: "#000",
+                shadowOpacity: 0.04,
+                shadowRadius: 6,
+                shadowOffset: { width: 0, height: 2 },
+                elevation: 2,
               }}
             >
-              <Ionicons
-                name="rocket-outline"
-                size={40}
-                color="#fff"
-                style={{ marginRight: 18 }}
-              />
-              <View style={{ flex: 1 }}>
-                <Text
-                  style={{
-                    color: "#fff",
-                    fontSize: 22,
-                    fontWeight: "bold",
-                    letterSpacing: 0.5,
-                    marginBottom: 4,
-                    textShadowColor: "rgba(0,0,0,0.18)",
-                    textShadowOffset: { width: 0, height: 2 },
-                    textShadowRadius: 6,
-                  }}
-                >
-                  HIPC chào bạn!
-                </Text>
-                <Text
-                  style={{
-                    color: "#eaf3ff",
-                    fontSize: 15,
-                    fontWeight: "500",
-                    lineHeight: 22,
-                    textShadowColor: "rgba(0,0,0,0.10)",
-                    textShadowOffset: { width: 0, height: 1 },
-                    textShadowRadius: 3,
-                  }}
-                >
-                  Đừng bỏ lỡ các ưu đãi hấp dẫn hôm nay nhé.
-                </Text>
-              </View>
-            </LinearGradient>
-          </View>
+              <CategoryList categories={categories} router={router} />
+            </View>
 
-          {/* Banner đầu */}
-          <Banner
-            onPress={() => router.push("./DanhMucPC")}
-            source={require("../assets/images/pcbanner.jpg")}
-            title="Khuyến mãi PC cực sốc"
-            subtitle="Giảm giá lên đến 30% cho các dòng PC mới nhất!"
-            badge="HOT"
-            overlayType="gradient"
-          />
+            {/* Khung giờ vàng */}
+            <FlashSale
+              flashSale={products}
+              renderDiscountBadge={renderDiscountBadge}
+              renderHotBadge={renderHotBadge}
+              isLoggedIn={isLoggedIn}
+              onRequireLogin={requireLogin}
+              router={router}
+            />
+            <BestSellerList
+              bestSellers={bestSellers}
+              renderDiscountBadge={renderDiscountBadge}
+              renderHotBadge={renderHotBadge}
+              renderBestSellerBadge={renderBestSellerBadge}
+              isLoggedIn={isLoggedIn}
+              onRequireLogin={requireLogin}
+              router={router}
+            />
+            {/* Banner giữa */}
+            <Banner source={require("../assets/images/ctgr2.jpg")} />
 
-          {/* Danh mục */}
-          <View
-            style={{
-              marginHorizontal: 16,
-              marginTop: 10,
-              marginBottom: 18,
-              borderRadius: 18,
-              borderWidth: 1.5,
-              borderColor: "#e0e7ef",
-              backgroundColor: "#fafdff",
-              paddingVertical: 12,
-              paddingHorizontal: 6,
-              shadowColor: "#000",
-              shadowOpacity: 0.04,
-              shadowRadius: 6,
-              shadowOffset: { width: 0, height: 2 },
-              elevation: 2,
-            }}
+            {/* Sản phẩm mới */}
+            <NewProducts
+              products={products}
+              renderNewBadge={renderNewBadge}
+              renderHotBadge={renderHotBadge}
+              renderDiscountBadge={renderDiscountBadge}
+              isLoggedIn={isLoggedIn}
+              onRequireLogin={requireLogin}
+              router={router}
+            />
+
+            {/* Dành riêng cho bạn */}
+            <ForYouGrid
+              products={products}
+              renderNewBadge={renderNewBadge}
+              renderDiscountBadge={renderDiscountBadge}
+              isLoggedIn={isLoggedIn}
+              onRequireLogin={requireLogin}
+              router={router}
+            />
+
+            <View style={{ height: 20 }} />
+          </ScrollView>
+
+          {/* AI Chat Floating Icon */}
+          <Animated.View
+            style={[styles.aiChatIcon, { transform: [{ scale: aiChatScale }] }]}
           >
-            <CategoryList categories={categories} router={router} />
-          </View>
+            <TouchableOpacity
+              onPress={() => {
+                if (!isLoggedIn) requireLogin();
+                else setShowAIChat(true);
+              }}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="chatbubbles" size={54} color="#4a90e2" />
+            </TouchableOpacity>
+          </Animated.View>
 
-          {/* Khung giờ vàng */}
-          <FlashSale
-            flashSale={products}
-            renderDiscountBadge={renderDiscountBadge}
-            renderHotBadge={renderHotBadge}
-            isLoggedIn={isLoggedIn}
-            onRequireLogin={requireLogin}
-            router={router}
-          />
-          <BestSellerList
-            bestSellers={bestSellers}
-            renderDiscountBadge={renderDiscountBadge}
-            renderHotBadge={renderHotBadge}
-            renderBestSellerBadge={renderBestSellerBadge}
-            isLoggedIn={isLoggedIn}
-            onRequireLogin={requireLogin}
-            router={router}
-          />
-          {/* Banner giữa */}
-          <Banner source={require("../assets/images/ctgr2.jpg")} />
+          {/* AI Chat Box */}
+          {showAIChat && isLoggedIn && (
+            <AIChatBox
+              onClose={() => setShowAIChat(false)}
+              onStartChat={() => router.push("./chatboxai")}
+            />
+          )}
 
-          {/* Sản phẩm mới */}
-          <NewProducts
-            products={products}
-            renderNewBadge={renderNewBadge}
-            renderHotBadge={renderHotBadge}
-            renderDiscountBadge={renderDiscountBadge}
-            isLoggedIn={isLoggedIn}
-            onRequireLogin={requireLogin}
-            router={router}
-          />
-
-          {/* Dành riêng cho bạn */}
-          <ForYouGrid
-            products={products}
-            renderNewBadge={renderNewBadge}
-            renderDiscountBadge={renderDiscountBadge}
-            isLoggedIn={isLoggedIn}
-            onRequireLogin={requireLogin}
-            router={router}
-          />
-
-          <View style={{ height: 20 }} />
-        </ScrollView>
-
-        {/* AI Chat Floating Icon */}
-        <Animated.View
-          style={[styles.aiChatIcon, { transform: [{ scale: aiChatScale }] }]}
-        >
-          <TouchableOpacity
-            onPress={() => {
-              if (!isLoggedIn) requireLogin();
-              else setShowAIChat(true);
-            }}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="chatbubbles" size={54} color="#4a90e2" />
-          </TouchableOpacity>
-        </Animated.View>
-
-        {/* AI Chat Box */}
-        {showAIChat && isLoggedIn && (
-          <AIChatBox
-            onClose={() => setShowAIChat(false)}
-            onStartChat={() => router.push("./chatboxai")}
-          />
-        )}
-
-        {/* Custom Tab Bar */}
-        <CustomTabBar router={router} />
-      </View>
+          {/* Custom Tab Bar */}
+          <CustomTabBar router={router} />
+        </View>
+      )}
     </ImageBackground>
   );
 }
