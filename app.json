@@ -26,9 +26,7 @@
       },
       "edgeToEdgeEnabled": true,
       "package": "com.roadtogt.HiPC",
-      "googleServicesFile": "./google-services.json",
-      "networkSecurityConfig": "./network_security_config.xml",
-      "usesCleartextTraffic": true
+      "googleServicesFile": "./google-services.json"
     },
     "web": {
       "bundler": "metro",

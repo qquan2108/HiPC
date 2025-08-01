@@ -1,18 +1,17 @@
-import React, { useState } from "react";
 import { AntDesign, Ionicons, MaterialIcons } from "@expo/vector-icons";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useState } from "react";
 import {
   Dimensions,
   Image,
+  Modal,
+  ScrollView,
   StyleSheet,
   Text,
-  TouchableOpacity,
-  View,
-  Modal,
   TextInput,
-  Pressable,
-  ScrollView,
+  TouchableOpacity,
+  View
 } from "react-native";
 import Toast from 'react-native-toast-message';
 import { useWishlist } from "../context/WishlistContext";
@@ -179,7 +178,10 @@ export default function ForYouGrid({
                 <Text style={styles.sectionSubtitle}>Hiệu suất cao - Giá tốt</Text>
               </View>
             </View>
-            <TouchableOpacity style={styles.viewAllButton}>
+            <TouchableOpacity
+              style={styles.viewAllButton}
+              onPress={() => router.push('/danhmucall')}
+            >
               <Text style={styles.viewAllText}>Xem tất cả</Text>
               <Ionicons name="chevron-forward" size={14} color="#fff" />
             </TouchableOpacity>
@@ -322,63 +324,91 @@ export default function ForYouGrid({
         }}>
           <View style={{
             backgroundColor: '#fff',
-            borderRadius: 16,
-            padding: 20,
-            width: '85%',
-            maxWidth: 340,
-            elevation: 10,
+            borderRadius: 20,
+            padding: 22,
+            width: '88%',
+            maxWidth: 370,
+            elevation: 12,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 8 },
+            shadowOpacity: 0.18,
+            shadowRadius: 24,
           }}>
-            <Text style={{ fontWeight: 'bold', fontSize: 16, marginBottom: 10 }}>
+            <Text style={{ fontWeight: 'bold', fontSize: 18, marginBottom: 12, color: '#222', letterSpacing: 0.2 }}>
               Chọn phiên bản & số lượng
             </Text>
             {selectedProduct && (
               <>
-                <Text style={{ fontWeight: '600', marginBottom: 8 }}>{selectedProduct.name}</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
+                <Text style={{ fontWeight: '700', fontSize: 15, marginBottom: 12, color: '#444' }}>
+                  {selectedProduct.name}
+                </Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 18 }}>
                   {selectedProduct.variants[0]?.options?.map((option, idx) => (
-                    <Pressable
+                    <TouchableOpacity
                       key={idx}
                       onPress={() => setSelectedOption(option)}
                       style={{
-                        paddingHorizontal: 14,
-                        paddingVertical: 8,
-                        borderRadius: 10,
+                        paddingHorizontal: 18,
+                        paddingVertical: 10,
+                        borderRadius: 14,
                         backgroundColor: selectedOption === option ? '#667eea' : '#f3f4f6',
-                        marginRight: 8,
+                        marginRight: 10,
                         borderWidth: selectedOption === option ? 2 : 1,
                         borderColor: selectedOption === option ? '#667eea' : '#e0e7ef',
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        minWidth: 64,
+                        position: 'relative',
                       }}
+                      activeOpacity={0.85}
                     >
                       <Text style={{
                         color: selectedOption === option ? '#fff' : '#333',
-                        fontWeight: selectedOption === option ? 'bold' : '500'
+                        fontWeight: selectedOption === option ? 'bold' : '500',
+                        fontSize: 15,
                       }}>
                         {option.label || option}
                       </Text>
                       {option.priceDiff ? (
-                        <Text style={{ color: selectedOption === option ? '#fff' : '#888', fontSize: 11 }}>
+                        <Text style={{
+                          color: selectedOption === option ? '#fff' : '#888',
+                          fontSize: 12,
+                          marginLeft: 6,
+                          fontWeight: '600'
+                        }}>
                           +{option.priceDiff.toLocaleString('vi-VN')}₫
                         </Text>
                       ) : null}
-                    </Pressable>
+                      {selectedOption === option && (
+                        <Ionicons
+                          name="checkmark-circle"
+                          size={18}
+                          color="#fff"
+                          style={{ marginLeft: 6, position: 'absolute', top: -10, right: -10, backgroundColor: '#667eea', borderRadius: 9 }}
+                        />
+                      )}
+                    </TouchableOpacity>
                   ))}
                 </ScrollView>
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
-                  <Text style={{ fontWeight: '500', marginRight: 10 }}>Số lượng:</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 20 }}>
+                  <Text style={{ fontWeight: '600', marginRight: 14, fontSize: 15, color: '#333' }}>Số lượng:</Text>
                   <TouchableOpacity
                     onPress={() => setQuantity(q => Math.max(1, q - 1))}
+                    disabled={quantity <= 1}
                     style={{
-                      width: 32, height: 32, borderRadius: 16,
-                      backgroundColor: '#f3f4f6', alignItems: 'center', justifyContent: 'center'
+                      width: 36, height: 36, borderRadius: 18,
+                      backgroundColor: quantity <= 1 ? '#e5e7eb' : '#f3f4f6',
+                      alignItems: 'center', justifyContent: 'center',
+                      borderWidth: 1, borderColor: '#e0e7ef'
                     }}
                   >
-                    <Ionicons name="remove" size={18} color="#667eea" />
+                    <Ionicons name="remove" size={20} color={quantity <= 1 ? "#bbb" : "#667eea"} />
                   </TouchableOpacity>
                   <TextInput
                     style={{
-                      width: 40, height: 32, borderRadius: 8,
+                      width: 48, height: 36, borderRadius: 8,
                       borderWidth: 1, borderColor: '#e0e7ef',
-                      marginHorizontal: 8, textAlign: 'center', fontWeight: 'bold'
+                      marginHorizontal: 10, textAlign: 'center', fontWeight: 'bold', fontSize: 16
                     }}
                     keyboardType="numeric"
                     value={quantity.toString()}
@@ -390,31 +420,32 @@ export default function ForYouGrid({
                   <TouchableOpacity
                     onPress={() => setQuantity(q => q + 1)}
                     style={{
-                      width: 32, height: 32, borderRadius: 16,
-                      backgroundColor: '#f3f4f6', alignItems: 'center', justifyContent: 'center'
+                      width: 36, height: 36, borderRadius: 18,
+                      backgroundColor: '#f3f4f6', alignItems: 'center', justifyContent: 'center',
+                      borderWidth: 1, borderColor: '#e0e7ef'
                     }}
                   >
-                    <Ionicons name="add" size={18} color="#667eea" />
+                    <Ionicons name="add" size={20} color="#667eea" />
                   </TouchableOpacity>
                 </View>
-                <View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 8 }}>
                   <TouchableOpacity
                     onPress={() => setShowOptionDialog(false)}
                     style={{
-                      paddingVertical: 8, paddingHorizontal: 18,
-                      borderRadius: 8, backgroundColor: '#e0e7ef', marginRight: 8
+                      paddingVertical: 10, paddingHorizontal: 22,
+                      borderRadius: 10, backgroundColor: '#e0e7ef', marginRight: 10
                     }}
                   >
-                    <Text style={{ color: '#333', fontWeight: '600' }}>Huỷ</Text>
+                    <Text style={{ color: '#333', fontWeight: '700', fontSize: 15 }}>Huỷ</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     onPress={handleConfirmOption}
                     style={{
-                      paddingVertical: 8, paddingHorizontal: 18,
-                      borderRadius: 8, backgroundColor: '#667eea'
+                      paddingVertical: 10, paddingHorizontal: 22,
+                      borderRadius: 10, backgroundColor: '#667eea'
                     }}
                   >
-                    <Text style={{ color: '#fff', fontWeight: '600' }}>Thêm vào giỏ</Text>
+                    <Text style={{ color: '#fff', fontWeight: '700', fontSize: 15 }}>Thêm vào giỏ</Text>
                   </TouchableOpacity>
                 </View>
               </>

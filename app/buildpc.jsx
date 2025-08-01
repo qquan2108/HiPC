@@ -156,23 +156,23 @@ export default function UngDungLapPC() {
   }, []);
 
   const formatProduct = (p) => ({
-  id: p._id,
-  name: p.name,
-  price: p.price,
-  brand_id: p.brand_id,
-  category_id: p.category_id,
-  image: p.image
-    ? { uri: resolveImageUri(p.image) }
-    : require('../assets/images/pc.png'),
-  specs: Array.isArray(p.tskt)
-    ? p.tskt
-    : Array.isArray(p.specifications)
-      ? p.specifications.map((s) => ({ label: s.key || '', value: s.value || '' }))
-      : [],
-  rating: p.rating || 4.5,
-  reviews: p.reviews || Math.floor(Math.random() * 500) + 50,
-  variants: p.variants || [] // <-- THÊM DÒNG NÀY
-});
+    id: p._id,
+    name: p.name,
+    price: p.price,
+    brand_id: p.brand_id,
+    category_id: p.category_id,
+    image: p.image
+      ? { uri: resolveImageUri(p.image) }
+      : require('../assets/images/pc.png'),
+    specs: Array.isArray(p.tskt)
+      ? p.tskt
+      : Array.isArray(p.specifications)
+        ? p.specifications.map((s) => ({ label: s.key || '', value: s.value || '' }))
+        : [],
+    rating: p.rating || 4.5,
+    reviews: p.reviews || Math.floor(Math.random() * 500) + 50,
+    variants: p.variants || [] // <-- THÊM DÒNG NÀY
+  });
 
   // Tính tổng giá bao gồm cả linh kiện đã chọn
   const calculateTotalPrice = () => {
@@ -256,50 +256,50 @@ export default function UngDungLapPC() {
     setShowProductModal(true);
   };
 
- const selectProduct = (product) => {
-  // Nếu có variant thì show dialog, KHÔNG cho thêm vào selectedComponents ngay
-  if (product.variants && product.variants.length > 0 && product.variants[0].options?.length > 0) {
-    setVariantProduct(product);
-    setSelectedVariant(null);
-    setShowProductModal(false);      // <-- ĐÓNG MODAL SẢN PHẨM NGAY KHI CHỌN SẢN PHẨM CÓ VARIANT
-    setShowVariantDialog(true);
-    return;
-  }
-  // Nếu không có variant thì thêm luôn
-  setSelectedComponents(prev => ({
-    ...prev,
-    [currentCategoryForSelection._id]: { ...product }
-  }));
-  setShowProductModal(false);
-
-  setTimeout(() => {
-    const issues = checkCompatibility();
-    if (issues.length > 0) setShowCompatibilityAlert(true);
-  }, 500);
-};
- const handleConfirmVariant = () => {
-  if (!selectedVariant) {
-    Alert.alert('Vui lòng chọn phiên bản/biến thể!');
-    return;
-  }
-  setSelectedComponents(prev => ({
-    ...prev,
-    [currentCategoryForSelection._id]: {
-      ...variantProduct,
-      variant: {
-        key: variantProduct.variants[0]?.key || 'Phiên bản',
-        label: selectedVariant.label,
-        priceDiff: selectedVariant.priceDiff || 0
-      }
+  const selectProduct = (product) => {
+    // Nếu có variant thì show dialog, KHÔNG cho thêm vào selectedComponents ngay
+    if (product.variants && product.variants.length > 0 && product.variants[0].options?.length > 0) {
+      setVariantProduct(product);
+      setSelectedVariant(null);
+      setShowProductModal(false);      // <-- ĐÓNG MODAL SẢN PHẨM NGAY KHI CHỌN SẢN PHẨM CÓ VARIANT
+      setShowVariantDialog(true);
+      return;
     }
-  }));
-  setShowVariantDialog(false); // Đóng dialog variant
-  // KHÔNG gọi lại setShowProductModal(true) hoặc openProductSelection ở đây!
-  setTimeout(() => {
-    const issues = checkCompatibility();
-    if (issues.length > 0) setShowCompatibilityAlert(true);
-  }, 500);
-};
+    // Nếu không có variant thì thêm luôn
+    setSelectedComponents(prev => ({
+      ...prev,
+      [currentCategoryForSelection._id]: { ...product }
+    }));
+    setShowProductModal(false);
+
+    setTimeout(() => {
+      const issues = checkCompatibility();
+      if (issues.length > 0) setShowCompatibilityAlert(true);
+    }, 500);
+  };
+  const handleConfirmVariant = () => {
+    if (!selectedVariant) {
+      Alert.alert('Vui lòng chọn phiên bản/biến thể!');
+      return;
+    }
+    setSelectedComponents(prev => ({
+      ...prev,
+      [currentCategoryForSelection._id]: {
+        ...variantProduct,
+        variant: {
+          key: variantProduct.variants[0]?.key || 'Phiên bản',
+          label: selectedVariant.label,
+          priceDiff: selectedVariant.priceDiff || 0
+        }
+      }
+    }));
+    setShowVariantDialog(false); // Đóng dialog variant
+    // KHÔNG gọi lại setShowProductModal(true) hoặc openProductSelection ở đây!
+    setTimeout(() => {
+      const issues = checkCompatibility();
+      if (issues.length > 0) setShowCompatibilityAlert(true);
+    }, 500);
+  };
 
   const removeSelectedProduct = (categoryId) => {
     setSelectedComponents(prev => {
@@ -673,8 +673,8 @@ export default function UngDungLapPC() {
   };
 
   if (loading) {
-  return <SkeletonBuildPC />;
-}
+    return <SkeletonBuildPC />;
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -915,65 +915,90 @@ export default function UngDungLapPC() {
         }}>
           <View style={{
             backgroundColor: '#fff',
-            borderRadius: 16,
-            padding: 20,
-            width: '85%',
-            maxWidth: 340,
-            elevation: 10,
+            borderRadius: 20,
+            padding: 22,
+            width: '88%',
+            maxWidth: 370,
+            elevation: 12,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 8 },
+            shadowOpacity: 0.18,
+            shadowRadius: 24,
           }}>
-            <Text style={{ fontWeight: 'bold', fontSize: 16, marginBottom: 10 }}>
+            <Text style={{ fontWeight: 'bold', fontSize: 18, marginBottom: 12, color: '#222', letterSpacing: 0.2 }}>
               Chọn phiên bản/biến thể
             </Text>
             {variantProduct && (
               <>
-                <Text style={{ fontWeight: '600', marginBottom: 8 }}>{variantProduct.name}</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
+                <Text style={{ fontWeight: '700', fontSize: 15, marginBottom: 12, color: '#444' }}>
+                  {variantProduct.name}
+                </Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 18 }}>
                   {variantProduct.variants[0]?.options?.map((option, idx) => (
                     <TouchableOpacity
                       key={idx}
                       onPress={() => setSelectedVariant(option)}
                       style={{
-                        paddingHorizontal: 14,
-                        paddingVertical: 8,
-                        borderRadius: 10,
+                        paddingHorizontal: 18,
+                        paddingVertical: 10,
+                        borderRadius: 14,
                         backgroundColor: selectedVariant === option ? '#667eea' : '#f3f4f6',
-                        marginRight: 8,
+                        marginRight: 10,
                         borderWidth: selectedVariant === option ? 2 : 1,
                         borderColor: selectedVariant === option ? '#667eea' : '#e0e7ef',
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        minWidth: 64,
+                        position: 'relative',
                       }}
+                      activeOpacity={0.85}
                     >
                       <Text style={{
                         color: selectedVariant === option ? '#fff' : '#333',
-                        fontWeight: selectedVariant === option ? 'bold' : '500'
+                        fontWeight: selectedVariant === option ? 'bold' : '500',
+                        fontSize: 15,
                       }}>
                         {option.label || option.key}
                       </Text>
                       {option.priceDiff ? (
-                        <Text style={{ color: selectedVariant === option ? '#fff' : '#888', fontSize: 11 }}>
+                        <Text style={{
+                          color: selectedVariant === option ? '#fff' : '#888',
+                          fontSize: 12,
+                          marginLeft: 6,
+                          fontWeight: '600'
+                        }}>
                           +{option.priceDiff.toLocaleString('vi-VN')}₫
                         </Text>
                       ) : null}
+                      {selectedVariant === option && (
+                        <Ionicons
+                          name="checkmark-circle"
+                          size={18}
+                          color="#fff"
+                          style={{ marginLeft: 6, position: 'absolute', top: -10, right: -10, backgroundColor: '#667eea', borderRadius: 9 }}
+                        />
+                      )}
                     </TouchableOpacity>
                   ))}
                 </ScrollView>
-                <View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 8 }}>
                   <TouchableOpacity
                     onPress={() => setShowVariantDialog(false)}
                     style={{
-                      paddingVertical: 8, paddingHorizontal: 18,
-                      borderRadius: 8, backgroundColor: '#e0e7ef', marginRight: 8
+                      paddingVertical: 10, paddingHorizontal: 22,
+                      borderRadius: 10, backgroundColor: '#e0e7ef', marginRight: 10
                     }}
                   >
-                    <Text style={{ color: '#333', fontWeight: '600' }}>Huỷ</Text>
+                    <Text style={{ color: '#333', fontWeight: '700', fontSize: 15 }}>Huỷ</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     onPress={handleConfirmVariant}
                     style={{
-                      paddingVertical: 8, paddingHorizontal: 18,
-                      borderRadius: 8, backgroundColor: '#667eea'
+                      paddingVertical: 10, paddingHorizontal: 22,
+                      borderRadius: 10, backgroundColor: '#667eea'
                     }}
                   >
-                    <Text style={{ color: '#fff', fontWeight: '600' }}>Chọn</Text>
+                    <Text style={{ color: '#fff', fontWeight: '700', fontSize: 15 }}>Chọn</Text>
                   </TouchableOpacity>
                 </View>
               </>

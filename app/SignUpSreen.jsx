@@ -1,27 +1,27 @@
-import React, { useState } from "react";
+import { FontAwesome, Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
+import { useState } from "react";
 import {
   Alert,
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  ScrollView,
+  Dimensions,
   KeyboardAvoidingView,
   Platform,
-  Dimensions,
+  ScrollView,
   StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
-import { FontAwesome, Ionicons } from "@expo/vector-icons";
+import Toast from 'react-native-toast-message';
 import axiosInstance from "../utils/AxiosInstance";
-import { LinearGradient } from "expo-linear-gradient";
 
 // Components
-import AuthTitle from "../compomentSignup/AuthTitle";
 import InputField from "../compomentSignup/InputField";
 import PasswordInput from "../compomentSignup/PasswordInput";
-import SocialLogin from "../compomentSignup/SocialLogin";
 import RedirectText from "../compomentSignup/RedirectText";
+import SocialLogin from "../compomentSignup/SocialLogin";
 
 const { width } = Dimensions.get("window");
 
@@ -38,11 +38,19 @@ const SignUpScreen = () => {
   const [isLoading, setIsLoading] = useState(false);
 
   const handleRegister = async () => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!fullName || !email || !pass || !confirmPass || !phone || !address) {
       Alert.alert("Lỗi", "Vui lòng nhập đầy đủ thông tin.");
       return;
     }
-
+    if (!emailRegex.test(email)) {
+      Alert.alert("Lỗi", "Email không hợp lệ.");
+      return;
+    }
+    if (pass.length < 6) {
+      Alert.alert("Lỗi", "Mật khẩu phải từ 6 ký tự trở lên.");
+      return;
+    }
     if (pass !== confirmPass) {
       Alert.alert("Lỗi", "Mật khẩu không khớp.");
       return;
@@ -58,14 +66,27 @@ const SignUpScreen = () => {
         address,
       });
 
-      Alert.alert("Thành công", res.data.message || "Đăng ký thành công");
-      router.push("/LoginScreen");
+      Toast.show({
+        type: 'success',
+        text1: 'Đăng ký thành công!',
+        text2: res.data.message || 'Chào mừng bạn đến với HIPC 🎉',
+        visibilityTime: 2000,
+        position: 'top',
+        autoHide: true,
+      });
+      setTimeout(() => {
+        router.push("/LoginScreen");
+      }, 1500);
     } catch (err) {
       console.error(err);
-      Alert.alert(
-        "Đăng ký thất bại",
-        err.response?.data?.message || "Có lỗi xảy ra."
-      );
+      Toast.show({
+        type: 'error',
+        text1: 'Đăng ký thất bại',
+        text2: err.response?.data?.message || "Có lỗi xảy ra.",
+        visibilityTime: 3000,
+        position: 'top',
+        autoHide: true,
+      });
     } finally {
       setIsLoading(false);
     }
