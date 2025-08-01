@@ -5,7 +5,10 @@ import { Platform } from 'react-native';
 
 const baseURL =
   Platform.OS === 'ios' || Platform.OS === 'android'
-    ? 'https://api.hipc.site' // IP LAN cho thiết bị thật
+
+
+    ? 'http://172.20.10.4:3000' // IP LAN cho thiết bị thật
+
     : 'http://localhost:3000';      // Cho web hoặc máy tính
 
 // Tạo instance
