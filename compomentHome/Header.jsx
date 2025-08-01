@@ -225,15 +225,6 @@ export default function Header({
                 <Text style={styles.searchPlaceholder}>
                   {SUGGESTIONS[placeholderIdx]}
                 </Text>
-                
-                <View style={styles.searchActions}>
-                  <TouchableOpacity style={styles.voiceButton} activeOpacity={0.7}>
-                    <Feather name="mic" size={16} color="#667eea" />
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.cameraButton} activeOpacity={0.7}>
-                    <Feather name="camera" size={16} color="#667eea" />
-                  </TouchableOpacity>
-                </View>
               </LinearGradient>
             </Animated.View>
           </TouchableOpacity>
