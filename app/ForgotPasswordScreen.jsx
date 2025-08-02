@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -13,23 +13,76 @@ import {
 import { FontAwesome, Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
+import { FirebaseRecaptchaVerifierModal } from 'expo-firebase-recaptcha';
+import {
+  sendPasswordResetEmail,
+  PhoneAuthProvider,
+  signInWithCredential,
+} from 'firebase/auth';
+import { auth, firebaseConfig } from '../utils/firebase';
 
 const ForgotPasswordScreen = () => {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [otp, setOtp] = useState('');
+  const [verificationId, setVerificationId] = useState(null);
+  const [isSendingOtp, setIsSendingOtp] = useState(false);
+  const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
+  const recaptchaVerifier = useRef(null);
 
-  const handleSendRecoveryCode = () => {
+  const handleSendRecoveryCode = async () => {
     if (!email) return;
     setIsLoading(true);
-    setTimeout(() => {
-      console.log('Email khôi phục:', email);
+    try {
+      await sendPasswordResetEmail(auth, email);
+      alert('Đã gửi link đặt lại mật khẩu đến email của bạn!');
+    } catch (err) {
+      alert('Lỗi: ' + err.message);
+    } finally {
       setIsLoading(false);
-    }, 1500);
+    }
+  };
+
+  const handleSendOtp = async () => {
+    if (!phoneNumber) return;
+    setIsSendingOtp(true);
+    try {
+      const phoneProvider = new PhoneAuthProvider(auth);
+      const verificationId = await phoneProvider.verifyPhoneNumber(
+        phoneNumber,
+        recaptchaVerifier.current
+      );
+      setVerificationId(verificationId);
+      alert('OTP đã được gửi!');
+    } catch (err) {
+      alert('Lỗi: ' + err.message);
+    } finally {
+      setIsSendingOtp(false);
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    if (!verificationId || !otp) return;
+    setIsVerifyingOtp(true);
+    try {
+      const credential = PhoneAuthProvider.credential(verificationId, otp);
+      await signInWithCredential(auth, credential);
+      alert('Xác thực OTP thành công! Bạn có thể đặt lại mật khẩu.');
+    } catch (err) {
+      alert('Mã OTP không chính xác hoặc đã hết hạn! ' + err.message);
+    } finally {
+      setIsVerifyingOtp(false);
+    }
   };
 
   return (
     <>
+      <FirebaseRecaptchaVerifierModal
+        ref={recaptchaVerifier}
+        firebaseConfig={firebaseConfig}
+      />
       <StatusBar barStyle="light-content" backgroundColor="#667eea" />
       <KeyboardAvoidingView
         style={{ flex: 1 }}
@@ -89,6 +142,66 @@ const ForgotPasswordScreen = () => {
                   </Text>
                 </LinearGradient>
               </TouchableOpacity>
+
+              <Text style={styles.sectionTitle}>Hoặc dùng số điện thoại</Text>
+
+              <View style={styles.inputContainer}>
+                <FontAwesome name="phone" size={20} color="#aaa" style={styles.icon} />
+                <TextInput
+                  placeholder="Nhập số điện thoại"
+                  placeholderTextColor="#999"
+                  style={styles.input}
+                  value={phoneNumber}
+                  onChangeText={setPhoneNumber}
+                  keyboardType="phone-pad"
+                />
+              </View>
+
+              <TouchableOpacity
+                style={[styles.button, isSendingOtp && { opacity: 0.6 }]}
+                onPress={handleSendOtp}
+                disabled={isSendingOtp}
+              >
+                <LinearGradient
+                  colors={['#667eea', '#764ba2']}
+                  style={styles.buttonGradient}
+                >
+                  <Text style={styles.buttonText}>
+                    {isSendingOtp ? 'Đang gửi...' : 'Gửi OTP'}
+                  </Text>
+                </LinearGradient>
+              </TouchableOpacity>
+
+              {verificationId && (
+                <>
+                  <View style={styles.inputContainer}>
+                    <FontAwesome name="key" size={20} color="#aaa" style={styles.icon} />
+                    <TextInput
+                      placeholder="Nhập mã OTP"
+                      placeholderTextColor="#999"
+                      style={styles.input}
+                      value={otp}
+                      onChangeText={setOtp}
+                      keyboardType="number-pad"
+                    />
+                  </View>
+
+                  <TouchableOpacity
+                    style={[styles.button, isVerifyingOtp && { opacity: 0.6 }]}
+                    onPress={handleVerifyOtp}
+                    disabled={isVerifyingOtp}
+                  >
+                    <LinearGradient
+                      colors={['#667eea', '#764ba2']}
+                      style={styles.buttonGradient}
+                    >
+                      <Text style={styles.buttonText}>
+                        {isVerifyingOtp ? 'Đang xác thực...' : 'Xác thực OTP'}
+                      </Text>
+                    </LinearGradient>
+                  </TouchableOpacity>
+                </>
+              )}
 
               <TouchableOpacity onPress={() => router.push('/LoginScreen')}>
                 <Text style={styles.backToLogin}>← Quay về đăng nhập</Text>
@@ -198,6 +311,13 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
     textDecorationLine: 'underline',
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1F2937',
+    marginBottom: 12,
+    textAlign: 'center',
   },
 });
 
