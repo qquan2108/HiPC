@@ -6,6 +6,7 @@ import { ActivityIndicator, FlatList, Image, Modal, SafeAreaView, StyleSheet, Te
 
 import Toast from 'react-native-toast-message';
 import axiosInstance from '../utils/AxiosInstance';
+import SkeletonCTSP from "./SkeletonCTSP";
 
 import BuyWithList from '../compomentCTSP/BuyWithList';
 import OptionGroup from '../compomentCTSP/OptionGroup';
@@ -15,6 +16,9 @@ import ReviewBox from '../compomentCTSP/ReviewBox';
 import { SectionLiked, SectionPopular } from '../compomentCTSP/SectionBox';
 import SpecsBox from '../compomentCTSP/SpecsBox';
 import ProductDescription from '../compomentCTSP/Description';
+
+// right after importing axiosInstance
+const base = axiosInstance.defaults.baseURL;  // e.g. "http://192.168.0.5:3000"
 
 // Fetch product detail
 const fetchProductById = async (productId) => {
@@ -40,21 +44,41 @@ const fetchProductById = async (productId) => {
     });
   }
 
+
+  // API mới trả mảng nhóm biến thể { key, options: [ {label,priceDiff} ] }
+  let variantOptions = [];
+  if (Array.isArray(product.variants)) {
+    // ví dụ chỉ lấy nhóm đầu tiên (Phiên Bản)
+    const group = product.variants[0];
+    if (group?.options) {
+      variantOptions = group.options;
+    }
+  }
+
+  const resolveImageUri = (url) =>
+    url?.startsWith('http') ? url : `${base}${url}`;
+
   return {
-    id:       product._id,
-    name:     product.name,
-    price:    product.price,
+    id: product._id,
+    name: product.name,
+    price: product.price,
     description: product.description,
     oldPrice: product.price,
-    images: Array.isArray(product.images) && product.images.length
-      ? product.images.map((url) => ({ uri: url }))
-      : [require('../assets/images/pc1.png')],
-    image: product.image ? { uri: product.image } : require('../assets/images/pc1.png'),
+    images:
+      Array.isArray(product.images) && product.images.length
+        ? product.images.map((url) => ({ uri: resolveImageUri(url) }))
+        : [require('../assets/images/pc1.png')],
+    image: product.image
+      ? { uri: resolveImageUri(product.image) }
+      : require('../assets/images/pc1.png'),
     rating: product.rating || 4.5,
-    sold:   product.sold || 0,
+    sold: product.sold || 0,
     origin: product.origin || 'Unknown',
     specs: specsArr,
     buyWith: product.relatedProducts || product.buyWith || [],
+    variants: variantOptions,
+    brand: product.brand_id?.name || 'Unknown',
+    category: product.category?.name || 'Unknown',
   };
 };
 
@@ -63,31 +87,22 @@ const fetchAllProducts = async () => {
   try {
     const { data } = await axiosInstance.get('/product');
     const list = (data.products || []).map(p => ({
-      id:    p._id,
-      name:  p.name,
+      id: p._id,
+      name: p.name,
       price: p.price,
-      image: p.image ? { uri: p.image } : require('../assets/images/pc1.png'),
-      sold:  p.sold || 0,
+      image: p.image
+        ? { uri: p.image.startsWith('http') ? p.image : `${base}${p.image}` }
+        : require('../assets/images/pc1.png'),
+      sold: p.sold || 0,
     }));
-    console.log('allProducts ›', list);
     return list;
   } catch {
     return [];
   }
 };
 
-const cpuOptions = [
-  'i5 12400F + Tản nhiệt khí',
-  'i5 12400F + Tản nước AIO 240',
-  'i5 13400F + Tản nhiệt khí',
-  'i5 13400F + Tản nước AIO 240',
-  'i5 12600KF + Tản nhiệt khí',
-  'i5 12600KF + Tản nước AIO 240',
-  'i5 14500 + Tản nhiệt khí',
-  'i5 14500 + Tản nước AIO 240',
-];
-const ramOptions = ['RAM 16GB', 'RAM 32GB'];
-const ssdOptions = ['SSD 512GB', 'SSD 1TB'];
+// Tạm thời giữ lại các options cố định cho demo
+
 
 function formatCurrency(num) {
   return num.toLocaleString('vi-VN') + 'đ';
@@ -96,18 +111,21 @@ function formatCurrency(num) {
 export default function CTSP() {
   const router = useRouter();
   const { id: productId } = useLocalSearchParams();
-
+  const [variants, setVariants] = useState([]);
+  const [selectedVariant, setSelectedVariant] = useState(null);
   const [compareVisible, setCompareVisible] = useState(false);
-  const [selectedCpu, setSelectedCpu]       = useState(cpuOptions[0]);
-  const [selectedRam, setSelectedRam]       = useState(ramOptions[0]);
-  const [selectedSsd, setSelectedSsd]       = useState(ssdOptions[0]);
+
+  const [basePrice, setBasePrice] = useState(0);
+  const [displayPrice, setDisplayPrice] = useState(0);
+
+  // Thêm state cho variant
   const [compareProducts, setCompareProducts] = useState([]);
   const [addModalVisible, setAddModalVisible] = useState(false);
-  const [searchText, setSearchText]           = useState('');
-  const [product, setProduct]                 = useState(null);
-  const [allProducts, setAllProducts]         = useState([]);
-  const [loading, setLoading]                 = useState(true);
-  const [error, setError]                     = useState(null);
+  const [searchText, setSearchText] = useState('');
+  const [product, setProduct] = useState(null);
+  const [allProducts, setAllProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [showLoginDialog, setShowLoginDialog] = useState(false);
 
   // Load product & all products
@@ -118,15 +136,36 @@ export default function CTSP() {
         if (!productId) throw new Error('Thiếu ID sản phẩm');
         const fetched = await fetchProductById(productId);
         setProduct(fetched);
+        // Lưu biến thể vào state
+        setVariants(fetched.variants || []);
         setCompareProducts([fetched]);
         setAllProducts(await fetchAllProducts());
+
+        // Set default variant nếu có
+        if (fetched.variants && fetched.variants.length > 0) {
+          setSelectedVariant(fetched.variants[0]);
+        }
       } catch (e) {
         setError(e.message);
       } finally {
         setLoading(false);
       }
+
     })();
   }, [productId]);
+
+  useEffect(() => {
+    if (product) {
+      setBasePrice(product.price);
+      setDisplayPrice(product.price);
+    }
+  }, [product]);
+
+  useEffect(() => {
+    if (selectedVariant) {
+      setDisplayPrice(basePrice + (selectedVariant.priceDiff || 0));
+    }
+  }, [selectedVariant, basePrice]);
 
   // Filter for compare modal
   const filteredProducts = allProducts.filter(
@@ -134,7 +173,6 @@ export default function CTSP() {
       p.name.toLowerCase().includes(searchText.toLowerCase()) &&
       !compareProducts.find(item => item.id === p.id)
   );
-  console.log('filteredProducts ›', filteredProducts);
 
   const handleAddCompare = p => {
     console.log('Adding to compare:', p);
@@ -150,59 +188,71 @@ export default function CTSP() {
     setCompareProducts([]);
     setAddModalVisible(false);
   };
-const handleGoCompare = () => {
-  console.log('handleGoCompare - compareProducts:', compareProducts); // Debug
-  if (compareProducts.length < 2) {
-    Toast.show({
-      type: 'error',
-      text1: 'Vui lòng chọn ít nhất 2 sản phẩm để so sánh!',
-      position: 'top',
-    });
-    return;
-  }
-  setCompareVisible(false); // Đóng modal
-  try {
-    router.push({
-      pathname: '/sosanhsanpham',
-      params: { compare: JSON.stringify(compareProducts) },
-    });
-  } catch (err) {
-    console.error('Error in router.push:', err);
-    Toast.show({
-      type: 'error',
-      text1: 'Lỗi khi chuyển hướng đến trang so sánh!',
-      position: 'top',
-    });
-  }
-};
 
-  // Hàm thêm vào giỏ hàng đúng như bạn yêu cầu
-const AddToCart = async prod => {
-  try {
-    const userStr = await AsyncStorage.getItem('user');
-    if (!userStr) {
-      Toast.show({ type: 'error', text1: 'Vui lòng đăng nhập để mua hàng!', position: 'top' });
-      return router.replace('/LoginScreen');
+  const handleGoCompare = () => {
+    console.log('handleGoCompare - compareProducts:', compareProducts);
+    if (compareProducts.length < 2) {
+      Toast.show({
+        type: 'error',
+        text1: 'Vui lòng chọn ít nhất 2 sản phẩm để so sánh!',
+        position: 'top',
+      });
+      return;
     }
-    const userObj = JSON.parse(userStr);
-    const userId = userObj._id || userObj.id;
-    console.log('AddToCart userId:', userId);
+    setCompareVisible(false);
+    try {
+      router.push({
+        pathname: '/sosanhsanpham',
+        params: { compare: JSON.stringify(compareProducts) },
+      });
+    } catch (err) {
+      console.error('Error in router.push:', err);
+      Toast.show({
+        type: 'error',
+        text1: 'Lỗi khi chuyển hướng đến trang so sánh!',
+        position: 'top',
+      });
+    }
+  };
 
-    // Gửi đúng field user_id mà server Mongoose đang require
-    await axiosInstance.post('/orders/add-to-cart', {
-      user_id:   userId,
-      productId: prod.id,
-      quantity:  1
-    });
+  // Hàm thêm vào giỏ hàng với variant đã chọn
+  const AddToCart = async prod => {
+    try {
+      const userStr = await AsyncStorage.getItem('user');
+      if (!userStr) {
+        Toast.show({ type: 'error', text1: 'Vui lòng đăng nhập để mua hàng!', position: 'top' });
+        return router.replace('/LoginScreen');
+      }
+      const userObj = JSON.parse(userStr);
+      const userId = userObj._id || userObj.id;
 
-    Toast.show({ type: 'success', text1: 'Đã thêm vào giỏ hàng!', position: 'bottom' });
-    setTimeout(() => router.push({ pathname: './cart', params: { refresh: 1 } }), 1200);
-  } catch (err) {
-    console.error('add-to-cart error:', err);
-    Toast.show({ type: 'error', text1: 'Thêm giỏ hàng thất bại!', position: 'top' });
-  }
-};
+      // Tạo object chứa thông tin cấu hình đã chọn
+      const selectedConfig = {
+        variant: selectedVariant,
+      };
 
+      console.log('AddToCart với cấu hình:', selectedConfig);
+
+      // Gửi request với thông tin cấu hình
+      await axiosInstance.post('/cartt/add-to-cart', {
+        user_id: userId,
+        productId: prod.id,
+        quantity: 1,
+        variant: selectedVariant, // Thêm thông tin cấu hình
+      });
+
+      Toast.show({
+        type: 'success',
+        text1: 'Đã thêm vào giỏ hàng!',
+        text2: `Cấu hình: ${selectedVariant || 'Mặc định'}`,
+        position: 'bottom'
+      });
+      setTimeout(() => router.push({ pathname: './cart', params: { refresh: 1 } }), 1200);
+    } catch (err) {
+      console.error('add-to-cart error:', err);
+      Toast.show({ type: 'error', text1: 'Thêm giỏ hàng thất bại!', position: 'top' });
+    }
+  };
 
   const handleGoReview = async () => {
     let userId = null;
@@ -211,7 +261,7 @@ const AddToCart = async prod => {
       if (userStr) {
         userId = JSON.parse(userStr).id || JSON.parse(userStr)._id;
       }
-    } catch {}
+    } catch { }
     if (!product?.id) {
       Toast.show({ type: 'error', text1: 'Không xác định được sản phẩm!' });
       return;
@@ -219,21 +269,17 @@ const AddToCart = async prod => {
     router.push({
       pathname: '/danhgia',
       params: {
-        product_id:    product.id,
-        product_name:  product.name,
+        product_id: product.id,
+        product_name: product.name,
         product_image: product.image?.uri || product.images[0]?.uri || '',
-        user_id:       userId,
+        user_id: userId,
       },
     });
   };
 
   if (loading) {
-    return (
-      <View style={styles.loader}>
-        <ActivityIndicator size="large" color="#2979ff" />
-      </View>
-    );
-  }
+  return <SkeletonCTSP />;
+}
   if (error) {
     return (
       <View style={styles.errorContainer}>
@@ -271,33 +317,72 @@ const AddToCart = async prod => {
             {/* Image & Info */}
             <ProductImage images={product.images} />
             <Text style={styles.productName}>{product.name}</Text>
+            <View style={styles.productMeta}>
+              <Text style={styles.brandText}>Thương hiệu: {product.brand}</Text>
+              <Text style={styles.categoryText}>Danh mục: {product.category}</Text>
+            </View>
             <ProductPriceRow
-              price={formatCurrency(product.price)}
-              oldPrice={formatCurrency(product.oldPrice)}
+              price={formatCurrency(displayPrice)}
+              oldPrice={formatCurrency(basePrice)}
               onLike={() => alert('Đã thêm vào yêu thích')}
             />
 
             {/* Buy With */}
             <BuyWithList data={product.buyWith} />
 
-            {/* ==== Mô tả sản phẩm (HTML) ==== */}
+            {/* Mô tả sản phẩm (HTML) */}
+            {/* Mô tả sản phẩm (HTML) */}
             {product.description ? (
               <ProductDescription htmlContent={product.description} />
             ) : null}
+
 
             {/* Specs & Compare */}
             <SpecsBox specs={product.specs} onCompare={() => setCompareVisible(true)} />
 
             {/* Configuration Options */}
             <View style={styles.configContainer}>
-              <Text style={styles.configTitle}>Tùy chọn cấu hình</Text>
-              <OptionGroup label="CPU" options={cpuOptions} selected={selectedCpu} onSelect={setSelectedCpu} />
-              <OptionGroup label="RAM" options={ramOptions} selected={selectedRam} onSelect={setSelectedRam} />
-              <OptionGroup label="SSD" options={ssdOptions} selected={selectedSsd} onSelect={setSelectedSsd} />
+              <View style={styles.configHeader}>
+                <Text style={styles.configTitle}>Tùy chọn cấu hình</Text>
+                <View style={styles.configBadge}>
+                  <Text style={styles.configBadgeText}>Tùy chỉnh</Text>
+                </View>
+              </View>
+
+              {/* Hiển thị variants từ API nếu có */}
+              {/* Hiển thị variants từ API */}
+              {variants.length > 0 && (
+                <OptionGroup
+                  label="Phiên bản"
+                  options={variants}
+                  selected={selectedVariant}
+                  onSelect={opt => setSelectedVariant({
+                    key: 'Phiên Bản',   // <-- bắt buộc phải có
+                    label: opt.label,
+                    priceDiff: opt.priceDiff
+                  })}
+                  type="variant"
+                />
+              )}
+
+
+              {/* Các options cố định khác */}
+
+
+              {/* Hiển thị cấu hình đã chọn */}
+              <View style={styles.selectedConfigContainer}>
+                <Text style={styles.selectedConfigTitle}>Cấu hình đã chọn:</Text>
+                <View style={styles.selectedConfigList}>
+                  {selectedVariant && (
+                    <Text>• Phiên bản: {selectedVariant.label}</Text>
+                  )}
+
+                </View>
+              </View>
             </View>
 
             {/* Reviews & Sections */}
-            <ReviewBox product={product}/>
+            <ReviewBox product={product} />
             <View style={styles.sectionContainer}>
               <Text style={styles.sectionTitle}>Sản phẩm phổ biến</Text>
               <SectionPopular data={allProducts.slice(0, 3)} />
@@ -306,18 +391,15 @@ const AddToCart = async prod => {
               <Text style={styles.sectionTitle}>Có thể bạn thích</Text>
               <SectionLiked data={allProducts.slice(3, 7)} />
             </View>
-
-            {/* Description */}
-           
           </>
         )}
       />
 
       {/* Bottom Bar */}
-      <View style={styles.bottomBar}> 
+      <View style={styles.bottomBar}>
         <TouchableOpacity
           style={styles.bottomCartBtn}
-          onPress={() => AddToCart(product)} // Sửa lại dòng này
+          onPress={() => AddToCart(product)}
         >
           <Feather name="shopping-cart" size={20} color="#1a73e8" />
           <Text style={styles.bottomCartText}>Giỏ hàng</Text>
@@ -332,12 +414,12 @@ const AddToCart = async prod => {
 
       {/* Compare Modal */}
       <Modal
-  visible={compareVisible}
-  animationType="slide"
-  transparent
-  presentationStyle="overFullScreen"
-  onRequestClose={() => setCompareVisible(false)}
->
+        visible={compareVisible}
+        animationType="slide"
+        transparent
+        presentationStyle="overFullScreen"
+        onRequestClose={() => setCompareVisible(false)}
+      >
         <View style={styles.modalOverlay}>
           <View style={styles.bottomSheet}>
             <View style={styles.sheetHeader}>
@@ -396,25 +478,25 @@ const AddToCart = async prod => {
               />
             </View>
             <View style={{ maxHeight: 250, width: '100%' }}>
-  <FlatList
-    data={filteredProducts}
-    keyExtractor={item => item.id}
-    ListEmptyComponent={() => (
-      <Text style={styles.noResults}>Không tìm thấy sản phẩm</Text>
-    )}
-    renderItem={({ item }) => (
-      <TouchableOpacity
-        style={styles.searchItem}
-        onPress={() => handleAddCompare(item)}
-      >
-        <Image source={item.image} style={styles.searchImage} />
-        <Text numberOfLines={2} style={styles.searchName}>
-          {item.name}
-        </Text>
-      </TouchableOpacity>
-    )}
-  />
-</View>
+              <FlatList
+                data={filteredProducts}
+                keyExtractor={item => item.id}
+                ListEmptyComponent={() => (
+                  <Text style={styles.noResults}>Không tìm thấy sản phẩm</Text>
+                )}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={styles.searchItem}
+                    onPress={() => handleAddCompare(item)}
+                  >
+                    <Image source={item.image} style={styles.searchImage} />
+                    <Text numberOfLines={2} style={styles.searchName}>
+                      {item.name}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              />
+            </View>
             <TouchableOpacity style={styles.closeSearch} onPress={() => setAddModalVisible(false)}>
               <Text style={styles.closeText}>Đóng</Text>
             </TouchableOpacity>
@@ -476,15 +558,86 @@ const styles = StyleSheet.create({
     marginVertical: 12,
     color: '#333',
   },
+  productMeta: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginBottom: 8,
+    paddingHorizontal: 16,
+  },
+  brandText: {
+    fontSize: 14,
+    color: '#666',
+    marginRight: 16,
+  },
+  categoryText: {
+    fontSize: 14,
+    color: '#666',
+  },
 
   configContainer: {
     margin: 16,
-    padding: 16,
-    backgroundColor: '#fafafa',
-    borderRadius: 12,
-    elevation: 2,
+    padding: 20,
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    borderWidth: 1,
+    borderColor: '#f0f2f5',
   },
-  configTitle: { fontSize: 16, fontWeight: '600', marginBottom: 12 },
+  configHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+  },
+  configTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1a1a1a',
+  },
+  configBadge: {
+    backgroundColor: '#e8f5e8',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  configBadgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#2e7d32',
+  },
+  selectedConfigContainer: {
+    marginTop: 20,
+    padding: 16,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: '#4285f4',
+  },
+  selectedConfigTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1a1a1a',
+    marginBottom: 12,
+  },
+  selectedConfigList: {
+    gap: 6,
+  },
+  configItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  configItemText: {
+    fontSize: 14,
+    color: '#3c4043',
+    lineHeight: 20,
+  },
 
   sectionContainer: { marginVertical: 12, paddingHorizontal: 16 },
   sectionTitle: { fontSize: 16, fontWeight: '600', marginBottom: 8 },
@@ -499,147 +652,223 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderTopWidth: 1,
     borderTopColor: '#eee',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: -2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 10,
   },
   bottomCartBtn: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 12,
-    borderRadius: 8,
+    padding: 14,
+    borderRadius: 12,
     backgroundColor: '#f0f7ff',
     marginRight: 8,
+    borderWidth: 1,
+    borderColor: '#1a73e8',
   },
   bottomCartText: { marginLeft: 6, fontSize: 16, color: '#1a73e8', fontWeight: '600' },
   bottomBuyBtn: {
     flex: 1,
-    padding: 12,
-    borderRadius: 8,
+    padding: 14,
+    borderRadius: 12,
     backgroundColor: '#2979ff',
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#2979ff',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
   },
-  bottomBuyText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  bottomBuyText: { color: '#fff', fontSize: 16, fontWeight: '700' },
 
   // Compare modal
-  modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.3)' },
+  modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' },
   bottomSheet: {
     backgroundColor: '#fff',
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
     paddingTop: 12,
+    maxHeight: '80%',
   },
   sheetHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingBottom: 8,
+    paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
   },
-  sheetTitle: { fontSize: 16, fontWeight: '600' },
-  compareRow: { flexDirection: 'row', padding: 16 },
+  sheetTitle: { fontSize: 18, fontWeight: '700', color: '#1a1a1a' },
+  compareRow: { flexDirection: 'row', padding: 16, justifyContent: 'space-around' },
   compareItem: {
     width: 100,
     alignItems: 'center',
-    marginRight: 12,
     backgroundColor: '#fafafa',
-    borderRadius: 8,
-    padding: 8,
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
   },
   compareImage: { width: 60, height: 60, resizeMode: 'contain', marginBottom: 8 },
   compareRemove: {
     position: 'absolute',
-    top: 4,
-    right: 4,
+    top: 6,
+    right: 6,
     backgroundColor: '#fff',
     borderRadius: 12,
-    padding: 2,
+    padding: 4,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 3,
   },
-  compareName: { textAlign: 'center', fontSize: 12 },
+  compareName: { textAlign: 'center', fontSize: 12, color: '#333', fontWeight: '500' },
   compareEmpty: {
     width: 100,
-    height: 100,
+    height: 120,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#f9f9f9',
-    borderRadius: 8,
-    marginRight: 12,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#e0e0e0',
+    borderStyle: 'dashed',
   },
-  compareAddText: { marginTop: 4, fontSize: 12, color: '#888', textAlign: 'center' },
+  compareAddText: { marginTop: 8, fontSize: 12, color: '#888', textAlign: 'center', fontWeight: '500' },
   sheetFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#f0f0f0',
   },
-  clearAll: { color: '#2979ff', fontWeight: '600' },
+  clearAll: { color: '#2979ff', fontWeight: '600', fontSize: 16 },
   compareNowBtn: {
-    paddingVertical: 10,
+    paddingVertical: 12,
     paddingHorizontal: 24,
-    borderRadius: 8,
+    borderRadius: 12,
     backgroundColor: '#ccc',
   },
-  compareNowActive: { backgroundColor: '#2979ff' },
-  compareNowText: { color: '#fff', fontWeight: '600' },
+  compareNowActive: {
+    backgroundColor: '#2979ff',
+    shadowColor: '#2979ff',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  compareNowText: { color: '#fff', fontWeight: '700', fontSize: 16 },
 
   // Add compare modal
-  addOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.3)' },
+  addOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.4)' },
   addBox: {
     width: '90%',
     maxHeight: '80%',
     backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
+    borderRadius: 16,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 10,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 20,
+    elevation: 20,
   },
-  addTitle: { fontSize: 16, fontWeight: '600', marginBottom: 12 },
+  addTitle: { fontSize: 18, fontWeight: '700', marginBottom: 16, color: '#1a1a1a' },
   searchBox: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#ddd',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    marginBottom: 12,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    marginBottom: 16,
+    backgroundColor: '#fafafa',
   },
-  searchInput: { flex: 1, marginLeft: 8, height: 40 },
-  searchItem: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
-  searchImage: { width: 40, height: 40, borderRadius: 6, marginRight: 12 },
-  searchName: { flex: 1, fontSize: 14 },
-  noResults: { textAlign: 'center', color: '#888', marginTop: 20 },
-  closeSearch: { alignSelf: 'flex-end', padding: 8 },
-  closeText: { color: '#2979ff', fontWeight: '600' },
+  searchInput: { flex: 1, marginLeft: 12, height: 40, fontSize: 16 },
+  searchItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: '#f8f9fa',
+  },
+  searchImage: { width: 50, height: 50, borderRadius: 8, marginRight: 12 },
+  searchName: { flex: 1, fontSize: 14, fontWeight: '500', color: '#333' },
+  noResults: { textAlign: 'center', color: '#888', marginTop: 20, fontSize: 16 },
+  closeSearch: { alignSelf: 'flex-end', padding: 12 },
+  closeText: { color: '#2979ff', fontWeight: '700', fontSize: 16 },
 
   // Login modal
-  loginOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.3)' },
+  loginOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.4)' },
   loginBox: {
-    width: 300,
+    width: 320,
     backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 24,
+    borderRadius: 20,
+    padding: 28,
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 10,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 20,
+    elevation: 20,
   },
-  loginIcon: { fontSize: 48, marginBottom: 12 },
-  loginTitle: { fontSize: 18, fontWeight: '600', color: '#1976ff', marginBottom: 8 },
-  loginMsg: { fontSize: 14, color: '#444', textAlign: 'center', marginBottom: 16 },
+  loginIcon: { fontSize: 56, marginBottom: 16 },
+  loginTitle: { fontSize: 20, fontWeight: '700', color: '#1976ff', marginBottom: 8 },
+  loginMsg: { fontSize: 16, color: '#444', textAlign: 'center', marginBottom: 20, lineHeight: 22 },
   loginActions: { flexDirection: 'row', width: '100%', justifyContent: 'space-between' },
   loginBtn: {
     flex: 1,
     backgroundColor: '#1976ff',
-    paddingVertical: 12,
-    borderRadius: 8,
+    paddingVertical: 14,
+    borderRadius: 12,
     alignItems: 'center',
     marginRight: 8,
+    shadowColor: '#1976ff',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
   },
-  loginBtnText: { color: '#fff', fontWeight: '600' },
+  loginBtnText: { color: '#fff', fontWeight: '700', fontSize: 16 },
   loginLater: {
     flex: 1,
     backgroundColor: '#f0f4fa',
-    paddingVertical: 12,
-    borderRadius: 8,
+    paddingVertical: 14,
+    borderRadius: 12,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#e0e6f0',
   },
-  loginLaterText: { color: '#1976ff', fontWeight: '600' },
+  loginLaterText: { color: '#1976ff', fontWeight: '600', fontSize: 16 },
 });

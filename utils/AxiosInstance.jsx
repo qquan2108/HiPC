@@ -5,9 +5,8 @@ import { Platform } from 'react-native';
 
 const baseURL =
   Platform.OS === 'ios' || Platform.OS === 'android'
-    ? 'https://7bed11cb3f55.ngrok-free.app' // IP LAN cho thiết bị thật
-    : 'https://7bed11cb3f55.ngrok-free.app';      // Cho web hoặc máy tính
-
+    ? 'http://172.20.10.4:3000' // IP LAN cho thiết bị thật
+    : 'http://localhost:3000';      // Cho web hoặc máy tính
 // Tạo instance
 const axiosInstance = axios.create({
   baseURL,

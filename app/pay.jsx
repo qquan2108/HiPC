@@ -1,4 +1,4 @@
-import { Feather } from "@expo/vector-icons";
+import { Feather, MaterialIcons, Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -9,6 +9,9 @@ import {
   Text,
   TouchableOpacity,
   View,
+  StatusBar,
+  SafeAreaView,
+  LinearGradient,
 } from "react-native";
 import Toast from "react-native-toast-message";
 import axiosInstance from "../utils/AxiosInstance";
@@ -26,15 +29,43 @@ const SHOP_DISTRICT_ID = 1461;
 const SHOP_WARD_CODE = "21308";
 const GHN_BASE_URL = "https://dev-online-gateway.ghn.vn/shiip/public-api";
 
+// VietQR config
+const VIETQR_ACCOUNT = "699496";
+const VIETQR_BANK = "MBBank";
+
 const paymentMethods = [
-  { key: "cod", label: "Thanh toán khi nhận hàng" },
-  { key: "bank", label: "Thanh toán bằng thẻ ngân hàng" },
-  { key: "vnpay", label: "Thanh toán qua VNPAY" },
-  { key: "stripe", label: "Thanh toán bằng Stripe" },
+  {
+    key: "cod",
+    label: "Thanh toán khi nhận hàng",
+    icon: "local-shipping",
+    iconLib: "MaterialIcons",
+    color: "#FF9500"
+  },
+  {
+    key: "sepay",
+    label: "Chuyển khoản ngân hàng",
+    icon: "account-balance",
+    iconLib: "MaterialIcons",
+    color: "#34C759"
+  },
+  {
+    key: "vnpay",
+    label: "Ví điện tử VNPAY",
+    icon: "account-balance-wallet",
+    iconLib: "MaterialIcons",
+    color: "#007AFF"
+  },
+  {
+    key: "stripe",
+    label: "Thẻ tín dụng/ghi nợ",
+    icon: "card",
+    iconLib: "Ionicons",
+    color: "#6772E5"
+  },
 ];
 
 function formatCurrency(num) {
-  return typeof num === "number" ? num.toLocaleString("vi-VN") + " đ" : "";
+  return typeof num === "number" ? num.toLocaleString("vi-VN") + " ₫" : "";
 }
 
 export default function PayScreen() {
@@ -72,19 +103,17 @@ export default function PayScreen() {
 
   // Calculations
   const subtotal = products.reduce((sum, p) => sum + p.price * p.quantity, 0);
-  // Tính giảm giá từ trường discount_value (dùng chung với CartScreen)
   const discount = selectedVoucher
     ? selectedVoucher.discount_value != null
       ? selectedVoucher.discount_value > 0 &&
         selectedVoucher.discount_value < 100
-        ? // nếu <100 coi là %, ngược lại coi là số tiền cố định
-          Math.round((subtotal * selectedVoucher.discount_value) / 100)
+        ? Math.round((subtotal * selectedVoucher.discount_value) / 100)
         : selectedVoucher.discount_value
       : 0
     : 0;
   const total = subtotal + shippingFee - discount;
   const totalWeight = products.reduce(
-    (sum, p) => sum + (p.weight || 10000) * p.quantity, // Default weight 100g
+    (sum, p) => sum + (p.weight || 100) * p.quantity,
     0
   );
 
@@ -115,7 +144,16 @@ export default function PayScreen() {
 
   // Fetch available shipping services
   const fetchShippingServices = async (address) => {
-    if (!address || !address.districtId) return;
+    if (!address || !address.districtId) {
+      setShippingServices([]);
+      setSelectedService(null);
+      Toast.show({
+        type: "error",
+        text1: "Vui lòng tạo địa chỉ đúng tại sổ địa chỉ",
+        text2: "Để tính phí giao hàng nhanh",
+      });
+      return;
+    }
 
     setIsLoadingShipping(true);
     try {
@@ -129,11 +167,20 @@ export default function PayScreen() {
       );
 
       const services = response.data || [];
-      setShippingServices(services);
-
-      // Auto select first service if available
-      if (services.length > 0 && !selectedService) {
-        setSelectedService(services[0]);
+      const fastService = services.find((s) => s.service_type_id === 5);
+      if (!fastService) {
+        setShippingServices([]);
+        setSelectedService(null);
+        Toast.show({
+          type: "error",
+          text1: "Vui lòng tạo địa chỉ đúng tại sổ địa chỉ",
+          text2: "Để tính phí giao hàng nhanh",
+        });
+      } else {
+        setShippingServices([fastService]);
+        if (!selectedService) {
+          setSelectedService(fastService);
+        }
       }
     } catch (error) {
       console.error("Error fetching shipping services:", error);
@@ -149,7 +196,7 @@ export default function PayScreen() {
     }
   };
 
-  // Calculate shipping fee - FIXED VERSION
+  // Calculate shipping fee
   const calculateShippingFee = async (service, address) => {
     if (
       !service ||
@@ -163,11 +210,10 @@ export default function PayScreen() {
     }
 
     try {
-      // Tính tổng trọng lượng, đảm bảo >= 50g (yêu cầu tối thiểu của GHN)
       const calculatedWeight = Math.max(totalWeight, 50);
 
-      // Payload cơ bản
       const baseData = {
+        service_id: service.service_id,
         service_type_id: service.service_type_id,
         from_district_id: SHOP_DISTRICT_ID,
         from_ward_code: SHOP_WARD_CODE,
@@ -178,45 +224,92 @@ export default function PayScreen() {
       };
 
       let requestData;
-
-      // Phân biệt theo loại dịch vụ
       if (service.service_type_id === 5) {
-        // Dịch vụ hàng nặng - sử dụng mảng items
         requestData = {
           ...baseData,
+          weight: calculatedWeight,
           items: products.map((p) => ({
-            length: p.length || 20, // cm
-            width: p.width || 20, // cm
-            height: p.height || 20, // cm
-            weight: Math.max(p.weight || 100, 50), // gram, tối thiểu 50g
+            length: p.length || 20,
+            width: p.width || 20,
+            height: p.height || 20,
+            weight: Math.max(p.weight || 100, 50),
             quantity: p.quantity || 1,
           })),
         };
       } else {
-        // Dịch vụ hàng nhẹ - sử dụng các trường top-level
         requestData = {
           ...baseData,
-          weight: calculatedWeight, // Tổng trọng lượng
-          length: 20, // Kích thước gói hàng mặc định
+          weight: calculatedWeight,
+          length: 20,
           width: 20,
           height: 20,
         };
       }
 
-      console.log("Payload gửi đi:", JSON.stringify(requestData, null, 2));
-
       const response = await ghnRequest("/v2/shipping-order/fee", requestData);
       const fee = response.data?.total || 0;
-      setShippingFee(fee);
-      console.log("Phí vận chuyển tính được:", fee);
+
+      const DISCOUNT_RATE_FAST = 0.5;
+      const MAX_FAST_FEE = 70000;
+
+      let adjustedFee = fee;
+      if (service.service_type_id === 5) {
+        adjustedFee = Math.round(fee * DISCOUNT_RATE_FAST);
+        if (adjustedFee > MAX_FAST_FEE) {
+          adjustedFee = MAX_FAST_FEE;
+        }
+      }
+
+      setShippingFee(adjustedFee);
     } catch (error) {
       console.error("Lỗi tính phí vận chuyển:", error);
       setShippingFee(0);
       Toast.show({
         type: "error",
         text1: "Không thể tính phí vận chuyển",
-        text2: "Đang sử dụng phí mặc định 0đ",
+        text2: "Đang sử dụng phí mặc định 0₫",
       });
+    }
+  };
+
+
+  const getServiceLabel = (service) => {
+    if (!service) return "";
+    switch (service.service_type_id) {
+      case 5:
+        return "Giao hàng nhanh";
+      case 2:
+        return "Giao hàng chuẩn";
+      case 3:
+        return "Giao hàng tiết kiệm";
+      default:
+        return service.service_name || "Không xác định";
+    }
+  };
+
+  const getServiceIcon = (service) => {
+    switch (service.service_type_id) {
+      case 5:
+        return "flash";
+      case 2:
+        return "checkmark-circle";
+      case 3:
+        return "leaf";
+      default:
+        return "cube";
+    }
+  };
+
+  const getServiceColor = (service) => {
+    switch (service.service_type_id) {
+      case 5:
+        return "#FF3B30";
+      case 2:
+        return "#34C759";
+      case 3:
+        return "#FF9500";
+      default:
+        return "#8E8E93";
     }
   };
 
@@ -231,27 +324,38 @@ export default function PayScreen() {
       );
       let addresses = Array.isArray(res.data) ? res.data : [];
 
-      // Nếu chưa có địa chỉ nào, tạo 1 phần tử từ profile của user
-      if (addresses.length === 0 && user.address) {
-        addresses = [
-          {
-            id: "self", // id riêng, khác với server
-            recipientName: user.full_name, // tên người nhận
-            phoneNumber: user.phone, // số điện thoại
-            address: user.address, // địa chỉ chi tiết profile
-            provinceId: user.provinceId, // có thể undefined nếu chưa lưu
-            districtId: user.districtId,
-            wardCode: user.wardCode,
-            isDefault: true,
-          },
-        ];
+      if (user.address) {
+        const selfAddr = {
+          id: "self",
+          // Dành cho PayScreen
+          recipientName: user.full_name,
+          phoneNumber: user.phone,
+          // Dành cho AddressModal
+          label: "Địa chỉ của tôi",
+          phone: user.phone,
+          address: user.address,
+          provinceId: user.provinceId,
+          districtId: user.districtId,
+          wardCode: user.wardCode,
+          isDefault: addresses.length === 0,
+        };
+        if (!addresses.some((a) => a.id === "self")) {
+          addresses = [selfAddr, ...addresses];
+        }
+
       }
       setAddressList(addresses);
 
-      // Chỉ set selectedAddress nếu chưa có hoặc địa chỉ hiện tại không còn trong danh sách
       const defaultAddr =
-        addresses.find((a) => a.isDefault) || addresses[0] || null;
-      setSelectedAddress(defaultAddr);
+        addresses.find(
+          (a) => a.isDefault && a.provinceId && a.districtId && a.wardCode
+        ) ||
+        addresses.find((a) => a.provinceId && a.districtId && a.wardCode) ||
+        null;
+      setSelectedAddress((cur) => {
+        if (cur && addresses.some((a) => a.id === cur.id)) return cur;
+        return defaultAddr;
+      });
     } catch (err) {
       console.error("Error loading addresses:", err);
     }
@@ -265,10 +369,10 @@ export default function PayScreen() {
 
   // Handle new address added
   const handleAddressAdded = async (newAddress) => {
-    // Refresh address list
     await loadAddresses();
-    // Select the new address
-    setSelectedAddress(newAddress);
+    if (newAddress) {
+      setSelectedAddress(newAddress);
+    }
     setShowAddressModal(false);
   };
 
@@ -280,32 +384,32 @@ export default function PayScreen() {
           const selected = JSON.parse(params.selectedProducts);
           setProducts(selected);
           return;
-        } catch {}
+        } catch { }
       }
       try {
         const userStr = await AsyncStorage.getItem("user");
         if (!userStr) return;
         const user = JSON.parse(userStr);
         const userId = user.id || user._id;
-        const res = await axiosInstance.get(`/orders/user/${userId}`);
+        const res = await axiosInstance.get(`/cartt/user/${userId}`);
         const orders = Array.isArray(res.data) ? res.data : [];
         const pending = orders.find((o) => o.status === "pending") || {
           products: [],
         };
         const items = Array.isArray(pending.products)
           ? pending.products.map((item) => ({
-              id: item.productId?._id || item.productId,
-              name: item.productId?.name || "Không có tên",
-              price: item.productId?.price ?? 0,
-              image: item.productId?.image
-                ? { uri: item.productId.image }
-                : require("../assets/images/pc1.png"),
-              quantity: item.quantity ?? 1,
-              weight: item.productId?.weight ?? 100,
-              length: item.productId?.length ?? 20,
-              width: item.productId?.width ?? 20,
-              height: item.productId?.height ?? 20,
-            }))
+            id: item.productId?._id || item.productId,
+            name: item.productId?.name || "Không có tên",
+            price: item.productId?.price ?? 0,
+            image: item.productId?.image
+              ? { uri: item.productId.image }
+              : require("../assets/images/pc1.png"),
+            quantity: item.quantity ?? 1,
+            weight: item.productId?.weight ?? 100,
+            length: item.productId?.length ?? 20,
+            width: item.productId?.width ?? 20,
+            height: item.productId?.height ?? 20,
+          }))
           : [];
         setProducts(items);
       } catch (err) {
@@ -314,7 +418,6 @@ export default function PayScreen() {
     })();
   }, []);
 
-  // Khi mount, nếu có voucher trong params thì parse và set
   useEffect(() => {
     if (params.selectedVoucher) {
       try {
@@ -399,12 +502,10 @@ export default function PayScreen() {
     setSelectedWard(null);
   }, [selectedDistrict]);
 
-  // Load addresses on mount
   useEffect(() => {
     loadAddresses();
   }, []);
 
-  // Fetch shipping services when address changes
   useEffect(() => {
     if (selectedAddress) {
       fetchShippingServices(selectedAddress);
@@ -415,7 +516,6 @@ export default function PayScreen() {
     }
   }, [selectedAddress]);
 
-  // Calculate shipping fee when service or address changes
   useEffect(() => {
     if (selectedService && selectedAddress) {
       calculateShippingFee(selectedService, selectedAddress);
@@ -485,8 +585,6 @@ export default function PayScreen() {
         shippingFee,
       };
 
-      console.log("→ orderData:", orderData);
-
       const res = await axiosInstance.post("/orders/checkout", orderData, {
         headers: { "Content-Type": "application/json" },
       });
@@ -507,6 +605,23 @@ export default function PayScreen() {
         setOrderId(res.data.orderId);
         setOrderAmount(total);
         setShowStripe(true);
+        return;
+      }
+      if (selectedPayment === "sepay") {
+        router.push({
+          pathname: "/VietQRScreen",
+          params: {
+            acc: VIETQR_ACCOUNT,
+            bank: VIETQR_BANK,
+            amount: total.toString(),
+            des: `${res.data.orderId}`,
+            orderId: res.data.orderId,
+            total,
+            products: JSON.stringify(products),
+            address: selectedAddress?.address || addressText,
+            paymentMethod: selectedPayment,
+          },
+        });
         return;
       }
 
@@ -536,6 +651,9 @@ export default function PayScreen() {
       setPayStatus("fail");
     }
   };
+  useEffect(() => {
+    console.log('▶ showAddressModal changed:', showAddressModal);
+  }, [showAddressModal]);
 
   const handleVnPayClose = async (result) => {
     setShowVnPayModal(false);
@@ -585,150 +703,278 @@ export default function PayScreen() {
     }
   };
 
+  const renderIcon = (iconName, iconLib, color, size = 24) => {
+    switch (iconLib) {
+      case "MaterialIcons":
+        return <MaterialIcons name={iconName} size={size} color={color} />;
+      case "Ionicons":
+        return <Ionicons name={iconName} size={size} color={color} />;
+      default:
+        return <Feather name={iconName} size={size} color={color} />;
+    }
+  };
+
   return (
-    <ScrollView style={styles.container}>
-      {/* Address Selection */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Địa chỉ giao hàng</Text>
-        <TouchableOpacity
-          style={styles.addressContainer}
-          onPress={() => setShowAddressModal(true)}
-        >
-          {selectedAddress ? (
-            <View>
-              <Text style={styles.addressName}>
-                {selectedAddress.recipientName}
-              </Text>
-              <Text style={styles.addressPhone}>
-                {selectedAddress.phoneNumber}
-              </Text>
-              <Text style={styles.addressText}>{selectedAddress.address}</Text>
-            </View>
-          ) : (
-            <Text style={styles.noAddressText}>Chọn địa chỉ giao hàng</Text>
-          )}
-          <Feather name="chevron-right" size={20} color="#666" />
-        </TouchableOpacity>
-      </View>
-      {/* Product List */}
-      <PayProductList products={products} formatCurrency={formatCurrency} />
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
 
-      {/* Shipping Services */}
-      {shippingServices.length > 0 && (
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity
+          style={styles.headerButton}
+          onPress={() => router.back()}
+        >
+          <Ionicons name="arrow-back" size={24} color="#1C1C1E" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Thanh toán</Text>
+        <View style={styles.headerButton} />
+      </View>
+
+      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+        {/* Address Selection */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Phương thức vận chuyển</Text>
-          {shippingServices.map((service) => (
-            <TouchableOpacity
-              key={service.service_id}
-              style={[
-                styles.serviceItem,
-                selectedService?.service_id === service.service_id &&
-                  styles.selectedService,
-              ]}
-              onPress={() => setSelectedService(service)}
-            >
-              <View style={styles.serviceInfo}>
-                <Text style={styles.serviceName}>{service.short_name}</Text>
-                <Text style={styles.serviceDesc}>{service.service_name}</Text>
-              </View>
-              <View style={styles.radioButton}>
-                {selectedService?.service_id === service.service_id && (
-                  <View style={styles.radioSelected} />
-                )}
-              </View>
-            </TouchableOpacity>
-          ))}
-        </View>
-      )}
-
-      {/* Voucher giảm giá */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Mã giảm giá</Text>
-        <TouchableOpacity
-          style={styles.voucherContainer}
-          onPress={() => setShowVoucher(true)}
-        >
-          <Text style={styles.voucherText}>
-            {selectedVoucher
-              ? selectedVoucher.discount_value < 100
-                ? `Giảm ${selectedVoucher.discount_value}%`
-                : `Giảm ${selectedVoucher.discount_value.toLocaleString(
-                    "vi-VN"
-                  )} đ`
-              : "Chọn voucher"}
-          </Text>
-          <Feather name="chevron-right" size={20} color="#666" />
-        </TouchableOpacity>
-      </View>
-
-      {/* Payment Methods */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Phương thức thanh toán</Text>
-        {paymentMethods.map((method) => (
-          <TouchableOpacity
-            key={method.key}
-            style={[
-              styles.paymentItem,
-              selectedPayment === method.key && styles.selectedPayment,
-            ]}
-            onPress={() => setSelectedPayment(method.key)}
-          >
-            <Text>{method.label}</Text>
-            <View style={styles.radioButton}>
-              {selectedPayment === method.key && (
-                <View style={styles.radioSelected} />
-              )}
+          <View style={styles.sectionHeader}>
+            <View style={styles.sectionTitleContainer}>
+              <Ionicons name="location" size={20} color="#007AFF" />
+              <Text style={styles.sectionTitle}>Địa chỉ giao hàng</Text>
             </View>
-          </TouchableOpacity>
-        ))}
-      </View>
+          </View>
 
-      {/* Order Summary */}
-      <View style={styles.summaryContainer}>
-        <View style={styles.summaryRow}>
-          <Text>Tạm tính</Text>
-          <Text>{formatCurrency(subtotal)}</Text>
+          <TouchableOpacity
+            style={styles.addressCard}
+
+            onPress={() => setShowAddressModal(true)}
+
+          >
+            {selectedAddress ? (
+              <View style={styles.addressContent}>
+                <View style={styles.addressInfo}>
+                  <Text style={styles.addressName}>
+                    {selectedAddress.label || selectedAddress.recipientName}
+                  </Text>
+                  <Text style={styles.addressPhone}>
+                    {selectedAddress.phone || selectedAddress.phoneNumber}
+                  </Text>
+                  <Text style={styles.addressText} numberOfLines={2}>
+                    {selectedAddress.address}
+                  </Text>
+                </View>
+                <View style={styles.addressAction}>
+                  <Ionicons name="chevron-forward" size={20} color="#C7C7CC" />
+                </View>
+              </View>
+            ) : (
+              <View style={styles.addressContent}>
+                <View style={styles.addressInfo}>
+                  <Text style={styles.noAddressText}>Chọn địa chỉ giao hàng</Text>
+                </View>
+                <View style={styles.addressAction}>
+                  <Ionicons name="chevron-forward" size={20} color="#C7C7CC" />
+                </View>
+              </View>
+            )}
+          </TouchableOpacity>
         </View>
-        <View style={styles.summaryRow}>
-          <Text>Phí vận chuyển</Text>
-          <Text>
-            {isLoadingShipping ? "Đang tính..." : formatCurrency(shippingFee)}
-          </Text>
-        </View>
-        {discount > 0 && (
-          <View style={styles.summaryRow}>
-            <Text>Giảm giá</Text>
-            <Text style={styles.discountText}>-{formatCurrency(discount)}</Text>
+
+        {/* Product List */}
+        <PayProductList products={products} formatCurrency={formatCurrency} />
+
+        {/* Shipping Services */}
+        {shippingServices.length > 0 && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <View style={styles.sectionTitleContainer}>
+                <Ionicons name="car" size={20} color="#FF9500" />
+                <Text style={styles.sectionTitle}>Phương thức vận chuyển</Text>
+              </View>
+            </View>
+
+            <View style={styles.servicesList}>
+              {shippingServices.map((service, index) => (
+                <TouchableOpacity
+                  key={service.service_id}
+                  style={[
+                    styles.serviceCard,
+                    selectedService?.service_id === service.service_id && styles.selectedServiceCard,
+                    index === shippingServices.length - 1 && { marginBottom: 0 }
+                  ]}
+                  onPress={() => setSelectedService(service)}
+                >
+                  <View style={styles.serviceIcon}>
+                    <Ionicons
+                      name={getServiceIcon(service)}
+                      size={20}
+                      color={getServiceColor(service)}
+                    />
+                  </View>
+                  <View style={styles.serviceInfo}>
+                    <Text style={styles.serviceName}>{getServiceLabel(service)}</Text>
+                    <Text style={styles.serviceDesc}>{service.short_name}</Text>
+                  </View>
+                  <View style={[
+                    styles.radioButton,
+                    selectedService?.service_id === service.service_id && styles.radioButtonSelected
+                  ]}>
+                    {selectedService?.service_id === service.service_id && (
+                      <View style={styles.radioInner} />
+                    )}
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
         )}
-        <View style={[styles.summaryRow, styles.totalRow]}>
-          <Text style={styles.totalText}>Tổng cộng</Text>
-          <Text style={styles.totalText}>{formatCurrency(total)}</Text>
-        </View>
-      </View>
 
-      {/* Order Button */}
-      <TouchableOpacity style={styles.orderButton} onPress={handleOrder}>
-        <Text style={styles.orderButtonText}>Đặt hàng</Text>
-      </TouchableOpacity>
+        {/* Voucher Section */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <View style={styles.sectionTitleContainer}>
+              <Ionicons name="ticket" size={20} color="#FF3B30" />
+              <Text style={styles.sectionTitle}>Mã giảm giá</Text>
+            </View>
+          </View>
+
+          <TouchableOpacity
+            style={styles.voucherCard}
+            onPress={() => setShowVoucher(true)}
+          >
+            <View style={styles.voucherIcon}>
+              <Ionicons name="pricetag" size={16} color="#FF3B30" />
+            </View>
+            <View style={styles.voucherInfo}>
+              <Text style={styles.voucherText}>
+                {selectedVoucher
+                  ? selectedVoucher.discount_value < 100
+                    ? `Giảm ${selectedVoucher.discount_value}%`
+                    : `Giảm ${selectedVoucher.discount_value.toLocaleString("vi-VN")} ₫`
+                  : "Chọn mã giảm giá"}
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="#C7C7CC" />
+          </TouchableOpacity>
+        </View>
+
+        {/* Payment Methods */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <View style={styles.sectionTitleContainer}>
+              <Ionicons name="card" size={20} color="#34C759" />
+              <Text style={styles.sectionTitle}>Phương thức thanh toán</Text>
+            </View>
+          </View>
+
+          <View style={styles.paymentList}>
+            {paymentMethods.map((method, index) => (
+              <TouchableOpacity
+                key={method.key}
+                style={[
+                  styles.paymentCard,
+                  selectedPayment === method.key && styles.selectedPaymentCard,
+                  index === paymentMethods.length - 1 && { marginBottom: 0 }
+                ]}
+                onPress={() => setSelectedPayment(method.key)}
+              >
+                <View style={[styles.paymentIcon, { backgroundColor: `${method.color}15` }]}>
+                  {renderIcon(method.icon, method.iconLib, method.color, 20)}
+                </View>
+                <View style={styles.paymentInfo}>
+                  <Text style={styles.paymentLabel}>{method.label}</Text>
+                </View>
+                <View style={[
+                  styles.radioButton,
+                  selectedPayment === method.key && styles.radioButtonSelected
+                ]}>
+                  {selectedPayment === method.key && (<View style={styles.radioInner} />
+                  )}
+                </View>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        {/* Order Summary */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <View style={styles.sectionTitleContainer}>
+              <Ionicons name="receipt" size={20} color="#8E8E93" />
+              <Text style={styles.sectionTitle}>Tóm tắt đơn hàng</Text>
+            </View>
+          </View>
+
+          <View style={styles.summaryCard}>
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Tạm tính</Text>
+              <Text style={styles.summaryValue}>{formatCurrency(subtotal)}</Text>
+            </View>
+
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Phí vận chuyển</Text>
+              <Text style={styles.summaryValue}>
+                {isLoadingShipping ? "Đang tính..." : formatCurrency(shippingFee)}
+              </Text>
+            </View>
+
+            {discount > 0 && (
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryLabel}>Giảm giá</Text>
+                <Text style={[styles.summaryValue, styles.discountText]}>
+                  -{formatCurrency(discount)}
+                </Text>
+              </View>
+            )}
+
+            <View style={styles.divider} />
+
+            <View style={styles.summaryRow}>
+              <Text style={styles.totalLabel}>Tổng cộng</Text>
+              <Text style={styles.totalValue}>{formatCurrency(total)}</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Order Button */}
+        <View style={styles.bottomSection}>
+          <TouchableOpacity
+            style={[
+              styles.orderButton,
+              (!selectedAddress ||
+                products.length === 0 ||
+                !selectedService ||
+                shippingFee <= 0) && styles.orderButtonDisabled
+            ]}
+            onPress={handleOrder}
+            disabled={
+              !selectedAddress ||
+              products.length === 0 ||
+              !selectedService ||
+              shippingFee <= 0
+            }
+          >
+            <Text style={styles.orderButtonText}>
+              Đặt hàng · {formatCurrency(total)}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
 
       {/* Modals */}
       <AddressModal
         visible={showAddressModal}
-        onClose={() => setShowAddressModal(false)}
+        onClose={() => {
+          console.log('▶ AddressModal onClose called');
+          setShowAddressModal(false);
+        }}
         addressList={addressList}
+        animationType="slide"
         selectedAddress={selectedAddress}
-        onSelectAddress={handleAddressSelect}
-        onAddressAdded={handleAddressAdded}
-        provinces={provinces}
-        districts={districts}
-        wards={wards}
-        selectedProvince={selectedProvince}
-        selectedDistrict={selectedDistrict}
-        selectedWard={selectedWard}
-        setSelectedProvince={setSelectedProvince}
-        setSelectedDistrict={setSelectedDistrict}
-        setSelectedWard={setSelectedWard}
+        onSelectAddress={(address) => {
+          console.log('▶ Address selected:', address);
+          handleAddressSelect(address);
+        }}
+        onAddressAdded={(newAddress) => {
+          console.log('▶ Address added:', newAddress);
+          handleAddressAdded(newAddress);
+        }}
       />
 
       <PayCardModal
@@ -782,169 +1028,306 @@ export default function PayScreen() {
         status={payStatus}
         onClose={() => setPayStatus(null)}
       />
-    </ScrollView>
+
+      <Toast />
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  safeArea: {
     flex: 1,
     backgroundColor: "#fff",
-    padding: 16,
   },
+
+  // Header Styles
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: "#fff",
+    borderBottomWidth: 0.5,
+    borderBottomColor: "#E5E5EA",
+  },
+  headerButton: {
+    width: 44,
+    height: 44,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  headerTitle: {
+    fontSize: 17,
+    fontWeight: "600",
+    color: "#1C1C1E",
+  },
+
+  // Container Styles
+  container: {
+    flex: 1,
+    backgroundColor: "#F2F2F7",
+  },
+
+  // Section Styles
   section: {
-    backgroundColor: "#f8f8f8",
-    padding: 16,
-    marginVertical: 8,
-    borderRadius: 8,
+    backgroundColor: "#fff",
+    marginHorizontal: 16,
+    marginTop: 16,
+    borderRadius: 12,
+    overflow: "hidden",
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 12,
+  },
+  sectionTitleContainer: {
+    flexDirection: "row",
+    alignItems: "center",
   },
   sectionTitle: {
     fontSize: 16,
-    fontWeight: "bold",
-    marginBottom: 12,
+    fontWeight: "600",
+    color: "#1C1C1E",
+    marginLeft: 8,
   },
-  addressContainer: {
+
+  // Address Styles
+  addressCard: {
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+  },
+  addressContent: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    padding: 12,
-    backgroundColor: "#fff",
-    borderRadius: 6,
+  },
+  addressInfo: {
+    flex: 1,
   },
   addressName: {
     fontSize: 16,
-    fontWeight: "bold",
+    fontWeight: "600",
+    color: "#1C1C1E",
+    marginBottom: 4,
   },
   addressPhone: {
     fontSize: 14,
-    color: "#666",
-    marginTop: 2,
+    color: "#8E8E93",
+    marginBottom: 6,
   },
   addressText: {
     fontSize: 14,
-    marginTop: 4,
+    color: "#3C3C43",
+    lineHeight: 20,
+  },
+  addressAction: {
+    marginLeft: 12,
   },
   noAddressText: {
-    fontSize: 14,
-    color: "#999",
+    fontSize: 16,
+    color: "#8E8E93",
   },
-  serviceItem: {
+
+  // Service Styles
+  servicesList: {
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+  },
+  serviceCard: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    padding: 12,
-    backgroundColor: "#fff",
-    borderRadius: 6,
-    marginVertical: 4,
+    paddingVertical: 12,
+    marginBottom: 12,
+    paddingHorizontal: 12,
+    backgroundColor: "#F2F2F7",
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "transparent",
   },
-  selectedService: {
+  selectedServiceCard: {
+    backgroundColor: "#E3F2FD",
     borderColor: "#007AFF",
-    borderWidth: 2,
+  },
+  serviceIcon: {
+    width: 36,
+    height: 36,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#F2F2F7",
+    borderRadius: 18,
+    marginRight: 12,
   },
   serviceInfo: {
     flex: 1,
   },
   serviceName: {
-    fontSize: 16,
-    fontWeight: "bold",
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#1C1C1E",
+    marginBottom: 2,
   },
   serviceDesc: {
-    fontSize: 12,
-    color: "#666",
+    fontSize: 13,
+    color: "#8E8E93",
   },
-  voucherContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: 16,
-    backgroundColor: "#f8f8f8",
-    marginVertical: 8,
-    borderRadius: 8,
-  },
-  voucherRight: {
+
+  // Voucher Styles
+  voucherCard: {
     flexDirection: "row",
     alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+  },
+  voucherIcon: {
+    width: 32,
+    height: 32,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#FFEBEE",
+    borderRadius: 16,
+    marginRight: 12,
+  },
+  voucherInfo: {
+    flex: 1,
   },
   voucherText: {
-    marginRight: 8,
-    color: "#666",
+    fontSize: 15,
+    color: "#1C1C1E",
+    fontWeight: "500",
   },
-  paymentItem: {
+
+  // Payment Styles
+  paymentList: {
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+  },
+  paymentCard: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    padding: 12,
-    backgroundColor: "#fff",
-    borderRadius: 6,
-    marginVertical: 4,
+    paddingVertical: 12,
+    marginBottom: 12,
+    paddingHorizontal: 12,
+    backgroundColor: "#F2F2F7",
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "transparent",
   },
-  selectedPayment: {
-    borderColor: "#007AFF",
-    borderWidth: 2,
+  selectedPaymentCard: {
+    backgroundColor: "#E8F5E8",
+    borderColor: "#34C759",
   },
+  paymentIcon: {
+    width: 36,
+    height: 36,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 18,
+    marginRight: 12,
+  },
+  paymentInfo: {
+    flex: 1,
+  },
+  paymentLabel: {
+    fontSize: 15,
+    fontWeight: "500",
+    color: "#1C1C1E",
+  },
+
+  // Radio Button Styles
   radioButton: {
     width: 20,
     height: 20,
     borderRadius: 10,
     borderWidth: 2,
-    borderColor: "#ddd",
+    borderColor: "#C7C7CC",
     alignItems: "center",
     justifyContent: "center",
   },
-  radioSelected: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+  radioButtonSelected: {
+    borderColor: "#007AFF",
+  },
+  radioInner: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
     backgroundColor: "#007AFF",
   },
-  summaryContainer: {
-    backgroundColor: "#f8f8f8",
-    padding: 16,
-    marginVertical: 8,
-    borderRadius: 8,
+
+  // Summary Styles
+  summaryCard: {
+    paddingHorizontal: 16,
+    paddingBottom: 16,
   },
   summaryRow: {
     flexDirection: "row",
     justifyContent: "space-between",
+    alignItems: "center",
     paddingVertical: 8,
   },
-  totalRow: {
-    borderTopWidth: 1,
-    borderTopColor: "#ddd",
-    marginTop: 8,
-    paddingTop: 12,
+  summaryLabel: {
+    fontSize: 15,
+    color: "#3C3C43",
   },
-  totalText: {
-    fontSize: 18,
-    fontWeight: "bold",
+  summaryValue: {
+    fontSize: 15,
+    fontWeight: "500",
+    color: "#1C1C1E",
   },
   discountText: {
-    color: "#e74c3c",
+    color: "#FF3B30",
+  },
+  divider: {
+    height: 1,
+    backgroundColor: "#E5E5EA",
+    marginVertical: 8,
+  },
+  totalLabel: {
+    fontSize: 17,
+    fontWeight: "600",
+    color: "#1C1C1E",
+  },
+  totalValue: {
+    fontSize: 17,
+    fontWeight: "700",
+    color: "#1C1C1E",
+  },
+
+  // Bottom Section Styles
+  bottomSection: {
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    backgroundColor: "#fff",
+    borderTopWidth: 0.5,
+    borderTopColor: "#E5E5EA",
+    marginTop: 16,
   },
   orderButton: {
     backgroundColor: "#007AFF",
-    padding: 16,
-    borderRadius: 8,
+    paddingVertical: 16,
+    borderRadius: 12,
     alignItems: "center",
-    marginVertical: 16,
+    justifyContent: "center",
+    shadowColor: "#007AFF",
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  orderButtonDisabled: {
+    backgroundColor: "#C7C7CC",
+    shadowOpacity: 0,
+    elevation: 0,
   },
   orderButtonText: {
     color: "#fff",
-    fontSize: 18,
-    fontWeight: "bold",
-  },
-  // PayScreen styles
-  voucherContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: 12,
-    backgroundColor: "#fff",
-    borderRadius: 6,
-    marginVertical: 4,
-  },
-  voucherText: {
-    color: "#2979ff",
-    fontWeight: "bold",
+    fontSize: 17,
+    fontWeight: "600",
   },
 });

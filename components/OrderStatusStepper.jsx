@@ -5,16 +5,11 @@ import axiosInstance from '../utils/AxiosInstance';
 
 const ORDER_STEPS = [
   { key: 'pending', label: 'Chờ xác nhận', description: 'Đơn hàng đang chờ xác nhận' },
-  { key: 'confirmed', label: 'Chờ lấy hàng', description: 'Đơn hàng đã được xác nhận' },
-  { key: 'packed', label: 'Đã đóng gói', description: 'Đơn hàng đã được đóng gói' },
-  { key: 'picked', label: 'Đã lấy hàng', description: 'Đơn hàng đã được lấy' },
-  { key: 'shipping', label: 'Đang giao', description: 'Đơn hàng đang được giao' },
+  { key: 'packed', label: 'Chờ lấy hàng', description: 'Đơn hàng đã được xác nhận' },
+  { key: 'shipping', label: 'Chờ giao hàng', description: 'Đơn hàng đang được giao' },
   { key: 'delivered', label: 'Đã giao', description: 'Đơn hàng đã được giao thành công' },
-  { key: 'return_requested', label: 'Yêu cầu trả hàng', description: 'Đã yêu cầu trả hàng' },
-  { key: 'return_approved', label: 'Duyệt trả', description: 'Yêu cầu trả hàng đã được duyệt' },
-  { key: 'refunding', label: 'Hoàn tiền', description: 'Đang tiến hành hoàn tiền' },
-  { key: 'refunded', label: 'Đã hoàn tiền', description: 'Đã hoàn tiền thành công' },
-  { key: 'cancelled', label: 'Đã huỷ', description: 'Đơn hàng đã bị hủy' },
+  { key: 'return_requested', label: 'Trả hàng', description: 'Đã yêu cầu trả hàng' },
+  { key: 'cancelled', label: 'Đã huỷ', description: 'Đơn hàng đã bị huỷ' },
 ];
 
 const STEP_ICONS = {
@@ -96,9 +91,32 @@ export default function OrderStatusStepper({ orderId, initialStatus, onStatusCha
 
   // Lấy index của trạng thái hiện tại
   const currentStepIndex = ORDER_STEPS.findIndex(s => s.key === currentStatus);
-  
-  // Lọc chỉ hiện các trạng thái đã qua và trạng thái hiện tại
-  const visibleSteps = ORDER_STEPS.slice(0, currentStepIndex + 1);
+
+  // Nếu trạng thái là cancelled và trạng thái trước là pending hoặc packed, chỉ hiển thị đến bước đó + "Đã huỷ"
+  let visibleSteps;
+  if (
+    currentStatus === 'cancelled' &&
+    statusHistory.length > 0
+  ) {
+    // Tìm trạng thái cuối cùng trước khi huỷ (trong lịch sử)
+    // Lấy phần tử có status khác 'cancelled' cuối cùng
+    const lastStatusObj = [...statusHistory].reverse().find(h => h.status !== 'cancelled');
+    const lastStatus = lastStatusObj ? lastStatusObj.status : null;
+    if (lastStatus === 'pending' || lastStatus === 'packed') {
+      // Hiển thị các bước từ đầu đến bước lastStatus, rồi thêm "Đã huỷ"
+      const lastIndex = ORDER_STEPS.findIndex(s => s.key === lastStatus);
+      visibleSteps = [
+        ...ORDER_STEPS.slice(0, lastIndex + 1),
+        ORDER_STEPS.find(s => s.key === 'cancelled')
+      ];
+    } else {
+      // Nếu huỷ ở trạng thái khác, hiển thị tất cả đến "Đã huỷ"
+      visibleSteps = ORDER_STEPS.slice(0, currentStepIndex + 1);
+    }
+  } else {
+    // Bình thường: hiển thị đến trạng thái hiện tại
+    visibleSteps = ORDER_STEPS.slice(0, currentStepIndex + 1);
+  }
 
   // Định dạng thời gian
   const formatDate = (dateString) => {

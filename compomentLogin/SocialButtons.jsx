@@ -285,17 +285,6 @@ const SocialButtons = () => {
       </TouchableOpacity>
 
       <TouchableOpacity
-        style={[styles.socialButton, styles.appleButton]}
-        onPress={() => handleSocialLogin("Apple")}
-        activeOpacity={0.8}
-      >
-        <Image source={socialIcons.Apple} style={styles.socialIcon} />
-        <Text style={[styles.socialButtonText, styles.appleText]}>
-          Tiếp tục với Apple
-        </Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
         style={[styles.socialButton, styles.facebookButton]}
         onPress={() => handleSocialLogin("Facebook")}
         activeOpacity={0.8}
