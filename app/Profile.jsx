@@ -276,8 +276,8 @@ export default function Profile() {
                     color="#1976ff"
                   />
                 ),
-                label: "Chính sách bảo mật",
-                onPress: () => router.push("./"),
+                label: "Đơn hàng chưa thanh toán",
+                onPress: () => router.push("./RetryPay"),
               },
               {
                 icon: <Feather name="log-out" size={22} color="#1976ff" />,
