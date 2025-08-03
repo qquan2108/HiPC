@@ -192,12 +192,6 @@ const LoginScreen = () => {
                   </LinearGradient>
                 </TouchableOpacity>
 
-                <View style={styles.dividerContainer}>
-                  <View style={styles.dividerLine} />
-                  <Text style={styles.dividerText}>Hoặc tiếp tục với</Text>
-                  <View style={styles.dividerLine} />
-                </View>
-
                 <SocialButtons />
 
                 <RegisterPrompt onPress={() => router.push('/SignUpSreen')} />

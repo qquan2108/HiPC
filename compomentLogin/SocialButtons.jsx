@@ -274,26 +274,6 @@ const SocialButtons = () => {
 
   return (
     <View style={styles.container}>
-      {/* Premium Social Buttons with Labels */}
-      <TouchableOpacity
-        style={[styles.socialButton, styles.googleButton]}
-        onPress={() => handleSocialLogin("Google")}
-        activeOpacity={0.8}
-      >
-        <Image source={socialIcons.Google} style={styles.socialIcon} />
-        <Text style={styles.socialButtonText}>Tiếp tục với Google</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={[styles.socialButton, styles.facebookButton]}
-        onPress={() => handleSocialLogin("Facebook")}
-        activeOpacity={0.8}
-      >
-        <Image source={socialIcons.Facebook} style={styles.socialIcon} />
-        <Text style={[styles.socialButtonText, styles.facebookText]}>
-          Tiếp tục với Facebook
-        </Text>
-      </TouchableOpacity>
 
       {/* Alternative: Compact Icon-only Version */}
       <View style={styles.compactContainer}>
