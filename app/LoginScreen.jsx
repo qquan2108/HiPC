@@ -51,7 +51,7 @@ const LoginScreen = () => {
         console.log("👤 res.data.user:", user);
         console.log("🆔 user._id:", user?._id);
         await AsyncStorage.setItem('user', JSON.stringify(user));
-        await AsyncStorage.setItem('user_id', user._id);
+        await AsyncStorage.setItem('user_id', user.id);
         Toast.show({
           type: 'success',
           text1: 'Đăng nhập thành công!',

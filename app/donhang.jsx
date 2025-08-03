@@ -19,16 +19,14 @@ import {
   StatusBar
 } from 'react-native';
 import { TabBar, TabView } from 'react-native-tab-view';
-import OrderStatusStepper from '../components/OrderStatusStepper';
 import axiosInstance from '../utils/AxiosInstance';
 
 const TAB_CONFIG = {
   pending:   { label: 'Chờ xác nhận', icon: 'clock-outline' },
-  confirmed: { label: 'Chờ lấy hàng', icon: 'truck-outline' },
-  packed:    { label: 'Đã đóng gói', icon: 'package-variant-closed' },
-  picked:    { label: 'Đã lấy hàng', icon: 'cube-send' },
-  shipping:  { label: 'Đang giao', icon: 'truck-fast-outline' },
+  packed:    { label: 'Chờ lấy hàng', icon: 'package-variant-closed' },
+  shipping:  { label: 'Chờ giao hàng', icon: 'truck-fast-outline' },
   delivered: { label: 'Đã giao', icon: 'check-circle-outline' },
+  return_requested: { label: 'Trả hàng', icon: 'backup-restore' },
   cancelled: { label: 'Đã huỷ', icon: 'close-circle-outline' },
 };
 const API_URL = '/orders';
@@ -38,7 +36,10 @@ function formatCurrency(num) {
 }
 
 const OrderCard = React.memo(({ order, tab, onCancel, onStatusChange, onReview }) => {
-  const itemCount = order.products?.reduce((sum, p) => sum + p.quantity, 0) || 0;
+  const router = useRouter();
+  const itemCount =
+    (order.products?.reduce((sum, p) => sum + p.quantity, 0) || 0) +
+    (order.combos?.reduce((sum, c) => sum + (c.quantity || 0), 0) || 0);
 
   const getStatusColor = (status) => {
     const colors = {
@@ -56,7 +57,9 @@ const OrderCard = React.memo(({ order, tab, onCancel, onStatusChange, onReview }
   const statusColor = getStatusColor(order.status);
 
   return (
-    <View style={styles.card}>
+    <TouchableOpacity style={styles.card} activeOpacity={0.8}
+      onPress={() => router.push({ pathname: '/chitietdonhang', params: { orderId: order._id } })}
+    >
       {/* Gradient Header */}
       <View style={styles.cardHeader}>
         <View style={styles.shopSection}>
@@ -84,41 +87,76 @@ const OrderCard = React.memo(({ order, tab, onCancel, onStatusChange, onReview }
 
       {/* Products Section */}
       <View style={styles.productsContainer}>
-        {order.products && order.products.filter(p => p.productId).length > 0 ? ( 
-          order.products 
-            .filter(prod => prod.productId) 
-            .map(prod => ( 
-              <View key={prod._id} style={styles.productRow}> 
+        {/* Sản phẩm lẻ */}
+        {order.products && order.products.filter(p => p.productId).length > 0 && (
+          order.products
+            .filter(prod => prod.productId)
+            .map(prod => (
+              <View key={prod._id} style={styles.productRow}>
                 <View style={styles.productImageContainer}>
-                  <Image 
-                    source={ 
-                      prod.productId?.image 
-                        ? { uri: prod.productId.image } 
-                        : prod.productId?.images?.length > 0 
-                          ? { uri: prod.productId.images[0] } 
-                          : require('../assets/images/pc1.png') 
-                    } 
-                    style={styles.productImg} 
+                  <Image
+                    source={
+                      prod.productId?.image
+                        ? { uri: prod.productId.image }
+                        : prod.productId?.images?.length > 0
+                          ? { uri: prod.productId.images[0] }
+                          : require('../assets/images/pc1.png')
+                    }
+                    style={styles.productImg}
                   />
                 </View>
-                <View style={styles.productInfo}> 
-                  <Text numberOfLines={2} style={styles.productName}> 
-                    {prod.productId?.name ?? 'Sản phẩm không xác định'} 
-                  </Text> 
-                  <Text style={styles.productPrice}> 
-                    {formatCurrency(prod.productId?.price ?? 0)} 
-                  </Text> 
-                </View> 
+                <View style={styles.productInfo}>
+                  <Text numberOfLines={2} style={styles.productName}>
+                    {prod.productId?.name ?? 'Sản phẩm không xác định'}
+                  </Text>
+                  <Text style={styles.productPrice}>
+                    {formatCurrency(prod.productId?.price ?? 0)}
+                  </Text>
+                </View>
                 <View style={styles.quantityContainer}>
                   <Text style={styles.productQty}>x{prod.quantity}</Text>
                 </View>
-              </View> 
-            )) 
-        ) : ( 
-          <View style={styles.noProductContainer}>
-            <MaterialCommunityIcons name="package-variant" size={32} color="#E0E0E0" />
-            <Text style={styles.noProduct}>Không có sản phẩm.</Text> 
+              </View>
+            ))
+        )}
+
+        {/* Combo sản phẩm */}
+        {order.combos && order.combos.length > 0 && order.combos.map((combo, idx) => (
+          <View key={combo._id || idx} style={styles.productRow}>
+            <View style={styles.productImageContainer}>
+              <Image
+                source={
+                  combo.comboId?.image
+                    ? { uri: combo.comboId.image }
+                    : require('../assets/images/pc1.png')
+                }
+                style={styles.productImg}
+              />
+            </View>
+            <View style={styles.productInfo}>
+              <Text numberOfLines={2} style={[styles.productName, { color: '#ff6b35' }]}>
+                🎁 {combo.comboId?.name || 'Combo sản phẩm'}
+              </Text>
+              <Text style={{ fontSize: 13, color: '#374151', marginBottom: 2 }}>
+                {combo.comboId?.productIds?.length || 0} sản phẩm trong combo
+              </Text>
+              <Text style={styles.productPrice}>
+                {formatCurrency(combo.price)}
+              </Text>
+            </View>
+            <View style={styles.quantityContainer}>
+              <Text style={styles.productQty}>x{combo.quantity}</Text>
+            </View>
           </View>
+        ))}
+
+        {/* Nếu không có sản phẩm và combo */}
+        {(!order.products || order.products.length === 0) &&
+          (!order.combos || order.combos.length === 0) && (
+            <View style={styles.noProductContainer}>
+              <MaterialCommunityIcons name="package-variant" size={32} color="#E0E0E0" />
+              <Text style={styles.noProduct}>Không có sản phẩm.</Text>
+            </View>
         )}
       </View>
 
@@ -133,34 +171,9 @@ const OrderCard = React.memo(({ order, tab, onCancel, onStatusChange, onReview }
         </View>
       </View>
 
-      {/* Order Status Stepper */}
-      <View style={styles.stepperContainer}>
-        <OrderStatusStepper
-          orderId={order._id}
-          initialStatus={order.status}
-          onStatusChange={onStatusChange}
-        />
-      </View>
 
-      {/* Review Buttons */}
-      {order.status === 'delivered' && order.products?.filter(p => p.productId).length > 0 && (
-        <View style={styles.reviewSection}>
-          {order.products.filter(p => p.productId).map(prod => (
-            <TouchableOpacity 
-              key={prod._id} 
-              style={styles.reviewButton} 
-              onPress={() => onReview(order, prod.productId)}
-              activeOpacity={0.8}
-            > 
-              <MaterialCommunityIcons name="star-outline" size={16} color="#FFFFFF" />
-              <Text style={styles.reviewButtonText}> 
-                Đánh giá "{prod.productId.name.length > 20 ? prod.productId.name.substring(0, 20) + '...' : prod.productId.name}" 
-              </Text> 
-            </TouchableOpacity> 
-          ))}
-        </View>
-      )}
-    </View>
+
+    </TouchableOpacity>
   );
 });
 
@@ -190,10 +203,11 @@ export default function TrackOrderScreen() {
     // Fetch tabs từ API hoặc sử dụng config cố định
     axiosInstance.get('/orders/status-tabs')
       .then(res => {
-        setTabs(res.data);
+        // Lọc chỉ giữ các key hợp lệ
+        const allowed = Object.keys(TAB_CONFIG);
+        setTabs(res.data.filter(tab => allowed.includes(tab.key)));
       })
       .catch(() => {
-        // Fallback về config cố định nếu API lỗi
         const defaultTabs = Object.keys(TAB_CONFIG).map(key => ({
           key,
           ...TAB_CONFIG[key]
@@ -219,6 +233,13 @@ export default function TrackOrderScreen() {
       setLoading(false);
     }
   }, [userId]);
+
+ 
+
+  useEffect(() => {
+    // Chạy lại khi activeTab đổi
+    fetchOrders(activeTab);
+  }, [activeTab]);
 
   useEffect(() => { fetchOrders(); }, [fetchOrders]);
   useFocusEffect(
@@ -717,13 +738,6 @@ const styles = StyleSheet.create({
     fontWeight: '700', 
     color: '#DC2626',
   },
-
-  // Stepper Container
-  stepperContainer: {
-    paddingHorizontal: 16,
-    paddingTop: 12,
-  },
-
   // Review Section
   reviewSection: {
     paddingHorizontal: 16,
