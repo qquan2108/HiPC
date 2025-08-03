@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialIcons, Feather } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import * as ImagePicker from 'expo-image-picker';
@@ -13,13 +13,17 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  View
+  View,
+  Image,
+  Animated,
+  Dimensions
 } from 'react-native';
 import axiosInstance from '../utils/AxiosInstance';
 import UserInfoForm from './components/UserInfoForm';
-import UserInfoHeader from './components/UserInfoHeader';
-import provinces from '../assets/data/province.json';  // chứa danh sách tỉnh/thành phố :contentReference[oaicite:3]{index=3}
-import wards     from '../assets/data/ward.json';      // chứa danh sách xã/phường :contentReference[oaicite:4]{index=4}
+import provinces from '../assets/data/province.json';
+import wards from '../assets/data/ward.json';
+
+const { width } = Dimensions.get('window');
 
 // Ảnh mặc định đặt trong assets/images/
 const DEFAULT_AVATAR = require('../assets/images/avatar.png');
@@ -43,12 +47,239 @@ const computeSource = (uri, defaultImg) => {
   if (uri.startsWith('data:') || uri.startsWith('file://') || uri.startsWith('content://')) {
    return { uri };
  }
- // Nếu là HTTP/HTTPS, cũng trả về nguyên uri
  if (uri.startsWith('http://') || uri.startsWith('https://')) {
    return { uri };
  }
- // Trường hợp còn lại (đường dẫn relative từ server), ghép với BASE_URL
  return { uri: API_BASE_URL + uri };
+};
+
+// Enhanced Header Component
+const EnhancedHeader = ({ 
+  edit, 
+  isUploading, 
+  form, 
+  pickImage, 
+  computeSource, 
+  DEFAULT_BANNER, 
+  DEFAULT_AVATAR,
+  onEditToggle,
+  onSave,
+  onCancel,
+  router 
+}) => {
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(-50)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 600,
+        useNativeDriver: true,
+      })
+    ]).start();
+  }, []);
+
+  return (
+    <View style={styles.headerContainer}>
+      {/* Status Bar */}
+      <StatusBar barStyle="light-content" backgroundColor="#1976ff" translucent />
+      
+      {/* Background Banner */}
+      <View style={styles.bannerSection}>
+        <TouchableOpacity 
+          style={styles.bannerWrapper}
+          onPress={() => edit && pickImage('bannerUrl')}
+          disabled={!edit || isUploading}
+        >
+          <Image
+            source={computeSource(form.bannerUrl, DEFAULT_BANNER)}
+            style={styles.bannerImage}
+            resizeMode="cover"
+          />
+          
+          {/* Banner Gradient Overlay */}
+          <View style={styles.bannerGradient} />
+          
+          {/* Banner Edit Button */}
+          {edit && (
+            <View style={styles.bannerEditButton}>
+              <MaterialIcons name="photo-camera" size={20} color="#fff" />
+            </View>
+          )}
+        </TouchableOpacity>
+      </View>
+
+      {/* Navigation Bar */}
+      <View style={styles.navigationBar}>
+        <TouchableOpacity 
+          style={styles.navButton}
+          onPress={() => router.back()}
+        >
+          <Feather name="arrow-left" size={24} color="#fff" />
+        </TouchableOpacity>
+        
+        <Animated.Text 
+          style={[
+            styles.navTitle,
+            {
+              opacity: fadeAnim,
+              transform: [{ translateY: slideAnim }]
+            }
+          ]}
+        >
+          Hồ sơ cá nhân
+        </Animated.Text>
+        
+        <View style={styles.navRightActions}>
+          {edit ? (
+            <>
+              <TouchableOpacity 
+                style={[styles.navActionButton, styles.saveButton]}
+                onPress={onSave}
+                disabled={isUploading}
+              >
+                {isUploading ? (
+                  <MaterialIcons name="hourglass-empty" size={20} color="#fff" />
+                ) : (
+                  <Feather name="check" size={20} color="#fff" />
+                )}
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={[styles.navActionButton, styles.cancelButton]}
+                onPress={onCancel}
+                disabled={isUploading}
+              >
+                <Feather name="x" size={20} color="#fff" />
+              </TouchableOpacity>
+            </>
+          ) : (
+            <TouchableOpacity 
+              style={styles.navActionButton}
+              onPress={onEditToggle}
+            >
+              <Feather name="edit-3" size={20} color="#fff" />
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
+
+      {/* User Profile Section */}
+      <Animated.View 
+        style={[
+          styles.profileSection,
+          {
+            opacity: fadeAnim,
+            transform: [{ translateY: slideAnim }]
+          }
+        ]}
+      >
+        {/* Avatar */}
+        <TouchableOpacity
+          style={styles.avatarContainer}
+          onPress={() => edit && pickImage('avatarUrl')}
+          disabled={!edit || isUploading}
+        >
+          <View style={styles.avatarWrapper}>
+            <Image
+              source={computeSource(form.avatarUrl, DEFAULT_AVATAR)}
+              style={styles.avatar}
+              resizeMode="cover"
+            />
+            
+            {/* Online Status Indicator */}
+            <View style={styles.onlineIndicator} />
+            
+            {/* Avatar Edit Button */}
+            {edit && (
+              <View style={styles.avatarEditButton}>
+                <MaterialIcons name="photo-camera" size={16} color="#1976ff" />
+              </View>
+            )}
+          </View>
+        </TouchableOpacity>
+
+        {/* User Info */}
+        <View style={styles.userInfoContainer}>
+          <Text style={styles.userName}>{form.full_name || 'Chưa có tên'}</Text>
+          <Text style={styles.userEmail}>{form.email || 'Chưa có email'}</Text>
+          
+          {/* User Stats */}
+          <View style={styles.userStats}>
+            <View style={styles.statItem}>
+              <Text style={styles.statNumber}>24</Text>
+              <Text style={styles.statLabel}>Đơn hàng</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statItem}>
+              <Text style={styles.statNumber}>12</Text>
+              <Text style={styles.statLabel}>Yêu thích</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statItem}>
+              <Text style={styles.statNumber}>5</Text>
+              <Text style={styles.statLabel}>Voucher</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Action Buttons */}
+        <View style={styles.actionButtonsContainer}>
+          {!edit ? (
+            <>
+              <TouchableOpacity 
+                style={[styles.actionButton, styles.primaryAction]}
+                onPress={onEditToggle}
+              >
+                <Feather name="edit-3" size={18} color="#1976ff" />
+                <Text style={styles.primaryActionText}>Chỉnh sửa</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={[styles.actionButton, styles.secondaryAction]}
+                onPress={() => {/* Share profile */}}
+              >
+                <Feather name="share-2" size={18} color="#fff" />
+                <Text style={styles.secondaryActionText}>Chia sẻ</Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <View style={styles.editModeActions}>
+              <TouchableOpacity 
+                style={[styles.editActionButton, styles.saveActionButton]}
+                onPress={onSave}
+                disabled={isUploading}
+              >
+                {isUploading ? (
+                  <MaterialIcons name="hourglass-empty" size={18} color="#fff" />
+                ) : (
+                  <Feather name="check" size={18} color="#fff" />
+                )}
+                <Text style={styles.editActionText}>
+                  {isUploading ? 'Đang lưu...' : 'Lưu thay đổi'}
+                </Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={[styles.editActionButton, styles.cancelActionButton]}
+                onPress={onCancel}
+                disabled={isUploading}
+              >
+                <Feather name="x" size={18} color="#666" />
+                <Text style={styles.cancelActionText}>Hủy bỏ</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+      </Animated.View>
+    </View>
+  );
 };
 
 export default function UserInfo() {
@@ -106,62 +337,46 @@ export default function UserInfo() {
     return () => clearTimeout(debounceRef.current);
   }, [addressInput, edit]);
 
-const fetchAddressSuggestions = (input) => {
-   // chỉ lọc khi tối thiểu 3 ký tự 
-   const q = input.trim().toLowerCase(); 
-   if (q.length < 3) { 
-     setSuggestions([]); 
-     return; 
-   } 
-   // lọc các phường/xã có path chứa chuỗi nhập vào 
-   const wardList = Array.isArray(wards) 
-   ? wards  
-   : Object.values(wards); 
+  const fetchAddressSuggestions = (input) => {
+    const q = input.trim().toLowerCase(); 
+    if (q.length < 3) { 
+      setSuggestions([]); 
+      return; 
+    } 
+    const wardList = Array.isArray(wards) ? wards : Object.values(wards); 
     const filtered = wardList 
-   .filter(w => w.path.toLowerCase().includes(q)) 
-   .slice(0, 10);
-   
-   const provinceList = Array.isArray(provinces) 
-  ? provinces 
-  : Object.values(provinces);// giới hạn 10 gợi ý 
- 
-   // chuyển thành format giống Goong để UI không đổi 
-   setSuggestions(filtered.map(w => ({ 
-     description: w.path, 
-     // nếu JSON có trường code, district_id, province_id, map vào form 
-     provinceId: w.province_id, 
-     districtId: w.district_id, 
-     wardCode: w.code, 
-   }))); 
- };
-
-  
+      .filter(w => w.path.toLowerCase().includes(q)) 
+      .slice(0, 10);
+    
+    setSuggestions(filtered.map(w => ({ 
+      description: w.path, 
+      provinceId: w.province_id, 
+      districtId: w.district_id, 
+      wardCode: w.code, 
+    }))); 
+  };
 
   const selectSuggestion = (item) => {
-  setAddressInput(item.description);
-  setSuggestions([]);
-  setForm(prev => ({
-    ...prev,
-    address: item.description,
-    provinceId: item.provinceId,
-    districtId: item.districtId,
-    wardCode: item.wardCode,
-  }));
-};
-
+    setAddressInput(item.description);
+    setSuggestions([]);
+    setForm(prev => ({
+      ...prev,
+      address: item.description,
+      provinceId: item.provinceId,
+      districtId: item.districtId,
+      wardCode: item.wardCode,
+    }));
+  };
 
   const pickImage = async (field) => {
     if (!edit) setEdit(true);
-  console.log('pickImage called for', field);
     try {
-      // Kiểm tra quyền truy cập thư viện ảnh
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
         Alert.alert('Quyền truy cập bị từ chối', 'Cần quyền truy cập để chọn hình ảnh.');
         return;
       }
 
-      // Hiển thị tùy chọn chọn ảnh từ thư viện hoặc chụp ảnh
       Alert.alert(
         'Chọn ảnh',
         'Bạn muốn chọn ảnh từ đâu?',
@@ -188,7 +403,7 @@ const fetchAddressSuggestions = (input) => {
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const imageUri = result.assets[0].uri;
-        setForm(prev => ({ ...prev, [field]: imageUri })); // Đã đúng
+        setForm(prev => ({ ...prev, [field]: imageUri }));
       }
     } catch (error) {
       console.error('Select image from library error:', error);
@@ -198,7 +413,6 @@ const fetchAddressSuggestions = (input) => {
 
   const takePicture = async (field) => {
     try {
-      // Kiểm tra quyền truy cập camera
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
       if (status !== 'granted') {
         Alert.alert('Quyền truy cập bị từ chối', 'Cần quyền truy cập camera để chụp ảnh.');
@@ -232,13 +446,11 @@ const fetchAddressSuggestions = (input) => {
         uri: Platform.OS === 'android' ? uri : uri.replace('file://', ''),
         name: filename,
         type: type,
-      } );
+      });
 
       const res = await axiosInstance.post('/users/upload', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-        timeout: 30000, // 30 seconds timeout
+        headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: 30000,
       });
 
       return res.data.url;
@@ -259,7 +471,6 @@ const fetchAddressSuggestions = (input) => {
     try {
       let { avatarUrl, bannerUrl } = form;
 
-      // Upload avatar nếu là file local
       if (avatarUrl && (avatarUrl.startsWith('file://') || avatarUrl.startsWith('content://'))) {
         try {
           avatarUrl = await uploadImage(avatarUrl);
@@ -270,7 +481,6 @@ const fetchAddressSuggestions = (input) => {
         }
       }
 
-      // Upload banner nếu là file local
       if (bannerUrl && (bannerUrl.startsWith('file://') || bannerUrl.startsWith('content://'))) {
         try {
           bannerUrl = await uploadImage(bannerUrl);
@@ -289,13 +499,13 @@ const fetchAddressSuggestions = (input) => {
         longitude: form.longitude,
         avatarUrl: avatarUrl || '',
         bannerUrl: bannerUrl || '',
-          provinceId: form.provinceId,
-  districtId: form.districtId,
-  wardCode: form.wardCode,
+        provinceId: form.provinceId,
+        districtId: form.districtId,
+        wardCode: form.wardCode,
       };
+
       await axiosInstance.put(`/users/${user._id}`, payload);
       
-      // Cập nhật user state và AsyncStorage
       const updatedUser = { ...user, ...payload };
       setUser(updatedUser);
       setForm(prev => ({ ...prev, ...payload }));
@@ -309,26 +519,6 @@ const fetchAddressSuggestions = (input) => {
     } finally {
       setIsUploading(false);
     }
-  };
-
-  const handleDelete = () => {
-    Alert.alert('Xác nhận', 'Bạn có chắc muốn xóa tài khoản?', [
-      { text: 'Hủy', style: 'cancel' },
-      {
-        text: 'Xóa',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await axiosInstance.delete(`/users/${user._id}`);
-            await AsyncStorage.multiRemove(['token', 'user']);
-            router.replace('/LoginScreen');
-          } catch (error) {
-            console.error('Delete user error:', error);
-            Alert.alert('Lỗi', 'Không xóa được tài khoản');
-          }
-        },
-      },
-    ]);
   };
 
   const handleCancel = () => {
@@ -352,47 +542,37 @@ const fetchAddressSuggestions = (input) => {
   if (!user) {
     return (
       <SafeAreaView style={styles.loadingContainer}>
-        <Text>Đang tải...</Text>
+        <View style={styles.loadingContent}>
+          <MaterialIcons name="person" size={48} color="#1976ff" />
+          <Text style={styles.loadingText}>Đang tải thông tin...</Text>
+        </View>
       </SafeAreaView>
     );
   }
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
-      {/* Đặt bút chì ở ngoài ScrollView để luôn nổi trên cùng */}
-      {!edit && (
-        <TouchableOpacity
-          style={{
-            position: 'absolute',
-            top: 16, // Sát mép trên hơn
-            right: 16, // Sát mép phải hơn
-            zIndex: 100, // Đảm bảo nổi trên mọi thứ
-            backgroundColor: '#fff',
-            borderRadius: 20,
-            padding: 6,
-            elevation: 4,
-          }}
-          onPress={() => setEdit(true)}
-        >
-          <Ionicons name="pencil" size={24} color="#1976ff" />
-        </TouchableOpacity>
-      )}
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <UserInfoHeader
+      <ScrollView 
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <EnhancedHeader
           edit={edit}
           isUploading={isUploading}
           form={form}
           pickImage={pickImage}
+          computeSource={computeSource}
           DEFAULT_BANNER={DEFAULT_BANNER}
           DEFAULT_AVATAR={DEFAULT_AVATAR}
-          computeSource={computeSource}
+          onEditToggle={() => setEdit(true)}
+          onSave={handleSave}
+          onCancel={handleCancel}
+          router={router}
         />
-        {/* Header actions giữ nguyên */}
-        {/* ... */}
+
         <UserInfoForm
           edit={edit}
-          
           isUploading={isUploading}
           form={form}
           setForm={setForm}
@@ -410,81 +590,413 @@ const fetchAddressSuggestions = (input) => {
   );
 }
 
-// Tách component Field để DRY
-function Field({ label, children }) {
-  return (
-    <View style={styles.card}>
-      <Text style={styles.label}>{label}</Text>
-      {children}
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f2f4f8' },
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  bannerContainer: { position: 'relative', height: 180, marginBottom: 60, zIndex: 1 },
-  banner: { width: '100%', height: '100%' },
-  editOverlay: {
-    position: 'absolute', top: 10, right: 10,
-    backgroundColor: 'rgba(0,0,0,0.5)', padding: 6, borderRadius: 20, zIndex: 2
+  container: { 
+    flex: 1, 
+    backgroundColor: '#f8f9fa' 
   },
+  
+  scrollView: {
+    flex: 1,
+  },
+  
+  scrollContent: {
+    paddingBottom: 100,
+  },
+
+  loadingContainer: { 
+    flex: 1, 
+    backgroundColor: '#f8f9fa',
+    justifyContent: 'center', 
+    alignItems: 'center' 
+  },
+  
+  loadingContent: {
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    padding: 32,
+    borderRadius: 16,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+  },
+  
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#666',
+    fontWeight: '500',
+  },
+
+  // Enhanced Header Styles
+  headerContainer: {
+    position: 'relative',
+    backgroundColor: '#1976ff',
+    paddingBottom: 200, // Tăng padding bottom để có đủ không gian cho profile section
+    marginBottom: 100, // Tăng marginBottom để form không bị đè
+  },
+
+  bannerSection: {
+    height: 200, // Giảm chiều cao banner
+    position: 'relative',
+  },
+
+  bannerWrapper: {
+    height: '100%',
+    position: 'relative',
+  },
+
+  bannerImage: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#e3f2fd',
+  },
+
+  bannerGradient: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(25, 118, 255, 0.4)',
+  },
+
+  bannerEditButton: {
+    position: 'absolute',
+    top: 15, // Điều chỉnh vị trí
+    right: 15,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    borderRadius: 20,
+    padding: 8,
+  },
+
+  navigationBar: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 50 : StatusBar.currentHeight + 10, // Điều chỉnh cho phù hợp với status bar
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    zIndex: 10,
+  },
+
+  navButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  navTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: 'black',
+    textAlign: 'center',
+    flex: 1,
+    
+  },
+
+  navRightActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+
+  navActionButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  saveButton: {
+    backgroundColor: 'rgba(76, 175, 80, 0.9)',
+  },
+
+  cancelButton: {
+    backgroundColor: 'rgba(244, 67, 54, 0.9)',
+  },
+
+  profileSection: {
+    position: 'absolute',
+    bottom: -60, // Điều chỉnh vị trí
+    left: 20,
+    right: 20,
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 20,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+  },
+
+  avatarContainer: {
+    alignSelf: 'center',
+    marginTop: -40,
+    marginBottom: 16,
+  },
+
   avatarWrapper: {
-    position: 'absolute', bottom: -40, left: 20,
-    width: 80, height: 80, borderRadius: 40,
-    overflow: 'hidden', borderWidth: 2, borderColor: '#fff',
-    backgroundColor: '#eee', zIndex: 3, elevation: 5
+    position: 'relative',
+    width: 80, // Giảm kích thước avatar
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#fff',
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
   },
-  avatar: { width: '100%', height: '100%' },
-  avatarOverlay: {
-    position: 'absolute', bottom: 0, right: 0,
-    backgroundColor: 'rgba(0,0,0,0.6)', padding: 4, borderRadius: 12, zIndex: 4
+
+  avatar: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 40,
   },
-  headerInfo: {
-    paddingHorizontal: 20, paddingTop: 10, paddingBottom: 20,
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'
+
+  onlineIndicator: {
+    position: 'absolute',
+    bottom: 5,
+    right: 5,
+    width: 16, // Giảm kích thước
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: '#4caf50',
+    borderWidth: 2,
+    borderColor: '#fff',
   },
-  headerTitle: { fontSize: 20, fontWeight: '600', color: '#333', flex: 1 },
-  headerActions: { flexDirection: 'row' },
-  iconBtn: { marginLeft: 12 },
-  content: { paddingBottom: 100 },
+
+  avatarEditButton: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 28, // Giảm kích thước
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+
+  userInfoContainer: {
+    alignItems: 'center',
+    marginBottom: 16, // Giảm margin
+  },
+
+  userName: {
+    fontSize: 20, // Giảm kích thước font
+    fontWeight: '700',
+    color: '#2c3e50',
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+
+  userEmail: {
+    fontSize: 14, // Giảm kích thước font
+    color: '#7f8c8d',
+    marginBottom: 12, // Giảm margin
+    textAlign: 'center',
+  },
+
+  userStats: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f8f9fa',
+    paddingVertical: 10, // Giảm padding
+    paddingHorizontal: 20,
+    borderRadius: 12,
+  },
+
+  statItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+
+  statNumber: {
+    fontSize: 18, // Giảm kích thước font
+    fontWeight: '700',
+    color: '#1976ff',
+  },
+
+  statLabel: {
+    fontSize: 11, // Giảm kích thước font
+    color: '#666',
+    marginTop: 2,
+  },
+
+  statDivider: {
+    width: 1,
+    height: 25, // Giảm chiều cao
+    backgroundColor: '#e0e0e0',
+    marginHorizontal: 12, // Giảm margin
+  },
+
+  actionButtonsContainer: {
+    gap: 8, // Giảm gap
+  },
+
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10, // Giảm padding
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    gap: 6, // Giảm gap
+  },
+
+  primaryAction: {
+    backgroundColor: '#f0f8ff',
+    borderWidth: 1,
+    borderColor: '#1976ff',
+  },
+
+  secondaryAction: {
+    backgroundColor: '#1976ff',
+  },
+
+  primaryActionText: {
+    color: '#1976ff',
+    fontWeight: '600',
+    fontSize: 14, // Giảm kích thước font
+  },
+
+  secondaryActionText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 14, // Giảm kích thước font
+  },
+
+  editModeActions: {
+    gap: 8, // Giảm gap
+  },
+
+  editActionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    gap: 6,
+  },
+
+  saveActionButton: {
+    backgroundColor: '#4caf50',
+  },
+
+  cancelActionButton: {
+    backgroundColor: '#f5f5f5',
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+
+  editActionText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 14, // Giảm kích thước font
+  },
+
+  cancelActionText: {
+    color: '#666',
+    fontWeight: '600',
+    fontSize: 14, // Giảm kích thước font
+  },
+
+  // Form styles (keeping existing ones)
   card: {
-    backgroundColor: '#fff', borderRadius: 8,
-    padding: 16, marginHorizontal: 20, marginBottom: 12, elevation: 2
+    backgroundColor: '#fff', 
+    borderRadius: 8,
+    padding: 16, 
+    marginHorizontal: 20, 
+    marginBottom: 12, 
+    elevation: 2
   },
-  label: { fontSize: 14, fontWeight: '500', color: '#1976ff', marginBottom: 6 },
+  label: { 
+    fontSize: 14, 
+    fontWeight: '500', 
+    color: '#1976ff', 
+    marginBottom: 6 
+  },
   input: {
-    borderWidth: 1, borderColor: '#e0e0e0',
-    borderRadius: 6, paddingVertical: 10, paddingHorizontal: 12,
-    fontSize: 16, backgroundColor: '#f9f9f9'
+    borderWidth: 1, 
+    borderColor: '#e0e0e0',
+    borderRadius: 6, 
+    paddingVertical: 10, 
+    paddingHorizontal: 12,
+    fontSize: 16, 
+    backgroundColor: '#f9f9f9'
   },
-  inputEdit: { backgroundColor: '#fff', borderColor: '#1976ff' },
-  suggestionBox: {
-    backgroundColor: '#fff', marginTop: 4, borderRadius: 6,
-    elevation: 3, maxHeight: 150, borderWidth: 1, borderColor: '#e0e0e0'
+  inputEdit: { 
+    backgroundColor: '#fff', 
+    borderColor: '#1976ff' 
   },
-  suggestionScroll: { maxHeight: 150 },
-  suggestionItem: { 
-    padding: 12, 
-    borderBottomWidth: 1, 
-    borderBottomColor: '#eee' 
-  },
-  coordText: { marginTop: 6, fontSize: 12, color: '#666' },
-  btnRow: {
-    flexDirection: 'row', justifyContent: 'space-between',
-    marginTop: 16, marginHorizontal: 20
-  },
-  btnSave: {
-    flex: 1, alignItems: 'center',
-    padding: 12, backgroundColor: '#1976ff',
-    borderRadius: 8, marginRight: 8
-  },
-  btnCancel: {
-    flex: 1, alignItems: 'center',
-    padding: 12, backgroundColor: '#eee', borderRadius: 8
-  },
-  btnDisabled: {
-    opacity: 0.6
-  },
-  btnText: { color: '#fff', fontWeight: 'bold' }
+ suggestionBox: {
+   backgroundColor: '#fff', 
+   marginTop: 4, 
+   borderRadius: 6,
+   elevation: 2,
+   maxHeight: 200,
+ },
+ suggestion: {
+   padding: 12,
+   borderBottomWidth: 1,
+   borderBottomColor: '#f0f0f0',
+ },
+ suggestionText: {
+   fontSize: 14,
+   color: '#333',
+ },
+ suggestionLast: {
+   borderBottomWidth: 0,
+ },
+ buttonContainer: {
+   flexDirection: 'row',
+   justifyContent: 'space-around',
+   marginTop: 20,
+   marginHorizontal: 20,
+   marginBottom: 20,
+ },
+ button: {
+   paddingVertical: 12,
+   paddingHorizontal: 24,
+   borderRadius: 8,
+   minWidth: 100,
+   alignItems: 'center',
+ },
+ saveBtn: {
+   backgroundColor: '#4caf50',
+ },
+ cancelBtn: {
+   backgroundColor: '#f44336',
+ },
+ buttonText: {
+   color: '#fff',
+   fontSize: 16,
+   fontWeight: '600',
+ },
+ disabledButton: {
+   opacity: 0.6,
+ },
+ uploadingText: {
+   color: '#666',
+   fontSize: 14,
+   textAlign: 'center',
+   marginVertical: 10,
+ },
 });

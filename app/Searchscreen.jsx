@@ -1,26 +1,24 @@
 // SearchScreen.jsx
-import React, { useState, useCallback, useEffect } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  TextInput,
-  ScrollView,
-  TouchableOpacity,
-  Dimensions,
-  StatusBar,
-  Image,
-  FlatList,
-  Animated,
-  Platform,
-} from "react-native";
 import { Feather } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
-import { BlurView } from "expo-blur";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { useCallback, useEffect, useState } from "react";
+import {
+  Animated,
+  Dimensions,
+  FlatList,
+  Image,
+  Platform,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import CustomTabBar from "../compomentHome/CustomTabBar";
 import SearchChip from "../compomentSearch/SearchChip";
 import axiosInstance from "../utils/AxiosInstance";
-import CustomTabBar from "../compomentHome/CustomTabBar";
 
 const { width, height } = Dimensions.get("window");
 const NUM_COLUMNS = 2;
@@ -237,7 +235,7 @@ console.log("Navigating to:", `/ctsp?id=${productId}`);
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
 
-      {/* Modern Header */}
+      {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerContent}>
           <Text style={styles.headerTitle}>Khám phá</Text>
@@ -245,12 +243,9 @@ console.log("Navigating to:", `/ctsp?id=${productId}`);
             Tìm kiếm sản phẩm công nghệ tốt nhất
           </Text>
         </View>
-        <TouchableOpacity style={styles.profileButton}>
-          <Feather name="user" size={24} color="#6366f1" />
-        </TouchableOpacity>
       </View>
 
-      {/* Enhanced Search Bar */}
+      {/* Search Bar */}
       <View style={styles.searchSection}>
         <View
           style={[
@@ -272,7 +267,6 @@ console.log("Navigating to:", `/ctsp?id=${productId}`);
             onSubmitEditing={handleSearchSubmit}
             onFocus={() => setIsSearchFocused(true)}
             onBlur={() => {
-              // Delay hiding results to allow for touch events
               setTimeout(() => setIsSearchFocused(false), 300);
             }}
             placeholderTextColor="#9ca3af"
@@ -292,111 +286,107 @@ console.log("Navigating to:", `/ctsp?id=${productId}`);
         </View>
       </View>
 
-      {/* Search Results Overlay - Fixed */}
-      {search.length > 0 && isSearchFocused && (
-        <View style={styles.searchOverlay}>
-          <FlatList
-            data={filteredProducts}
-            keyExtractor={(item) => String(item.id || item._id)}
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                style={styles.resultItem}
-                onPress={() => handleProductPress(item)}
-                activeOpacity={0.7}
-                delayPressIn={0}
-                delayPressOut={0}
-              >
-                <Image source={item.image} style={styles.resultImage} />
-                <View style={styles.resultContent}>
-                  <Text numberOfLines={1} style={styles.resultTitle}>
-                    {item.name}
-                  </Text>
-                  <Text style={styles.resultPrice}>
-                    {item.price?.toLocaleString("vi-VN")}₫
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            )}
-            showsVerticalScrollIndicator={false}
-            style={styles.resultList}
-            contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 8 }}
-            ListEmptyComponent={
-              <View style={styles.noResultsContainer}>
-                <Text style={styles.noResultsText}>Không tìm thấy sản phẩm</Text>
-                <Text style={styles.noResultsSubtext}>
-                  Thử tìm kiếm với từ khóa khác
+      {/* Nếu có từ khóa tìm kiếm thì chỉ hiện kết quả, ẩn các phần còn lại */}
+      {search.length > 0 && isSearchFocused ? (
+        <FlatList
+          data={filteredProducts}
+          keyExtractor={(item) => String(item.id || item._id)}
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              style={styles.resultItem}
+              onPress={() => handleProductPress(item)}
+              activeOpacity={0.7}
+            >
+              <Image source={item.image} style={styles.resultImage} />
+              <View style={styles.resultContent}>
+                <Text numberOfLines={1} style={styles.resultTitle}>
+                  {item.name}
+                </Text>
+                <Text style={styles.resultPrice}>
+                  {item.price?.toLocaleString("vi-VN")}₫
                 </Text>
               </View>
-            }
-            keyboardShouldPersistTaps="handled"
-          />
-        </View>
-      )}
-
-      <ScrollView
-        style={styles.scrollView}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-      >
-        {/* Search History Section */}
-        {searchHistory.length > 0 && (
-          <Animated.View style={[styles.section, { opacity: fadeAnim }]}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Tìm kiếm gần đây</Text>
-              <TouchableOpacity
-                onPress={handleClearHistory}
-                style={styles.clearAllButton}
-              >
-                <Text style={styles.clearAllText}>Xóa tất cả</Text>
-              </TouchableOpacity>
+            </TouchableOpacity>
+          )}
+          showsVerticalScrollIndicator={false}
+          style={styles.resultList}
+          contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 8 }}
+          ListEmptyComponent={
+            <View style={styles.noResultsContainer}>
+              <Text style={styles.noResultsText}>Không tìm thấy sản phẩm</Text>
+              <Text style={styles.noResultsSubtext}>
+                Thử tìm kiếm với từ khóa khác
+              </Text>
             </View>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.historyScroll}
-            >
-              {searchHistory.map((item) => (
-                <SearchChip
-                  key={item}
-                  item={item}
-                  onRemove={() => handleRemoveHistory(item)}
-                  onPress={() => handleHistoryPress(item)}
-                />
-              ))}
-            </ScrollView>
+          }
+          keyboardShouldPersistTaps="handled"
+        />
+      ) : (
+        <ScrollView
+          style={styles.scrollView}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+        >
+          {/* Search History Section */}
+          {searchHistory.length > 0 && (
+            <Animated.View style={[styles.section, { opacity: fadeAnim }]}>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>Tìm kiếm gần đây</Text>
+                <TouchableOpacity
+                  onPress={handleClearHistory}
+                  style={styles.clearAllButton}
+                >
+                  <Text style={styles.clearAllText}>Xóa tất cả</Text>
+                </TouchableOpacity>
+              </View>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.historyScroll}
+              >
+                {searchHistory.map((item) => (
+                  <SearchChip
+                    key={item}
+                    item={item}
+                    onRemove={() => handleRemoveHistory(item)}
+                    onPress={() => handleHistoryPress(item)}
+                  />
+                ))}
+              </ScrollView>
+            </Animated.View>
+          )}
+
+          {/* Popular Searches */}
+          <Animated.View style={[styles.section, { opacity: fadeAnim }]}>
+            <Text style={styles.sectionTitle}>Tìm kiếm phổ biến</Text>
+            <FlatList
+              data={popularSearches}
+              keyExtractor={(item) => item}
+              renderItem={renderPopularSearch}
+              scrollEnabled={false}
+              ItemSeparatorComponent={() => <View style={styles.separator} />}
+            />
           </Animated.View>
-        )}
 
-        {/* Popular Searches */}
-        <Animated.View style={[styles.section, { opacity: fadeAnim }]}>
-          <Text style={styles.sectionTitle}>Tìm kiếm phổ biến</Text>
-          <FlatList
-            data={popularSearches}
-            keyExtractor={(item) => item}
-            renderItem={renderPopularSearch}
-            scrollEnabled={false}
-            ItemSeparatorComponent={() => <View style={styles.separator} />}
-          />
-        </Animated.View>
+          {/* Categories Grid */}
+          <Animated.View style={[styles.section, { opacity: fadeAnim }]}>
+            <Text style={styles.sectionTitle}>Danh mục nổi bật</Text>
+            <FlatList
+              data={categories}
+              keyExtractor={(c) => c._id}
+              numColumns={NUM_COLUMNS}
+              renderItem={renderCategory}
+              scrollEnabled={false}
+              contentContainerStyle={styles.categoriesGrid}
+              ItemSeparatorComponent={() => <View style={{ height: 16 }} />}
+              columnWrapperStyle={styles.categoryRow}
+            />
+          </Animated.View>
 
-        {/* Categories Grid */}
-        <Animated.View style={[styles.section, { opacity: fadeAnim }]}>
-          <Text style={styles.sectionTitle}>Danh mục nổi bật</Text>
-          <FlatList
-            data={categories}
-            keyExtractor={(c) => c._id}
-            numColumns={NUM_COLUMNS}
-            renderItem={renderCategory}
-            scrollEnabled={false}
-            contentContainerStyle={styles.categoriesGrid}
-            ItemSeparatorComponent={() => <View style={{ height: 16 }} />}
-            columnWrapperStyle={styles.categoryRow}
-          />
-        </Animated.View>
-
-        {/* Bottom Spacer */}
-        <View style={styles.bottomSpacer} />
-      </ScrollView>
+          {/* Bottom Spacer */}
+          <View style={styles.bottomSpacer} />
+        </ScrollView>
+      )}
 
       <CustomTabBar router={router} />
     </View>
@@ -492,15 +482,7 @@ const styles = StyleSheet.create({
 
   // Search Overlay Styles - Fixed
   searchOverlay: {
-    position: "absolute",
-    top: Platform.OS === "ios" ? 140 : 120, // Adjust based on header height
-    left: 0,
-    right: 0,
-    bottom: 0,
     backgroundColor: "#ffffff",
-    zIndex: 1000,
-    borderTopWidth: 1,
-    borderTopColor: "#f3f4f6",
   },
   resultList: {
     flex: 1,

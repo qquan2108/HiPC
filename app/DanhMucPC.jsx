@@ -29,50 +29,51 @@ export default function DanhMucPCScreen() {
   const [products, setProducts] = useState([]);
   const [showLoginDialog, setShowLoginDialog] = useState(false); // Thêm state này
   const [loading, setLoading] = useState(true); // Thêm state này
-   const [brands, setBrands] = useState([]);
+  const [brands, setBrands] = useState([]);
+  const [bestSellers, setBestSellers] = useState([]);
   const router = useRouter();
 
   // Kiểm tra đăng nhập
-  useEffect(() => {
-    AsyncStorage.getItem("token").then((token) => {
-      if (!token) {
-        setShowLoginDialog(true);
-        setLoading(false);
-        return;
-      }
-      AsyncStorage.getItem("user").then((userStr) => {
-        if (!userStr || userStr === "undefined") {
-          setShowLoginDialog(true);
-          setLoading(false);
-          return;
-        }
-        let stored;
-        try {
-          stored = JSON.parse(userStr);
-        } catch (e) {
-          setShowLoginDialog(true);
-          setLoading(false);
-          return;
-        }
-        const userId = stored.id || stored._id;
-        if (!userId) {
-          setShowLoginDialog(true);
-          setLoading(false);
-          return;
-        }
-        setShowLoginDialog(false);
-        setLoading(false);
-      });
-    });
-  }, []);
+  // useEffect(() => {
+  //   AsyncStorage.getItem("token").then((token) => {
+  //     if (!token) {
+  //       setShowLoginDialog(true);
+  //       setLoading(false);
+  //       return;
+  //     }
+  //     AsyncStorage.getItem("user").then((userStr) => {
+  //       if (!userStr || userStr === "undefined") {
+  //         setShowLoginDialog(true);
+  //         setLoading(false);
+  //         return;
+  //       }
+  //       let stored;
+  //       try {
+  //         stored = JSON.parse(userStr);
+  //       } catch (e) {
+  //         setShowLoginDialog(true);
+  //         setLoading(false);
+  //         return;
+  //       }
+  //       const userId = stored.id || stored._id;
+  //       if (!userId) {
+  //         setShowLoginDialog(true);
+  //         setLoading(false);
+  //         return;
+  //       }
+  //       setShowLoginDialog(false);
+  //       setLoading(false);
+  //     });
+  //   });
+  // }, []);
 
   // Bộ lọc mẫu (tuỳ ý)
- 
-const PRICE_SEGMENTS = [
+
+  const PRICE_SEGMENTS = [
     { label: 'Dưới 2 triệu', min: 0, max: 2_000_000 },
-    { label: '2–4 triệu',    min: 2_000_000, max: 4_000_000 },
-    { label: '4–7 triệu',    min: 4_000_000, max: 7_000_000 },
-    { label: '7–13 triệu',   min: 7_000_000, max: 13_000_000 },
+    { label: '2–4 triệu', min: 2_000_000, max: 4_000_000 },
+    { label: '4–7 triệu', min: 4_000_000, max: 7_000_000 },
+    { label: '7–13 triệu', min: 7_000_000, max: 13_000_000 },
     { label: 'Trên 13 triệu', min: 13_000_000, max: Infinity },
   ];
 
@@ -92,15 +93,17 @@ const PRICE_SEGMENTS = [
           axios.get('/images')
         ]);
         const imgs = imgRes.data;
-        setCategories(catRes.data.map(cat => {
+        const cats = catRes.data.map(cat => {
           const found = imgs.find(i => i.category_id?._id === cat._id);
           return {
             _id: cat._id,
             name: cat.name,
             icon: found ? { uri: found.url } : require('../assets/images/pc.png'),
           };
-        }));
-        if (catRes.data[0]) setSelectedCat(catRes.data[0]._id);
+        });
+        setCategories(cats);
+        // Sửa ở đây: chỉ setSelectedCat nếu có ít nhất 1 category
+        if (cats.length > 0) setSelectedCat(cats[0]._id);
       } catch (e) { console.error(e); }
     })();
   }, []);
@@ -111,6 +114,14 @@ const PRICE_SEGMENTS = [
       .then(res => setProducts(res.data.products || []))
       .catch(() => setProducts([]));
   }, []);
+
+  // Fetch best sellers mỗi khi đổi danh mục
+  useEffect(() => {
+    if (!selectedCat) return;
+    axios.get(`/product/best-sellers?category=${selectedCat}&limit=5`)
+      .then(res => setBestSellers(res.data || []))
+      .catch(() => setBestSellers([]));
+  }, [selectedCat]);
 
   // Tìm object category đang chọn
   const catObj = categories.find(c => c._id === selectedCat);
@@ -213,48 +224,14 @@ const PRICE_SEGMENTS = [
           {/* TITLE + “Xem tất cả” */}
           <View style={styles.titleRow}>
             <Text style={styles.titleText}>{catObj?.name || '—'}</Text>
-            <TouchableOpacity>
+            <TouchableOpacity onPress={() => router.push("./danhmucall")}>
               <Text style={styles.viewAll}>Xem tất cả</Text>
+
             </TouchableOpacity>
           </View>
 
           {/* DANH SÁCH SẢN PHẨM */}
-          {filteredProducts.length === 0 ? (
-            <Text style={{ color: '#888', textAlign: 'center', marginTop: 24 }}>
-              Không có sản phẩm nào
-            </Text>
-          ) : (
-            filteredProducts.map(p => (
-              <TouchableOpacity
-                key={p._id || p.id}
-                style={{
-                  backgroundColor: '#fff',
-                  borderRadius: 8,
-                  marginBottom: 12,
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  padding: 12,
-                  shadowColor: '#eee',
-                  shadowOffset: { width: 0, height: 1 },
-                  shadowOpacity: 0.2,
-                  shadowRadius: 2,
-                  elevation: 2,
-                }}
-                onPress={() => router.push({ pathname: '/ctsp', params: { id: p._id || p.id } })}
-              >
-                <Image
-                  source={p.image ? { uri: p.image } : require('../assets/images/pc1.png')}
-                  style={{ width: 54, height: 54, borderRadius: 8, marginRight: 12, backgroundColor: '#f2f2f2' }}
-                />
-                <View style={{ flex: 1 }}>
-                  <Text numberOfLines={2} style={{ fontWeight: '700' }}>{p.name}</Text>
-                  <Text style={{ color: '#009688', marginTop: 2 }}>
-                    {Number(p.price).toLocaleString('vi-VN')}₫
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            ))
-          )}
+          
           {/* Filter: Hãng */}
           <FilterSection
             title="Hãng"
@@ -291,8 +268,19 @@ const PRICE_SEGMENTS = [
             }
           />
 
-          {/* Các filter */}
-          
+          {/* 🟢 Sản phẩm bán nhiều nhất trong tháng */}
+          <FilterSection
+            title="Bán nhiều nhất tháng này"
+            data={bestSellers}
+            onSelect={p =>
+              router.push({
+                pathname: '/ctsp',
+                params: { id: p._id }
+              })
+            }
+          />
+
+          {/* Các filter khác... */}
           <View style={{ height: 80 }} />
         </ScrollView>
       </View>
@@ -313,27 +301,27 @@ function FilterSection({ title, data, onSelect }) {
         contentContainerStyle={styles.filterRow}
       >
         {data.map((item, i) => {
-         // Lấy label cho cả brand (name) và phân khúc giá (label) 
-         const label = item.name ?? item.label ?? ''; 
-         return ( 
-           <TouchableOpacity 
-             key={item._id || i} 
-             style={styles.tag}               // vẫn dùng style.tag cũ 
-             onPress={() => onSelect(item)} 
-           > 
-             {item.logo 
-               // Brand: show logo 
-               ? <Image 
-                   source={{ uri: item.logo }} 
-                   style={styles.brandLogo} 
-                  resizeMode="contain" 
-                 /> 
-               // Price segment hoặc fallback: show text label 
-               : <Text style={styles.tagText}>{label}</Text> 
-             } 
-           </TouchableOpacity> 
-         ); 
-       })}
+          // Lấy label cho cả brand (name) và phân khúc giá (label) 
+          const label = item.name ?? item.label ?? '';
+          return (
+            <TouchableOpacity
+              key={item._id || i}
+              style={styles.tag}               // vẫn dùng style.tag cũ 
+              onPress={() => onSelect(item)}
+            >
+              {item.logo
+                // Brand: show logo 
+                ? <Image
+                  source={{ uri: item.logo }}
+                  style={styles.brandLogo}
+                  resizeMode="contain"
+                />
+                // Price segment hoặc fallback: show text label 
+                : <Text style={styles.tagText}>{label}</Text>
+              }
+            </TouchableOpacity>
+          );
+        })}
       </ScrollView>
     </View>
   );
