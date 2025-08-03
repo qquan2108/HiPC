@@ -1,18 +1,20 @@
 import { View, Dimensions } from "react-native";
-import SkeletonPlaceholder from "react-native-skeleton-placeholder";
+import { Skeleton } from "moti/skeleton";
 const { width, height } = Dimensions.get("window");
 
 export default function SkeletonLiveVideo() {
   return (
-    <SkeletonPlaceholder borderRadius={8}>
-      <View style={{ width, height, backgroundColor: "#222" }}>
-        {/* Video khung */}
-        <View style={{ width, height: height * 0.6 }} />
-        {/* Combo section */}
-        <View style={{ position: "absolute", bottom: 32, left: 16, width: width * 0.56, height: height / 3.2, borderRadius: 14 }} />
-        {/* User row */}
-        <View style={{ position: "absolute", bottom: height / 3, left: 16, width: 120, height: 32, borderRadius: 16 }} />
+    <View style={{ width, height, backgroundColor: "#222" }}>
+      {/* Video khung */}
+      <Skeleton width={width} height={height * 0.6} />
+      {/* Combo section */}
+      <View style={{ position: "absolute", bottom: 32, left: 16 }}>
+        <Skeleton width={width * 0.56} height={height / 3.2} radius={14} />
       </View>
-    </SkeletonPlaceholder>
+      {/* User row */}
+      <View style={{ position: "absolute", bottom: height / 3, left: 16 }}>
+        <Skeleton width={120} height={32} radius={16} />
+      </View>
+    </View>
   );
 }

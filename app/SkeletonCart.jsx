@@ -1,24 +1,32 @@
 import { View, Dimensions } from "react-native";
-import SkeletonPlaceholder from "react-native-skeleton-placeholder";
+import { Skeleton } from "moti/skeleton";
 const { width } = Dimensions.get("window");
 
 export default function SkeletonCart() {
   return (
-    <SkeletonPlaceholder borderRadius={10}>
-      <View style={{ padding: 18 }}>
-        {/* Header */}
-        <View style={{ width: width - 36, height: 36, borderRadius: 12, marginBottom: 18 }} />
-        {/* Địa chỉ */}
-        <View style={{ width: width - 36, height: 40, borderRadius: 12, marginBottom: 18 }} />
-        {/* Danh sách sản phẩm */}
-        {[...Array(3)].map((_, i) => (
-          <View key={i} style={{ width: width - 36, height: 90, borderRadius: 14, marginBottom: 14 }} />
-        ))}
-        {/* Tổng tiền */}
-        <View style={{ width: width - 36, height: 48, borderRadius: 14, marginTop: 18 }} />
-        {/* Thanh toán */}
-        <View style={{ width: width - 36, height: 48, borderRadius: 14, marginTop: 14 }} />
+    <View style={{ padding: 18 }}>
+      {/* Header */}
+      <View style={{ marginBottom: 18 }}>
+        <Skeleton width={width - 36} height={36} radius={12} />
       </View>
-    </SkeletonPlaceholder>
+      {/* Địa chỉ */}
+      <View style={{ marginBottom: 18 }}>
+        <Skeleton width={width - 36} height={40} radius={12} />
+      </View>
+      {/* Danh sách sản phẩm */}
+      {[...Array(3)].map((_, i) => (
+        <View key={i} style={{ marginBottom: 14 }}>
+          <Skeleton width={width - 36} height={90} radius={14} />
+        </View>
+      ))}
+      {/* Tổng tiền */}
+      <View style={{ marginTop: 18 }}>
+        <Skeleton width={width - 36} height={48} radius={14} />
+      </View>
+      {/* Thanh toán */}
+      <View style={{ marginTop: 14 }}>
+        <Skeleton width={width - 36} height={48} radius={14} />
+      </View>
+    </View>
   );
 }
