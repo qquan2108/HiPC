@@ -1,12 +1,25 @@
+// compomentCTSP/SectionBox.jsx
 import React from "react";
-import { View, Text, TouchableOpacity, FlatList, Image, StyleSheet } from "react-native";
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  FlatList,
+  Image,
+  StyleSheet
+} from "react-native";
+import { useRouter } from "expo-router";  // ← import router hook
 
-export function SectionPopular({ data }) {
+export function SectionPopular({ data, onPressItem }) {
+  const router = useRouter();  // ← khởi tạo router
+
   return (
     <View style={styles.sectionBox}>
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Sản phẩm phổ biến</Text>
-        <TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => router.push("/danhmucall")}  // ← dùng router đúng
+        >
           <Text style={styles.sectionSeeAll}>Xem tất cả</Text>
         </TouchableOpacity>
       </View>
@@ -14,34 +27,55 @@ export function SectionPopular({ data }) {
         data={data}
         horizontal
         showsHorizontalScrollIndicator={false}
-        keyExtractor={item => item.id}
+        keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
-          <View style={styles.popularCard}>
+          <TouchableOpacity
+            style={styles.popularCard}
+            activeOpacity={0.8}
+            onPress={() => onPressItem(item)}
+          >
             <Image source={item.image} style={styles.popularImage} />
-            <Text numberOfLines={2} style={styles.popularName}>{item.name}</Text>
+            <Text numberOfLines={2} style={styles.popularName}>
+              {item.name}
+            </Text>
             <Text style={styles.popularPrice}>{item.price}</Text>
             <Text style={styles.popularSold}>{item.sold} đã bán</Text>
-          </View>
+          </TouchableOpacity>
         )}
       />
     </View>
   );
 }
 
-export function SectionLiked({ data }) {
+export function SectionLiked({ data, onPressItem }) {
+  const router = useRouter();  // nếu muốn dùng router ở đây cũng được
+
   return (
     <View style={styles.sectionBox}>
-      <Text style={styles.sectionTitle}>Sản phẩm bạn thích</Text>
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>Sản phẩm bạn thích</Text>
+        <TouchableOpacity
+          onPress={() => router.push("/danhmucall")}
+        >
+          <Text style={styles.sectionSeeAll}>Xem tất cả</Text>
+        </TouchableOpacity>
+      </View>
       <FlatList
         data={data}
         numColumns={2}
-        keyExtractor={item => item.id}
+        keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
-          <View style={styles.likedCard}>
+          <TouchableOpacity
+            style={styles.likedCard}
+            activeOpacity={0.8}
+            onPress={() => onPressItem(item)}
+          >
             <Image source={item.image} style={styles.likedImage} />
-            <Text numberOfLines={2} style={styles.likedName}>{item.name}</Text>
+            <Text numberOfLines={2} style={styles.likedName}>
+              {item.name}
+            </Text>
             <Text style={styles.likedPrice}>{item.price}</Text>
-          </View>
+          </TouchableOpacity>
         )}
       />
     </View>
@@ -59,23 +93,23 @@ const styles = StyleSheet.create({
     shadowColor: "#000",
     shadowOpacity: 0.06,
     shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 2 }
   },
   sectionHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 10,
+    marginBottom: 10
   },
   sectionTitle: {
     fontWeight: "bold",
     fontSize: 15,
-    color: "#222",
+    color: "#222"
   },
   sectionSeeAll: {
     color: "#2979ff",
     fontSize: 13,
-    fontWeight: "600",
+    fontWeight: "600"
   },
   popularCard: {
     width: 140,
@@ -88,7 +122,7 @@ const styles = StyleSheet.create({
     shadowColor: "#000",
     shadowOpacity: 0.04,
     shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 2 }
   },
   popularImage: {
     width: 90,
@@ -96,24 +130,24 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     marginBottom: 8,
     resizeMode: "contain",
-    backgroundColor: "#fff",
+    backgroundColor: "#fff"
   },
   popularName: {
     fontSize: 13,
     fontWeight: "600",
     color: "#222",
     marginBottom: 2,
-    textAlign: "center",
+    textAlign: "center"
   },
   popularPrice: {
     color: "#f55858",
     fontWeight: "bold",
     fontSize: 14,
-    marginBottom: 2,
+    marginBottom: 2
   },
   popularSold: {
     color: "#888",
-    fontSize: 12,
+    fontSize: 12
   },
   likedCard: {
     width: "48%",
@@ -126,7 +160,7 @@ const styles = StyleSheet.create({
     shadowColor: "#000",
     shadowOpacity: 0.04,
     shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 2 }
   },
   likedImage: {
     width: 90,
@@ -134,19 +168,19 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     marginBottom: 8,
     resizeMode: "contain",
-    backgroundColor: "#fff",
+    backgroundColor: "#fff"
   },
   likedName: {
     fontSize: 13,
     fontWeight: "600",
     color: "#222",
     marginBottom: 2,
-    textAlign: "center",
+    textAlign: "center"
   },
   likedPrice: {
     color: "#f55858",
     fontWeight: "bold",
     fontSize: 14,
-    marginBottom: 2,
-  },
+    marginBottom: 2
+  }
 });

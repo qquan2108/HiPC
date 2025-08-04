@@ -1,6 +1,7 @@
 // components/Profile.js
 import { Feather, Ionicons, MaterialIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useNavigation } from '@react-navigation/native';
 import Constants from "expo-constants";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
@@ -42,6 +43,7 @@ export default function Profile() {
   const router = useRouter();
   const [user, setUser] = useState(null);
   const [showLoginDialog, setShowLoginDialog] = useState(false);
+  const navigation = useNavigation();
 
   // mỗi khi vào Profile, lấy token + storedUser, rồi fetch API /users/:id
  useFocusEffect(
@@ -89,7 +91,10 @@ export default function Profile() {
 
   const handleLogout = async () => {
     await AsyncStorage.multiRemove(["token", "user"]);
-    router.replace("./LoginScreen");
+    navigation.reset({
+      index: 0,
+      routes: [{ name: 'LoginScreen' }],
+    });
   };
 
   return (
@@ -166,7 +171,7 @@ export default function Profile() {
                 
                 <View style={styles.rightActions}>
                   <TouchableOpacity style={styles.navButton}>
-                    <Feather name="more-vertical" size={24} color="#fff" />
+                    
                   </TouchableOpacity>
                 </View>
               </View>

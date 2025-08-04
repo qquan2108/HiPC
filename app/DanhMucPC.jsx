@@ -76,22 +76,17 @@ export default function DanhMucPCScreen() {
     { label: '7–13 triệu', min: 7_000_000, max: 13_000_000 },
     { label: 'Trên 13 triệu', min: 13_000_000, max: Infinity },
   ];
-
-
-  useEffect(() => {
-    axios.get('/brands')
-      .then(res => setBrands(res.data || []))
-      .catch(err => console.error('Brand API error', err));
-  }, []);
-
-  // Fetch categories + icon
   useEffect(() => {
     (async () => {
       try {
-        const [catRes, imgRes] = await Promise.all([
+        // song song categories+images + products
+        const [catRes, imgRes, prodRes, brandRes] = await Promise.all([
           axios.get('/category'),
-          axios.get('/images')
+          axios.get('/images'),
+          axios.get('/product'),
+          axios.get('/brands'),
         ]);
+        // xử lý categories/images như cũ
         const imgs = imgRes.data;
         const cats = catRes.data.map(cat => {
           const found = imgs.find(i => i.category_id?._id === cat._id);
@@ -102,18 +97,18 @@ export default function DanhMucPCScreen() {
           };
         });
         setCategories(cats);
-        // Sửa ở đây: chỉ setSelectedCat nếu có ít nhất 1 category
-        if (cats.length > 0) setSelectedCat(cats[0]._id);
-      } catch (e) { console.error(e); }
+        if (cats.length) setSelectedCat(cats[0]._id);
+
+        setProducts(prodRes.data.products || []);
+        setBrands(brandRes.data || []);
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setLoading(false);
+      }
     })();
   }, []);
 
-  // Fetch ALL products
-  useEffect(() => {
-    axios.get('/product')
-      .then(res => setProducts(res.data.products || []))
-      .catch(() => setProducts([]));
-  }, []);
 
   // Fetch best sellers mỗi khi đổi danh mục
   useEffect(() => {
@@ -231,7 +226,7 @@ export default function DanhMucPCScreen() {
           </View>
 
           {/* DANH SÁCH SẢN PHẨM */}
-          
+
           {/* Filter: Hãng */}
           <FilterSection
             title="Hãng"
