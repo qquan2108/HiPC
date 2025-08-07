@@ -15,7 +15,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import auth from '@react-native-firebase/auth';
 
-const ForgotPasswordScreen = () => {
+export default function ForgotPasswordScreen() {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -305,4 +305,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default ForgotPasswordScreen;
+
