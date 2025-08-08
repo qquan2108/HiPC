@@ -58,6 +58,9 @@ const fetchProductById = async (productId) => {
   const resolveImageUri = (url) =>
     url?.startsWith('http') ? url : `${base}${url}`;
 
+
+
+
   return {
     id: product._id,
     name: product.name,
@@ -78,7 +81,7 @@ const fetchProductById = async (productId) => {
     buyWith: product.relatedProducts || product.buyWith || [],
     variants: variantOptions,
     brand: product.brand_id?.name || 'Unknown',
-    category: product.category?.name || 'Unknown',
+    category: product.category_id?.name || 'Unknown',
   };
 };
 
@@ -143,8 +146,13 @@ export default function CTSP() {
 
         // Set default variant nếu có
         if (fetched.variants && fetched.variants.length > 0) {
-          setSelectedVariant(fetched.variants[0]);
-        }
+   const defaultOpt = fetched.variants[0];
+   setSelectedVariant({
+     key: 'Phiên Bản',      // phải trùng với onSelect
+     label: defaultOpt.label,
+     priceDiff: defaultOpt.priceDiff
+   });
+ }
       } catch (e) {
         setError(e.message);
       } finally {
@@ -153,6 +161,12 @@ export default function CTSP() {
 
     })();
   }, [productId]);
+  const handleProductPress = (product) => {
+    router.push({
+      pathname: '/ctsp',
+      params: { id: product.id || product._id },
+    });
+  };
 
   useEffect(() => {
     if (product) {
@@ -217,6 +231,7 @@ export default function CTSP() {
 
   // Hàm thêm vào giỏ hàng với variant đã chọn
   const AddToCart = async prod => {
+    
     try {
       const userStr = await AsyncStorage.getItem('user');
       if (!userStr) {
@@ -278,8 +293,8 @@ export default function CTSP() {
   };
 
   if (loading) {
-  return <SkeletonCTSP />;
-}
+    return <SkeletonCTSP />;
+  }
   if (error) {
     return (
       <View style={styles.errorContainer}>
@@ -316,10 +331,12 @@ export default function CTSP() {
 
             {/* Image & Info */}
             <ProductImage images={product.images} />
-            <Text style={styles.productName}>{product.name}</Text>
-            <View style={styles.productMeta}>
-              <Text style={styles.brandText}>Thương hiệu: {product.brand}</Text>
-              <Text style={styles.categoryText}>Danh mục: {product.category}</Text>
+            <View style={styles.infoCard}>
+              <Text style={styles.productName}>{product.name}</Text>
+              <View style={styles.productMeta}>
+                <Text style={styles.brandText}>Thương hiệu: {product.brand}</Text>
+                <Text style={styles.categoryText}>Danh mục: {product.category}</Text>
+              </View>
             </View>
             <ProductPriceRow
               price={formatCurrency(displayPrice)}
@@ -327,10 +344,8 @@ export default function CTSP() {
               onLike={() => alert('Đã thêm vào yêu thích')}
             />
 
-            {/* Buy With */}
-            <BuyWithList data={product.buyWith} />
+            
 
-            {/* Mô tả sản phẩm (HTML) */}
             {/* Mô tả sản phẩm (HTML) */}
             {product.description ? (
               <ProductDescription htmlContent={product.description} />
@@ -385,11 +400,17 @@ export default function CTSP() {
             <ReviewBox product={product} />
             <View style={styles.sectionContainer}>
               <Text style={styles.sectionTitle}>Sản phẩm phổ biến</Text>
-              <SectionPopular data={allProducts.slice(0, 3)} />
+              <SectionPopular
+                data={allProducts.slice(0, 3)}
+                onPressItem={handleProductPress}
+              />
             </View>
             <View style={styles.sectionContainer}>
               <Text style={styles.sectionTitle}>Có thể bạn thích</Text>
-              <SectionLiked data={allProducts.slice(3, 7)} />
+              <SectionLiked
+                data={allProducts.slice(3, 7)}
+                onPressItem={handleProductPress}
+              />
             </View>
           </>
         )}
@@ -871,4 +892,17 @@ const styles = StyleSheet.create({
     borderColor: '#e0e6f0',
   },
   loginLaterText: { color: '#1976ff', fontWeight: '600', fontSize: 16 },
+  infoCard: {
+    backgroundColor: "#fff",
+    padding: 16,
+    marginHorizontal: 16,
+    marginTop: 16,
+    borderRadius: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+
 });

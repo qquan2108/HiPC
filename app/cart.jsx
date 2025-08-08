@@ -568,23 +568,8 @@ export default function CartScreen() {
         </View>
       </View>
 
-      {/* Address */}
-      <View style={styles.addressBox}>{/* ... */}</View>
-      <CartAddressModal
-        visible={showAddressModal}
-        addresses={addresses}
-        editAddressId={editAddressId}
-        editAddressText={editAddressText}
-        newAddress={newAddress}
-        setShowAddressModal={setShowAddressModal}
-        setEditAddressText={setEditAddressText}
-        handleSelectAddress={handleSelectAddress}
-        handleEditAddress={handleEditAddress}
-        handleDeleteAddress={handleDeleteAddress}
-        handleSaveEditAddress={handleSaveEditAddress}
-        setNewAddress={setNewAddress}
-        handleAddAddress={handleAddAddress}
-      />
+     
+      
 
       <ScrollView
         showsVerticalScrollIndicator={false}

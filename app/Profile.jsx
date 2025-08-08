@@ -1,6 +1,7 @@
 // components/Profile.js
 import { Feather, Ionicons, MaterialIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useNavigation } from '@react-navigation/native';
 import Constants from "expo-constants";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
@@ -8,13 +9,13 @@ import {
   Alert,
   Image,
   Modal,
+  Platform,
   ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
-  StatusBar,
-  Platform,
 } from "react-native";
 import axiosInstance from "../utils/AxiosInstance";
 
@@ -42,6 +43,7 @@ export default function Profile() {
   const router = useRouter();
   const [user, setUser] = useState(null);
   const [showLoginDialog, setShowLoginDialog] = useState(false);
+  const navigation = useNavigation();
 
   // mỗi khi vào Profile, lấy token + storedUser, rồi fetch API /users/:id
  useFocusEffect(
@@ -87,9 +89,24 @@ export default function Profile() {
   }, [])
 );
 
+  // Hàm xác nhận đăng xuất
+  const confirmLogout = () => {
+    Alert.alert(
+      'Đăng xuất',
+      'Bạn có chắc chắn muốn đăng xuất?',
+      [
+        { text: 'Hủy', style: 'cancel' },
+        { text: 'Đăng xuất', style: 'destructive', onPress: handleLogout }
+      ]
+    );
+  };
+
   const handleLogout = async () => {
     await AsyncStorage.multiRemove(["token", "user"]);
-    router.replace("./LoginScreen");
+    navigation.reset({
+      index: 0,
+      routes: [{ name: 'LoginScreen' }],
+    });
   };
 
   return (
@@ -166,7 +183,7 @@ export default function Profile() {
                 
                 <View style={styles.rightActions}>
                   <TouchableOpacity style={styles.navButton}>
-                    <Feather name="more-vertical" size={24} color="#fff" />
+                    
                   </TouchableOpacity>
                 </View>
               </View>
@@ -282,7 +299,7 @@ export default function Profile() {
               {
                 icon: <Feather name="log-out" size={22} color="#1976ff" />,
                 label: "Đăng xuất",
-                onPress: handleLogout,
+                onPress: confirmLogout,
               },
             ].map((item, i) => (
               <TouchableOpacity

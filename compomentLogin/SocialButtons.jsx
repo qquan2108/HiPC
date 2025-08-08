@@ -1,19 +1,19 @@
 // components/Auth/SocialButtons.jsx
-import React, { useEffect } from "react";
-import { View, TouchableOpacity, Image, StyleSheet, Text } from "react-native";
+import { useEffect } from "react";
+import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
-import { LoginManager, AccessToken, Profile } from "react-native-fbsdk-next";
-import * as WebBrowser from "expo-web-browser";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   GoogleSignin,
   statusCodes,
 } from "@react-native-google-signin/google-signin";
+import { useRouter } from "expo-router";
+import * as WebBrowser from "expo-web-browser";
 import { GoogleAuthProvider, signInWithCredential } from "firebase/auth";
-import { auth } from "../utils/firebase";
+import { AccessToken, LoginManager } from "react-native-fbsdk-next";
 import Toast from "react-native-toast-message";
 import axiosInstance from "../utils/AxiosInstance";
-import { useRouter } from "expo-router";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { auth } from "../utils/firebase";
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -25,86 +25,6 @@ const socialIcons = {
 
 const SocialButtons = () => {
   const router = useRouter();
-
-  // const redirectUri = AuthSession.makeRedirectUri({
-  //   useProxy: true,
-  //   scheme: 'hipc',
-  // });
-
-  // console.log(redirectUri)
-
-  // const [request, response, promptAsync] = Google.useIdTokenAuthRequest(
-  //   {
-  //     expoClientId:
-  //       '625212493169-k32b92lij17jprfvhhs89oii53b5p9dl.apps.googleusercontent.com',
-  //     androidClientId:
-  //       '625212493169-k32b92lij17jprfvhhs89oii53b5p9dl.apps.googleusercontent.com',
-  //     iosClientId:
-  //       '625212493169-ptarfq8gddcsl2q9a6mf0ev7560et1d0.apps.googleusercontent.com',
-  //     webClientId:
-  //       '625212493169-n08r2t6k0fnnkpm5bk1gm3e1tvk37hi6.apps.googleusercontent.com',
-  //     selectAccount: true,
-  //     redirectUri,
-  //     scopes: ['openid', 'profile', 'email'],
-  //     responseType: AuthSession.ResponseType.Code,
-  //     codeChallengeMethod: AuthSession.CodeChallengeMethod.S256,
-  //   },
-  //   discovery
-  // );
-
-  // useEffect(() => {
-  //   if (response?.type === 'success') {
-  //     const { id_token } = response.params;
-  //     const credential = GoogleAuthProvider.credential(id_token);
-  //     signInWithCredential(auth, credential)
-  //       .then(async (res) => {
-  //         const user = res.user;
-  //         const payload = {
-  //           firebaseUid: user.uid,
-  //           full_name: user.displayName,
-  //           email: user.email,
-  //           avatarUrl: user.photoURL,
-  //         };
-  //         try {
-  //           const resp = await axiosInstance.post('/users/google-login', payload);
-  //           if (resp.data?.token) {
-  //             await AsyncStorage.setItem('token', resp.data.token);
-  //             await AsyncStorage.setItem(
-  //               'user',
-  //               JSON.stringify(resp.data.user)
-  //             );
-  //           } else {
-  //             await AsyncStorage.setItem('user', JSON.stringify(resp.data.user));
-  //           }
-  //         } catch (e) {
-  //           console.log('Error saving user to API:', e);
-  //           Toast.show({
-  //             type: 'error',
-  //             text1: 'Lỗi đăng nhập',
-  //             text2: 'Không thể lưu thông tin người dùng',
-  //             position: 'top',
-  //           });
-  //         }
-  //         router.replace('/HomeScreen');
-  //       })
-  //       .catch((err) => {
-  //         console.log(err);
-  //         Toast.show({
-  //           type: 'error',
-  //           text1: 'Đăng nhập Google thất bại',
-  //           text2: err.message || 'Vui lòng thử lại',
-  //           position: 'top',
-  //         });
-  //       });
-  //   } else if (response?.type === 'error') {
-  //     Toast.show({
-  //       type: 'error',
-  //       text1: 'Đăng nhập Google thất bại',
-  //       position: 'top',
-  //     });
-  //   }
-  // }, [response]);
-
   useEffect(() => {
     GoogleSignin.configure({
       // client ID for backend token exchange
@@ -160,7 +80,8 @@ const SocialButtons = () => {
           console.warn("[WARN] No token returned from API");
         }
         if (resp.data?.user) {
-          await AsyncStorage.setItem("user", JSON.stringify(resp.data.user));
+          await AsyncStorage.setItem("user_id", resp.data.user.id.toString());
+          await AsyncStorage.setItem('user', JSON.stringify(resp.data.user));
           console.log("[DEBUG] User data saved to AsyncStorage");
         }
       } catch (apiError) {
@@ -244,7 +165,9 @@ const SocialButtons = () => {
       if (resp.data?.token)
         await AsyncStorage.setItem("token", resp.data.token);
       if (resp.data?.user)
-        await AsyncStorage.setItem("user", JSON.stringify(resp.data.user));
+        await AsyncStorage.setItem("user_id", resp.data.user.id.toString());
+      if (resp.data?.user)
+        await AsyncStorage.setItem('user', JSON.stringify(resp.data.user));
 
       Toast.show({
         type: "success",
@@ -274,7 +197,6 @@ const SocialButtons = () => {
 
   return (
     <View style={styles.container}>
-
       {/* Alternative: Compact Icon-only Version */}
       <View style={styles.compactContainer}>
         <Text style={styles.compactLabel}>Hoặc chọn nhanh:</Text>
