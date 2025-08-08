@@ -41,35 +41,31 @@ export default function UserInfoForm({
       </UserInfoField>
 
       {edit && (
-  <View style={styles.sectionCard}>
-    <View style={styles.sectionHeader}>
-      <Text style={styles.sectionTitle}>Địa chỉ nhận hàng</Text>
-    </View>
+        <View style={styles.sectionCard}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Địa chỉ nhận hàng</Text>
+          </View>
 
-    <AddressForm
-      label={form.label} setLabel={v => setForm(f => ({ ...f, label: v }))}
-      address={form.address} setAddress={v => setForm(f => ({ ...f, address: v }))}
-      provinceId={form.provinceId} setProvinceId={v => setForm(f => ({ ...f, provinceId: v }))}
-      districtId={form.districtId} setDistrictId={v => setForm(f => ({ ...f, districtId: v }))}
-      wardCode={form.wardCode} setWardCode={v => setForm(f => ({ ...f, wardCode: v }))}
-      provinces={provinces} setProvinces={setProvinces}
-      districts={districts} setDistricts={setDistricts}
-      wards={wards} setWards={setWards}
-      fetchProvinces={fetchProvinces}
-      fetchDistricts={fetchDistricts}
-      fetchWards={fetchWards}
-      style={{ marginBottom: 0 }}
-    />
+          <AddressForm
+            label={form.label} setLabel={v => setForm(f => ({ ...f, label: v }))}
+            address={form.address} setAddress={v => setForm(f => ({ ...f, address: v }))}
+            provinceId={form.provinceId} setProvinceId={v => setForm(f => ({ ...f, provinceId: v }))}
+            districtId={form.districtId} setDistrictId={v => setForm(f => ({ ...f, districtId: v }))}
+            wardCode={form.wardCode} setWardCode={v => setForm(f => ({ ...f, wardCode: v }))}
+            provinces={provinces} setProvinces={setProvinces}
+            districts={districts} setDistricts={setDistricts}
+            wards={wards} setWards={setWards}
+            fetchProvinces={fetchProvinces}
+            fetchDistricts={fetchDistricts}
+            fetchWards={fetchWards}
+            style={{ marginBottom: 0 }}
+          />
 
-    <Text style={styles.helperText}>
-      Vui lòng chọn Tỉnh/Quận/Phường chính xác để nhận hàng nhanh hơn.
-    </Text>
-  </View>
-)}
-
-
-
-
+          <Text style={styles.helperText}>
+            Vui lòng chọn Tỉnh/Quận/Phường chính xác để nhận hàng nhanh hơn.
+          </Text>
+        </View>
+      )}
     </>
   );
 }
