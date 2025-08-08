@@ -1,4 +1,6 @@
-import Slider from '@react-native-community/slider';
+import { Ionicons } from '@expo/vector-icons'; // Thêm dòng này nếu chưa có
+import MultiSlider from '@ptomasroos/react-native-multi-slider';
+import Constants from 'expo-constants';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -18,8 +20,6 @@ import {
   View
 } from 'react-native';
 import CustomTabBar from '../compomentHome/CustomTabBar';
-import MultiSlider from '@ptomasroos/react-native-multi-slider';
-import Constants from 'expo-constants';
 import axios from '../utils/AxiosInstance';
 const API_BASE_URL =
   Constants.manifest?.extra?.apiBaseUrl ||
@@ -296,6 +296,7 @@ export default function DanhMucAll() {
   const [filterVisible, setFilterVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryId, setCategoryId] = useState(null);
+  const [favoriteIds, setFavoriteIds] = useState([]); // Thêm state quản lý sản phẩm yêu thích
   const [filters, setFilters] = useState({
     priceRange: [0, 200000000],
     status: [],
@@ -308,6 +309,21 @@ export default function DanhMucAll() {
     resolution: [],
     specifications: {}
   });
+
+  // Xử lý thêm/xóa sản phẩm yêu thích
+  const handleToggleFavorite = (id) => {
+    setFavoriteIds((prev) => {
+      let updated;
+      if (prev.includes(id)) {
+        updated = prev.filter((fid) => fid !== id);
+      } else {
+        updated = [...prev, id];
+      }
+      // Lưu vào localStorage hoặc AsyncStorage nếu muốn
+      // Điều hướng sang trang favorite nếu muốn (ví dụ router.push('/favorite'))
+      return updated;
+    });
+  };
 
   useEffect(() => {
     fetchProducts();
@@ -447,7 +463,7 @@ params.append('priceMax', filters.priceRange[1].toString());
   // Enhanced product rendering with better error handling
   const renderItem = ({ item }) => {
     if (!item) return null;
-      console.log('🖼️ item.image:', item.image);
+    const isFavorite = favoriteIds.includes(item._id || item.id);
     return (
       <TouchableOpacity
         style={styles.card}
@@ -455,15 +471,22 @@ params.append('priceMax', filters.priceRange[1].toString());
         activeOpacity={0.9}
       >
         <View style={styles.cardHeader}>
-          <TouchableOpacity style={styles.favoriteBtn}>
-            <Text style={styles.favoriteIcon}>♡</Text>
+          <TouchableOpacity
+            style={styles.favoriteBtn}
+            onPress={() => handleToggleFavorite(item._id || item.id)}
+            activeOpacity={0.7}
+          >
+            <Ionicons
+              name={isFavorite ? "heart" : "heart-outline"}
+              size={20}
+              color={isFavorite ? "#ee4d2d" : "#ee4d2d"}
+            />
           </TouchableOpacity>
         </View>
 
         <View style={styles.imageContainer}>
           <Image
             source={computeSource(item.image, require('../assets/images/pc1.png'))}
-            
             style={styles.image}
             resizeMode="contain"
           />
@@ -504,9 +527,8 @@ params.append('priceMax', filters.priceRange[1].toString());
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#ee4d2d" />
-
-      <LinearGradient colors={['#ee4d2d', '#ff6b6b']} style={styles.header}>
+      <StatusBar barStyle="light-content" backgroundColor="#2b6cb0" />
+      <LinearGradient colors={['#2b6cb0', '#3182ce']} style={styles.header}>
         <SafeAreaView>
           <View style={styles.headerContent}>
             <TouchableOpacity onPress={() => router.back()}>
@@ -578,7 +600,10 @@ params.append('priceMax', filters.priceRange[1].toString());
         categoryId={categoryId}
       />
 
-      <CustomTabBar router={router} style={styles.tabbar} />
+      <CustomTabBar
+        router={router}
+        style={styles.tabbar}
+      />
     </View>
   );
 }
@@ -600,7 +625,8 @@ const styles = StyleSheet.create({
     color: '#666'
   },
   header: {
-    paddingBottom: 16
+    paddingBottom: 16,
+    // backgroundColor: '#2b6cb0', // Không cần nếu dùng LinearGradient
   },
   headerContent: {
     flexDirection: 'row',
@@ -731,10 +757,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.9)',
     justifyContent: 'center',
     alignItems: 'center'
-  },
-  favoriteIcon: {
-    fontSize: 16,
-    color: '#ee4d2d'
   },
   imageContainer: {
     height: width * 0.4,

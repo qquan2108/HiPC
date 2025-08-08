@@ -561,18 +561,14 @@ export default function PCChatBoxAI() {
               </Text>
             </View>
           </View>
-          
-          <View style={styles.headerRight}>
-            <View style={styles.proBadge}>
-              <Text style={styles.proBadgeText}>PRO</Text>
-            </View>
-            <Text style={styles.messageCount}>
-              {dailyCount}/{DAILY_MESSAGE_LIMIT}
-            </Text>
-            <TouchableOpacity style={styles.headerButton}>
-              <Ionicons name="settings" size={20} color="#FFFFFF" />
-            </TouchableOpacity>
-          </View>
+          {/* Nút X/back ở góc phải */}
+          <TouchableOpacity
+            style={styles.headerBackButton}
+            onPress={() => router.back()} 
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Ionicons name="close" size={26} color="#fff" />
+          </TouchableOpacity>
         </View>
       </LinearGradient>
 
@@ -981,5 +977,13 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: '#718096',
     fontWeight: '500',
+  },
+  headerBackButton: {
+    marginLeft: 12,
+    padding: 4,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

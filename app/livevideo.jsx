@@ -5,13 +5,12 @@ import { Video } from "expo-av";
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
-import SkeletonLiveVideo from "./SkeletonLiveVideo";
 import {
-  ActivityIndicator,
   Alert,
   Animated,
   Dimensions,
   FlatList,
+  Image,
   Modal,
   SafeAreaView,
   ScrollView,
@@ -20,10 +19,10 @@ import {
   TextInput,
   TouchableOpacity,
   TouchableWithoutFeedback,
-  Image,
   View
 } from "react-native";
 import axiosInstance from "../utils/AxiosInstance";
+import SkeletonLiveVideo from "./SkeletonLiveVideo";
 
 const { height, width } = Dimensions.get("window");
 
@@ -163,6 +162,14 @@ const handleAddToCart = async (comboId) => {
 
   const renderItem = ({ item, index }) => (
     <View style={styles.page}>
+      {/* Nút quay về ở góc trên trái */}
+      <TouchableOpacity
+        style={styles.backButton}
+        onPress={() => router.back()}
+        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+      >
+        <Ionicons name="arrow-back" size={28} color="#fff" />
+      </TouchableOpacity>
       {!item.videoUrl ? (
         <View style={styles.videoPlaceholder}>
           <Ionicons name="videocam-off" size={50} color="#fff" />
@@ -1096,5 +1103,16 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 18,
     marginTop: 10,
+  },
+
+  // Back button style
+  backButton: {
+    position: "absolute",
+    top: 36,
+    left: 16,
+    zIndex: 100,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    borderRadius: 20,
+    padding: 6,
   },
 });
