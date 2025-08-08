@@ -191,9 +191,6 @@ const LoginScreen = () => {
                     )}
                   </LinearGradient>
                 </TouchableOpacity>
-
-                
-
                 <SocialButtons />
 
                 <RegisterPrompt onPress={() => router.push('/SignUpSreen')} />

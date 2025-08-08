@@ -197,8 +197,6 @@ const SocialButtons = () => {
 
   return (
     <View style={styles.container}>
-      {/* Premium Social Buttons with Labels */}
-      
       {/* Alternative: Compact Icon-only Version */}
       <View style={styles.compactContainer}>
         <Text style={styles.compactLabel}>Hoặc chọn nhanh:</Text>

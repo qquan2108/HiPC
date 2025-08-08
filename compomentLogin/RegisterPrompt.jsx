@@ -26,23 +26,6 @@ const RegisterPrompt = ({ onPress }) => (
         />
       </TouchableOpacity>
     </View>
-    
-    {/* Premium CTA Card */}
-    <View style={styles.ctaCard}>
-      <View style={styles.ctaContent}>
-        <Ionicons name="sparkles" size={20} color="#F59E0B" />
-        <Text style={styles.ctaText}>
-          Tham gia cộng đồng hơn 1M+ người dùng
-        </Text>
-      </View>
-      <TouchableOpacity 
-        onPress={onPress}
-        style={styles.ctaButton}
-        activeOpacity={0.9}
-      >
-        <Text style={styles.ctaButtonText}>Bắt đầu miễn phí</Text>
-      </TouchableOpacity>
-    </View>
   </View>
 );
 
