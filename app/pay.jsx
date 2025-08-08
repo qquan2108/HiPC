@@ -21,6 +21,7 @@ import PayProductList from "../compomentPay/PayProductList";
 import PayStatusModal from "../compomentPay/PayStatusModal";
 import AddressModal from "./AddressModal";
 import StripeModal from "../compomentPay/StripeModal";
+import PayVoucherModal from "../compomentPay/PayVoucherModal";
 
 // GHN credentials
 const GHN_TOKEN = "08749195-4da3-11f0-bf1c-e283f3defbd9";
@@ -1020,6 +1021,21 @@ export default function PayScreen() {
               text2: result.message,
             });
           }
+        }}
+      />
+
+      <PayVoucherModal
+        visible={showVoucher}
+        selectedVoucher={selectedVoucher}
+        setSelectedVoucher={(voucher) => {
+          setSelectedVoucher(voucher);
+          setShowVoucher(false);
+        }}
+        setShowVoucher={setShowVoucher}
+        orderAmount={subtotal}
+        onVoucherApplied={(voucher) => {
+          setSelectedVoucher(voucher);
+          setShowVoucher(false);
         }}
       />
 

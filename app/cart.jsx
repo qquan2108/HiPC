@@ -3,7 +3,6 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import {
-  ActivityIndicator,
   Dimensions,
   Modal,
   ScrollView,
@@ -13,15 +12,14 @@ import {
   View
 } from "react-native";
 import Toast from "react-native-toast-message";
-import { useWishlist } from "../context/WishlistContext";
-import axiosInstance from "../utils/AxiosInstance";
-import SkeletonCart from "./SkeletonCart";
-import CartAddressModal from "../compomentCart/CartAddressModal";
 import CartEmpty from "../compomentCart/CartEmpty";
 import CartProductList from "../compomentCart/CartProductList";
 import CartTotalBar from "../compomentCart/CartTotalBar";
 import CartWishlist from "../compomentCart/CartWishlist";
 import PayVoucherModal from "../compomentPay/PayVoucherModal";
+import { useWishlist } from "../context/WishlistContext";
+import axiosInstance from "../utils/AxiosInstance";
+import SkeletonCart from "./SkeletonCart";
 const base = axiosInstance.defaults.baseURL;
 const { width } = Dimensions.get("window");
 const defaultAddresses = [
@@ -378,13 +376,20 @@ export default function CartScreen() {
 
   // 3) Tính discount dựa trên selectedTotal
   let discount = 0;
+  let voucherError = null;
   if (selectedVoucher) {
-    const dv = selectedVoucher.discount_value;
-    // nếu discount_value < 100, coi như %; còn lại coi như tiền cố định
-    if (dv > 0 && dv < 100) {
-      discount = Math.round((selectedTotal * dv) / 100);
+    // Điều kiện tối thiểu
+    const minOrder = selectedVoucher.min_order_value || 0;
+    if (selectedTotal < minOrder) {
+      voucherError = `Đơn hàng phải từ ${formatCurrency(minOrder)} mới áp dụng được voucher này.`;
+      discount = 0;
     } else {
-      discount = dv;
+      const dv = selectedVoucher.discount_value;
+      if (dv > 0 && dv < 100) {
+        discount = Math.round((selectedTotal * dv) / 100);
+      } else {
+        discount = dv;
+      }
     }
   }
 
@@ -602,6 +607,15 @@ export default function CartScreen() {
         allSelected={selectedIds.length === cart.length}
         onToggleSelectAll={selectAll}
         onCheckout={() => {
+          if (voucherError) {
+            Toast.show({
+              type: "error",
+              text1: voucherError,
+              position: "top",
+              visibilityTime: 2500,
+            });
+            return;
+          }
           const selectedProducts = cart.filter((item) =>
             selectedIds.includes(item.id)
           );
@@ -622,12 +636,15 @@ export default function CartScreen() {
             },
           });
         }}
-
         onShowVoucher={() => setShowVoucher(true)}
         onClearVoucher={() => setSelectedVoucher(null)}
         disabled={isNothingSelected}
-
       />
+      {voucherError && (
+        <Text style={{ color: "red", textAlign: "center", marginBottom: 8 }}>
+          {voucherError}
+        </Text>
+      )}
       {/* Voucher modal vẫn để trong CartScreen */}
       <PayVoucherModal
         visible={showVoucher}
@@ -635,6 +652,7 @@ export default function CartScreen() {
         selectedVoucher={selectedVoucher}
         setSelectedVoucher={setSelectedVoucher}
         setShowVoucher={setShowVoucher}
+        orderAmount={selectedTotal}
 
       />
     </View>

@@ -1,4 +1,4 @@
-import { Ionicons, MaterialIcons, Feather } from '@expo/vector-icons';
+import { Feather, MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import * as ImagePicker from 'expo-image-picker';
@@ -6,6 +6,9 @@ import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
   Alert,
+  Animated,
+  Dimensions,
+  Image,
   Platform,
   SafeAreaView,
   ScrollView,
@@ -13,15 +16,11 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
-  Image,
-  Animated,
-  Dimensions
+  View
 } from 'react-native';
 import axiosInstance from '../utils/AxiosInstance';
+import { getDistricts, getProvinces, getWards } from "../utils/ghnApi";
 import UserInfoForm from './components/UserInfoForm';
-import provinces from '../assets/data/province.json';
-import wards from '../assets/data/ward.json';
 
 const { width } = Dimensions.get('window');
 
@@ -136,38 +135,7 @@ const EnhancedHeader = ({
           Hồ sơ cá nhân
         </Animated.Text>
         
-        <View style={styles.navRightActions}>
-          {edit ? (
-            <>
-              <TouchableOpacity 
-                style={[styles.navActionButton, styles.saveButton]}
-                onPress={onSave}
-                disabled={isUploading}
-              >
-                {isUploading ? (
-                  <MaterialIcons name="hourglass-empty" size={20} color="#fff" />
-                ) : (
-                  <Feather name="check" size={20} color="#fff" />
-                )}
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={[styles.navActionButton, styles.cancelButton]}
-                onPress={onCancel}
-                disabled={isUploading}
-              >
-                <Feather name="x" size={20} color="#fff" />
-              </TouchableOpacity>
-            </>
-          ) : (
-            <TouchableOpacity 
-              style={styles.navActionButton}
-              onPress={onEditToggle}
-            >
-              <Feather name="edit-3" size={20} color="#fff" />
-            </TouchableOpacity>
-          )}
-        </View>
+        
       </View>
 
       {/* User Profile Section */}
@@ -289,6 +257,9 @@ export default function UserInfo() {
   const [addressInput, setAddressInput] = useState('');
   const [suggestions, setSuggestions] = useState([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [provinces, setProvinces] = useState([]);
+  const [districts, setDistricts] = useState([]);
+  const [wards, setWards] = useState([]);
   const debounceRef = useRef(null);
   const router = useRouter();
 
@@ -337,23 +308,30 @@ export default function UserInfo() {
     return () => clearTimeout(debounceRef.current);
   }, [addressInput, edit]);
 
-  const fetchAddressSuggestions = (input) => {
-    const q = input.trim().toLowerCase(); 
-    if (q.length < 3) { 
-      setSuggestions([]); 
-      return; 
-    } 
-    const wardList = Array.isArray(wards) ? wards : Object.values(wards); 
-    const filtered = wardList 
-      .filter(w => w.path.toLowerCase().includes(q)) 
-      .slice(0, 10);
-    
-    setSuggestions(filtered.map(w => ({ 
-      description: w.path, 
-      provinceId: w.province_id, 
-      districtId: w.district_id, 
-      wardCode: w.code, 
-    }))); 
+  const GOOGLE_API_KEY = 'hl4FpicxhfD14tmhj6c0r8d16Qjcir0rcaErpfjq';
+  const fetchAddressSuggestions = async (input) => {
+    if (!input || input.length < 3) {
+      setSuggestions([]);
+      return;
+    }
+    try {
+      const res = await fetch(
+        `https://rsapi.goong.io/Place/AutoComplete?api_key=${GOONG_API_KEY}&input=${encodeURIComponent(input)}&location=10.762622,106.660172&radius=20000`
+      );
+      const data = await res.json();
+      if (data.predictions) {
+        setSuggestions(
+          data.predictions.map(item => ({
+            description: item.description,
+            place_id: item.place_id,
+          }))
+        );
+      } else {
+        setSuggestions([]);
+      }
+    } catch (err) {
+      setSuggestions([]);
+    }
   };
 
   const selectSuggestion = (item) => {
@@ -504,7 +482,14 @@ export default function UserInfo() {
         wardCode: form.wardCode,
       };
 
-      await axiosInstance.put(`/users/${user._id}`, payload);
+      await axiosInstance.put(`/users/${user._id}`, {
+        ...payload,
+        label: form.label,
+        address: form.address,
+        provinceId: form.provinceId,
+        districtId: form.districtId,
+        wardCode: form.wardCode,
+      });
       
       const updatedUser = { ...user, ...payload };
       setUser(updatedUser);
@@ -537,6 +522,40 @@ export default function UserInfo() {
       setAddressInput(user.address || '');
     }
     setSuggestions([]);
+  };
+
+  // Fetch provinces, districts, and wards
+  useEffect(() => {
+    fetchProvinces();
+  }, []);
+
+  const fetchProvinces = async () => {
+    try {
+      const data = await getProvinces();
+      setProvinces(data);
+    } catch (e) {
+      setProvinces([]);
+    }
+  };
+
+  const fetchDistricts = async (provinceId) => {
+    try {
+      const data = await getDistricts(provinceId);
+      setDistricts(data);
+      setWards([]);
+    } catch (e) {
+      setDistricts([]);
+      setWards([]);
+    }
+  };
+
+  const fetchWards = async (districtId) => {
+    try {
+      const data = await getWards(districtId);
+      setWards(data);
+    } catch (e) {
+      setWards([]);
+    }
   };
 
   if (!user) {
@@ -584,6 +603,15 @@ export default function UserInfo() {
           handleSave={handleSave}
           handleCancel={handleCancel}
           styles={styles}
+          provinces={provinces}
+          setProvinces={setProvinces}
+          districts={districts}
+          setDistricts={setDistricts}
+          wards={wards}
+          setWards={setWards}
+          fetchProvinces={fetchProvinces}
+          fetchDistricts={fetchDistricts}
+          fetchWards={fetchWards}
         />
       </ScrollView>
     </SafeAreaView>
@@ -999,4 +1027,30 @@ const styles = StyleSheet.create({
    textAlign: 'center',
    marginVertical: 10,
  },
+ sectionCard: {
+  backgroundColor: '#fff',
+  borderRadius: 12,
+  padding: 16,
+  marginHorizontal: 20,
+  marginBottom: 12,
+  elevation: 3,
+  shadowColor: '#000',
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.08,
+  shadowRadius: 8,
+},
+sectionHeader: {
+  marginBottom: 8,
+},
+sectionTitle: {
+  fontSize: 16,
+  fontWeight: '700',
+  color: '#1f2937',
+},
+helperText: {
+  marginTop: 8,
+  fontSize: 12,
+  color: '#6b7280',
+},
+
 });

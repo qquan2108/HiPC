@@ -333,11 +333,7 @@ export default function UngDungLapPC() {
             <Text style={styles.buildSubtitle}>{build.description}</Text>
             <View style={styles.buildPriceContainer}>
               <Text style={styles.buildPrice}>{formatCurrency(build.price)}</Text>
-              {isSelected && (
-                <View style={styles.selectedBadge}>
-                  <Text style={styles.selectedBadgeText}>✓</Text>
-                </View>
-              )}
+              
             </View>
           </LinearGradient>
         </TouchableOpacity>

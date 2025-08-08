@@ -635,6 +635,21 @@ export default function PCChatBoxAI() {
       >
         <View style={styles.headerContent}>
           <View style={styles.headerLeft}>
+            {/* Nút back */}
+            <TouchableOpacity
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 18,
+                backgroundColor: 'rgba(255,255,255,0.18)',
+                justifyContent: 'center',
+                alignItems: 'center',
+                marginRight: 10,
+              }}
+              onPress={() => router.back()}
+            >
+              <Ionicons name="arrow-back" size={22} color="#fff" />
+            </TouchableOpacity>
             <View style={styles.headerAvatar}>
               <MaterialIcons name="computer" size={24} color="#FFFFFF" />
             </View>

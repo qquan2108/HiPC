@@ -2,20 +2,19 @@ import { Feather } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, Image, Modal, SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { FlatList, Image, Modal, SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 import Toast from 'react-native-toast-message';
 import axiosInstance from '../utils/AxiosInstance';
 import SkeletonCTSP from "./SkeletonCTSP";
 
-import BuyWithList from '../compomentCTSP/BuyWithList';
+import ProductDescription from '../compomentCTSP/Description';
 import OptionGroup from '../compomentCTSP/OptionGroup';
 import ProductImage from '../compomentCTSP/ProductImage';
 import ProductPriceRow from '../compomentCTSP/ProductPriceRow';
 import ReviewBox from '../compomentCTSP/ReviewBox';
 import { SectionLiked, SectionPopular } from '../compomentCTSP/SectionBox';
 import SpecsBox from '../compomentCTSP/SpecsBox';
-import ProductDescription from '../compomentCTSP/Description';
 
 // right after importing axiosInstance
 const base = axiosInstance.defaults.baseURL;  // e.g. "http://192.168.0.5:3000"
@@ -97,6 +96,8 @@ const fetchAllProducts = async () => {
         ? { uri: p.image.startsWith('http') ? p.image : `${base}${p.image}` }
         : require('../assets/images/pc1.png'),
       sold: p.sold || 0,
+      // Thêm dòng này để có category cho filter
+      category: p.category || '', // hoặc p.category_id?.name || ''
     }));
     return list;
   } catch {
@@ -185,7 +186,9 @@ export default function CTSP() {
   const filteredProducts = allProducts.filter(
     p =>
       p.name.toLowerCase().includes(searchText.toLowerCase()) &&
-      !compareProducts.find(item => item.id === p.id)
+      !compareProducts.find(item => item.id === p.id) &&
+      // Lọc cùng danh mục với sản phẩm hiện tại
+      (product && p.category === product.category)
   );
 
   const handleAddCompare = p => {
@@ -279,6 +282,21 @@ export default function CTSP() {
     } catch { }
     if (!product?.id) {
       Toast.show({ type: 'error', text1: 'Không xác định được sản phẩm!' });
+      return;
+    }
+    // Kiểm tra đã mua chưa
+    try {
+      const { data } = await axiosInstance.get('/orders/user', { params: { user_id: userId } });
+      const hasBought = data.orders?.some(order =>
+        order.status === 'delivered' &&
+        order.products?.some(p => p.productId === product.id)
+      );
+      if (!hasBought) {
+        Toast.show({ type: 'error', text1: 'Bạn cần mua sản phẩm này mới được đánh giá!' });
+        return;
+      }
+    } catch {
+      Toast.show({ type: 'error', text1: 'Không kiểm tra được đơn hàng!' });
       return;
     }
     router.push({

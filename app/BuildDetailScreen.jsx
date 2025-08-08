@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { View, Text, FlatList, ActivityIndicator, StyleSheet } from "react-native";
-import { useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams,useRouter } from "expo-router";
 import axiosInstance from "../utils/AxiosInstance";
 
 export default function BuildDetailScreen() {
@@ -8,6 +8,7 @@ export default function BuildDetailScreen() {
   const [build, setBuild] = useState(null);
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
 
   useEffect(() => {
     if (!id) return;
