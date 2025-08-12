@@ -1,12 +1,11 @@
 // components/Auth/RegisterPrompt.jsx
-import React from 'react';
-import { 
-  View, 
-  Text, 
-  TouchableOpacity, 
-  StyleSheet 
-} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import {
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
+} from 'react-native';
 
 const RegisterPrompt = ({ onPress }) => (
   <View style={styles.container}>

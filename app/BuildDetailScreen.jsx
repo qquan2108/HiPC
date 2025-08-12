@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from "react";
-import { View, Text, FlatList, ActivityIndicator, StyleSheet } from "react-native";
-import { useLocalSearchParams,useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { useEffect, useState } from "react";
+import { ActivityIndicator, FlatList, StyleSheet, Text, View } from "react-native";
 import axiosInstance from "../utils/AxiosInstance";
 
 export default function BuildDetailScreen() {

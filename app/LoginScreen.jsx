@@ -3,10 +3,9 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { useState, useRef } from 'react';
+import { useRef, useState } from 'react';
 import {
   Alert,
-  Animated,
   Dimensions,
   Keyboard,
   KeyboardAvoidingView,
@@ -17,7 +16,7 @@ import {
   Text,
   TouchableOpacity,
   TouchableWithoutFeedback,
-  View,
+  View
 } from 'react-native';
 import Toast from 'react-native-toast-message';
 import AuthInput from '../compomentLogin/AuthInput';

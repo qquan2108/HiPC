@@ -1,10 +1,10 @@
 import { Feather } from "@expo/vector-icons";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
-import React, { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Animated,
+  Dimensions,
   Image,
   Platform,
   StatusBar,
@@ -12,8 +12,8 @@ import {
   Text,
   TouchableOpacity,
   View,
-  Dimensions,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import axiosInstance from "../utils/AxiosInstance";
 
 const { width } = Dimensions.get('window');

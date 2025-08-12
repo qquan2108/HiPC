@@ -5,13 +5,12 @@ import { Video } from "expo-av";
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
-import SkeletonLiveVideo from "./SkeletonLiveVideo";
 import {
-  ActivityIndicator,
   Alert,
   Animated,
   Dimensions,
   FlatList,
+  Image,
   Modal,
   SafeAreaView,
   ScrollView,
@@ -20,10 +19,10 @@ import {
   TextInput,
   TouchableOpacity,
   TouchableWithoutFeedback,
-  Image,
   View
 } from "react-native";
 import axiosInstance from "../utils/AxiosInstance";
+import SkeletonLiveVideo from "./SkeletonLiveVideo";
 
 const { height, width } = Dimensions.get("window");
 

@@ -1,6 +1,4 @@
-import React from "react";
-import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
-import { Feather } from "@expo/vector-icons";
+import { StyleSheet, Text, View } from "react-native";
 
 export default function ProductPriceRow({
   price,      // number: ví dụ 3200000

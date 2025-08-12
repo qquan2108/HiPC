@@ -1,8 +1,8 @@
 import { Feather } from '@expo/vector-icons';
-import { CardField, useStripe } from './stripeNativeWrapper.native';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Modal, Platform, StyleSheet, Text, TouchableOpacity, View, Dimensions } from 'react-native';
+import { ActivityIndicator, Dimensions, Modal, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import axiosInstance from '../utils/AxiosInstance';
+import { CardField, useStripe } from './stripeNativeWrapper.native';
 
 const { width } = Dimensions.get('window');
 
