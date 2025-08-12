@@ -8,13 +8,13 @@ import {
   Alert,
   Image,
   Modal,
+  Platform,
   ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
-  StatusBar,
-  Platform,
 } from "react-native";
 import axiosInstance from "../utils/AxiosInstance";
 

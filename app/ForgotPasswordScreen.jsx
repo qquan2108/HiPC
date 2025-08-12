@@ -9,59 +9,44 @@ import {
   ScrollView,
   Platform,
   StatusBar,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { FontAwesome, Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import auth from '@react-native-firebase/auth';
+import axiosInstance from '../utils/AxiosInstance';
 
 const ForgotPasswordScreen = () => {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [phoneNumber, setPhoneNumber] = useState('');
-  const [otp, setOtp] = useState('');
-  const [confirmResult, setConfirmResult] = useState(null);
-  const [isSendingOtp, setIsSendingOtp] = useState(false);
-  const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
 
   const handleSendRecoveryCode = async () => {
-    if (!email) return;
+    if (!email.trim()) {
+      Alert.alert('Lỗi', 'Vui lòng nhập email.');
+      return;
+    }
+
     setIsLoading(true);
     try {
-      await auth().sendPasswordResetEmail(email);
-      alert('Đã gửi link đặt lại mật khẩu đến email của bạn!');
-    } catch (err) {
-      alert('Lỗi: ' + err.message);
+      const res = await axiosInstance.post('/users/forgot-password', {
+        email: email.trim(),
+      });
+      if (res.data?.message === 'Email đặt lại mật khẩu đã được gửi') {
+        Alert.alert(
+          'Thành công',
+          'Email khôi phục mật khẩu đã được gửi đến bạn',
+          [{ text: 'OK', onPress: () => router.push('/LoginScreen') }],
+        );
+      } else {
+        Alert.alert('Lỗi', 'Có lỗi xảy ra. Vui lòng thử lại.');
+      }
+    } catch (error) {
+      console.error('Forgot password error:', error);
+      Alert.alert('Lỗi', 'Có lỗi xảy ra khi gửi email khôi phục.');
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const handleSendOtp = async () => {
-    if (!phoneNumber) return;
-    setIsSendingOtp(true);
-    try {
-      const confirmation = await auth().signInWithPhoneNumber(phoneNumber);
-      setConfirmResult(confirmation);
-      alert('OTP đã được gửi!');
-    } catch (err) {
-      alert('Lỗi: ' + err.message);
-    } finally {
-      setIsSendingOtp(false);
-    }
-  };
-
-  const handleVerifyOtp = async () => {
-    if (!confirmResult || !otp) return;
-    setIsVerifyingOtp(true);
-    try {
-      await confirmResult.confirm(otp);
-      alert('Xác thực OTP thành công! Bạn có thể đặt lại mật khẩu.');
-    } catch (err) {
-      alert('Mã OTP không chính xác hoặc đã hết hạn! ' + err.message);
-    } finally {
-      setIsVerifyingOtp(false);
     }
   };
 
@@ -82,7 +67,6 @@ const ForgotPasswordScreen = () => {
             contentContainerStyle={styles.scrollContainer}
             showsVerticalScrollIndicator={false}
           >
-            {/* Brand / Logo */}
             <View style={styles.brandSection}>
               <View style={styles.logoContainer}>
                 <Ionicons name="cloud" size={40} color="#fff" />
@@ -91,14 +75,18 @@ const ForgotPasswordScreen = () => {
               <Text style={styles.tagline}>Phục hồi mật khẩu</Text>
             </View>
 
-            {/* Content Card */}
             <View style={styles.contentCard}>
               <Text style={styles.title}>Quên mật khẩu?</Text>
 
               <View style={styles.inputContainer}>
-                <FontAwesome name="envelope" size={20} color="#aaa" style={styles.icon} />
+                <FontAwesome
+                  name="envelope"
+                  size={20}
+                  color="#aaa"
+                  style={styles.icon}
+                />
                 <TextInput
-                  placeholder="Nhập email của bạn."
+                  placeholder="Nhập email của bạn"
                   placeholderTextColor="#999"
                   style={styles.input}
                   value={email}
@@ -109,7 +97,7 @@ const ForgotPasswordScreen = () => {
               </View>
 
               <Text style={styles.note}>
-                * Chúng tôi sẽ gửi mã khôi phục đến email bạn đã đăng ký.
+                * Chúng tôi sẽ gửi link khôi phục đến email bạn đã đăng ký.
               </Text>
 
               <TouchableOpacity
@@ -121,71 +109,13 @@ const ForgotPasswordScreen = () => {
                   colors={['#667eea', '#764ba2']}
                   style={styles.buttonGradient}
                 >
-                  <Text style={styles.buttonText}>
-                    {isLoading ? 'Đang gửi...' : 'Nhận mã khôi phục'}
-                  </Text>
+                  {isLoading ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Text style={styles.buttonText}>Nhận link khôi phục</Text>
+                  )}
                 </LinearGradient>
               </TouchableOpacity>
-
-              <Text style={styles.sectionTitle}>Hoặc dùng số điện thoại</Text>
-
-              <View style={styles.inputContainer}>
-                <FontAwesome name="phone" size={20} color="#aaa" style={styles.icon} />
-                <TextInput
-                  placeholder="Nhập số điện thoại"
-                  placeholderTextColor="#999"
-                  style={styles.input}
-                  value={phoneNumber}
-                  onChangeText={setPhoneNumber}
-                  keyboardType="phone-pad"
-                />
-              </View>
-
-                <TouchableOpacity
-                  style={[styles.button, isSendingOtp && { opacity: 0.6 }]}
-                  onPress={handleSendOtp}
-                  disabled={isSendingOtp}
-                >
-                  <LinearGradient
-                    colors={['#667eea', '#764ba2']}
-                    style={styles.buttonGradient}
-                  >
-                    <Text style={styles.buttonText}>
-                      {isSendingOtp ? 'Đang gửi...' : 'Gửi OTP'}
-                    </Text>
-                  </LinearGradient>
-                </TouchableOpacity>
-
-                {confirmResult && (
-                  <>
-                    <View style={styles.inputContainer}>
-                      <FontAwesome name="key" size={20} color="#aaa" style={styles.icon} />
-                      <TextInput
-                        placeholder="Nhập mã OTP"
-                        placeholderTextColor="#999"
-                        style={styles.input}
-                        value={otp}
-                        onChangeText={setOtp}
-                        keyboardType="number-pad"
-                      />
-                    </View>
-
-                    <TouchableOpacity
-                      style={[styles.button, isVerifyingOtp && { opacity: 0.6 }]}
-                      onPress={handleVerifyOtp}
-                      disabled={isVerifyingOtp}
-                    >
-                      <LinearGradient
-                        colors={['#667eea', '#764ba2']}
-                        style={styles.buttonGradient}
-                      >
-                        <Text style={styles.buttonText}>
-                          {isVerifyingOtp ? 'Đang xác thực...' : 'Xác thực OTP'}
-                        </Text>
-                      </LinearGradient>
-                    </TouchableOpacity>
-                  </>
-                )}
 
               <TouchableOpacity onPress={() => router.push('/LoginScreen')}>
                 <Text style={styles.backToLogin}>← Quay về đăng nhập</Text>
@@ -199,9 +129,7 @@ const ForgotPasswordScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  gradientBackground: {
-    flex: 1,
-  },
+  gradientBackground: { flex: 1 },
   scrollContainer: {
     flexGrow: 1,
     paddingHorizontal: 24,
@@ -260,19 +188,14 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     marginBottom: 12,
   },
-  icon: {
-    marginRight: 10,
-  },
-  input: {
-    flex: 1,
-    fontSize: 16,
-    color: '#000',
-  },
+  icon: { marginRight: 10 },
+  input: { flex: 1, fontSize: 16, color: '#000' },
   note: {
     color: '#999',
     fontSize: 13,
     marginBottom: 30,
     textAlign: 'center',
+    lineHeight: 18,
   },
   button: {
     borderRadius: 20,
@@ -296,13 +219,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textDecorationLine: 'underline',
   },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#1F2937',
-    marginBottom: 12,
-    textAlign: 'center',
-  },
 });
 
 export default ForgotPasswordScreen;
+
