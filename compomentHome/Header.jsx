@@ -1,10 +1,10 @@
 import { Feather } from "@expo/vector-icons";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
-import React, { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Animated,
+  Dimensions,
   Image,
   Platform,
   StatusBar,
@@ -12,8 +12,8 @@ import {
   Text,
   TouchableOpacity,
   View,
-  Dimensions,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import axiosInstance from "../utils/AxiosInstance";
 
 const { width } = Dimensions.get('window');
@@ -225,15 +225,6 @@ export default function Header({
                 <Text style={styles.searchPlaceholder}>
                   {SUGGESTIONS[placeholderIdx]}
                 </Text>
-                
-                <View style={styles.searchActions}>
-                  <TouchableOpacity style={styles.voiceButton} activeOpacity={0.7}>
-                    <Feather name="mic" size={16} color="#667eea" />
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.cameraButton} activeOpacity={0.7}>
-                    <Feather name="camera" size={16} color="#667eea" />
-                  </TouchableOpacity>
-                </View>
               </LinearGradient>
             </Animated.View>
           </TouchableOpacity>

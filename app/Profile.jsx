@@ -8,13 +8,13 @@ import {
   Alert,
   Image,
   Modal,
+  Platform,
   ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
-  StatusBar,
-  Platform,
 } from "react-native";
 import axiosInstance from "../utils/AxiosInstance";
 
@@ -276,8 +276,8 @@ export default function Profile() {
                     color="#1976ff"
                   />
                 ),
-                label: "Chính sách bảo mật",
-                onPress: () => router.push("./"),
+                label: "Đơn hàng chưa thanh toán",
+                onPress: () => router.push("./RetryPay"),
               },
               {
                 icon: <Feather name="log-out" size={22} color="#1976ff" />,

@@ -1,6 +1,5 @@
 // screens/DanhMucPCScreen.js
 import { Feather } from '@expo/vector-icons';
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from 'react';
 import {
@@ -34,38 +33,38 @@ export default function DanhMucPCScreen() {
   const router = useRouter();
 
   // Kiểm tra đăng nhập
-  useEffect(() => {
-    AsyncStorage.getItem("token").then((token) => {
-      if (!token) {
-        setShowLoginDialog(true);
-        setLoading(false);
-        return;
-      }
-      AsyncStorage.getItem("user").then((userStr) => {
-        if (!userStr || userStr === "undefined") {
-          setShowLoginDialog(true);
-          setLoading(false);
-          return;
-        }
-        let stored;
-        try {
-          stored = JSON.parse(userStr);
-        } catch (e) {
-          setShowLoginDialog(true);
-          setLoading(false);
-          return;
-        }
-        const userId = stored.id || stored._id;
-        if (!userId) {
-          setShowLoginDialog(true);
-          setLoading(false);
-          return;
-        }
-        setShowLoginDialog(false);
-        setLoading(false);
-      });
-    });
-  }, []);
+  // useEffect(() => {
+  //   AsyncStorage.getItem("token").then((token) => {
+  //     if (!token) {
+  //       setShowLoginDialog(true);
+  //       setLoading(false);
+  //       return;
+  //     }
+  //     AsyncStorage.getItem("user").then((userStr) => {
+  //       if (!userStr || userStr === "undefined") {
+  //         setShowLoginDialog(true);
+  //         setLoading(false);
+  //         return;
+  //       }
+  //       let stored;
+  //       try {
+  //         stored = JSON.parse(userStr);
+  //       } catch (e) {
+  //         setShowLoginDialog(true);
+  //         setLoading(false);
+  //         return;
+  //       }
+  //       const userId = stored.id || stored._id;
+  //       if (!userId) {
+  //         setShowLoginDialog(true);
+  //         setLoading(false);
+  //         return;
+  //       }
+  //       setShowLoginDialog(false);
+  //       setLoading(false);
+  //     });
+  //   });
+  // }, []);
 
   // Bộ lọc mẫu (tuỳ ý)
 

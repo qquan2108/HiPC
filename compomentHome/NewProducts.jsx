@@ -1,12 +1,18 @@
 import { AntDesign, Ionicons, MaterialIcons } from "@expo/vector-icons";
-import { LinearGradient } from 'expo-linear-gradient';
-import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View, Dimensions,
-  Modal,TextInput,Pressable } from "react-native";
-import { useWishlist } from "../context/WishlistContext";
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useState } from "react";
+import {
+  Dimensions,
+  Image,
+  Modal,
+  ScrollView, StyleSheet, Text,
+  TextInput,
+  TouchableOpacity, View
+} from "react-native";
 import Toast from 'react-native-toast-message';
+import { useWishlist } from "../context/WishlistContext";
 import axiosInstance from "../utils/AxiosInstance";
-import React, { useState } from "react";
 
 const { width: screenWidth } = Dimensions.get('window');
 const CARD_WIDTH = screenWidth * 0.45;
@@ -22,9 +28,9 @@ export default function NewProducts({
 }) {
   const { wishlist, addToWishlist, removeFromWishlist } = useWishlist();
   const [showOptionDialog, setShowOptionDialog] = useState(false);
-const [selectedProduct, setSelectedProduct] = useState(null);
-const [selectedOption, setSelectedOption] = useState(null);
-const [quantity, setQuantity] = useState(1);
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [selectedOption, setSelectedOption] = useState(null);
+  const [quantity, setQuantity] = useState(1);
 
   // Enhanced default badge components
   const defaultNewBadge = () => (
@@ -63,55 +69,55 @@ const [quantity, setQuantity] = useState(1);
     </LinearGradient>
   );
 
-const handleAddToCart = async (product) => {
-  if (product.variants && product.variants.length > 0) {
-    setSelectedProduct(product);
-    setSelectedOption(null);
-    setQuantity(1);
-    setShowOptionDialog(true);
-    return;
-  }
-
-  if (!isLoggedIn) return onRequireLogin();
-  try {
-    const userStr = await AsyncStorage.getItem('user');
-    if (!userStr) {
-      Toast.show({ type:'error', text1:'Vui lòng đăng nhập để mua hàng!', position:'top' });
-      return router.push('/LoginScreen');
+  const handleAddToCart = async (product) => {
+    if (product.variants && product.variants.length > 0) {
+      setSelectedProduct(product);
+      setSelectedOption(null);
+      setQuantity(1);
+      setShowOptionDialog(true);
+      return;
     }
-    const userObj = JSON.parse(userStr);
-    const userId = userObj._id || userObj.id;
-    await axiosInstance.post('/cartt/add-to-cart', {
+
+    if (!isLoggedIn) return onRequireLogin();
+    try {
+      const userStr = await AsyncStorage.getItem('user');
+      if (!userStr) {
+        Toast.show({ type: 'error', text1: 'Vui lòng đăng nhập để mua hàng!', position: 'top' });
+        return router.push('/LoginScreen');
+      }
+      const userObj = JSON.parse(userStr);
+      const userId = userObj._id || userObj.id;
+      await axiosInstance.post('/cartt/add-to-cart', {
         user_id: userId,
         productId: selectedProduct.id || selectedProduct._id,
         quantity,
         variant: selectedOption
           ? {
-              key: selectedOption.key || selectedOption.value || selectedOption.label,
-              label: selectedOption.label || selectedOption.value || selectedOption.key,
-              priceDiff: selectedOption.priceDiff || 0
-            }
+            key: selectedOption.key || selectedOption.value || selectedOption.label,
+            label: selectedOption.label || selectedOption.value || selectedOption.key,
+            priceDiff: selectedOption.priceDiff || 0
+          }
           : undefined,
       });
-    Toast.show({ type:'success', text1:'Đã thêm vào giỏ hàng!', position:'bottom' });
-  } catch {
-    Toast.show({ type:'error', text1:'Thêm giỏ hàng thất bại!', position:'top' });
-  }
-};
+      Toast.show({ type: 'success', text1: 'Đã thêm vào giỏ hàng!', position: 'bottom' });
+    } catch {
+      Toast.show({ type: 'error', text1: 'Thêm giỏ hàng thất bại!', position: 'top' });
+    }
+  };
 
 
   const formatPrice = (price) => {
     if (!price) return 'Liên hệ';
-    
+
     // Nếu price đã là string có định dạng sẵn, trả về luôn
     if (typeof price === 'string' && (price.includes('.') || price.includes('đ') || price.includes(','))) {
       return price.replace('đ', ''); // Loại bỏ đ nếu có
     }
-    
+
     // Convert sang number và format
     const numPrice = Number(price);
     if (isNaN(numPrice) || numPrice === 0) return 'Liên hệ';
-    
+
     return new Intl.NumberFormat('vi-VN').format(numPrice);
   };
 
@@ -135,8 +141,11 @@ const handleAddToCart = async (product) => {
                 <Text style={styles.sectionSubtitle}>Xu hướng 2025</Text>
               </View>
             </View>
-            <TouchableOpacity style={styles.viewAllButton}>
-              <Text style={styles.linkText}>Xem tất cả</Text>
+            <TouchableOpacity
+              style={styles.viewAllButton}
+              onPress={() => router.push('/danhmucall')}
+            >
+              <Text style={styles.viewAllText}>Xem tất cả</Text>
               <Ionicons name="chevron-forward" size={14} color="#fff" />
             </TouchableOpacity>
           </View>
@@ -144,9 +153,9 @@ const handleAddToCart = async (product) => {
       </View>
 
       {/* Product Scroll */}
-      <ScrollView 
-        horizontal 
-        showsHorizontalScrollIndicator={false} 
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
         style={styles.scrollContainer}
         contentContainerStyle={styles.scrollContent}
         decelerationRate="fast"
@@ -156,7 +165,7 @@ const handleAddToCart = async (product) => {
         {products.map((product, index) => (
           <TouchableOpacity
             key={product.id}
-            style={[styles.productCard, { 
+            style={[styles.productCard, {
               marginLeft: index === 0 ? 16 : 6,
               marginRight: index === products.length - 1 ? 16 : 6
             }]}
@@ -172,7 +181,7 @@ const handleAddToCart = async (product) => {
                     style={styles.productImage}
                     resizeMode="cover"
                   />
-                  
+
                   {/* Image overlay for better text visibility */}
                   <LinearGradient
                     colors={['transparent', 'rgba(0,0,0,0.1)']}
@@ -185,11 +194,11 @@ const handleAddToCart = async (product) => {
                   {product.isNew && (
                     renderNewBadge ? renderNewBadge() : defaultNewBadge()
                   )}
-                  
+
                   {product.discount > 0 && (
                     renderDiscountBadge ? renderDiscountBadge(product.discount) : defaultDiscountBadge(product.discount)
                   )}
-                  
+
                   {product.isHot && (
                     renderHotBadge ? renderHotBadge() : defaultHotBadge()
                   )}
@@ -263,7 +272,7 @@ const handleAddToCart = async (product) => {
                 )}
 
                 {/* Add to Cart Button */}
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={styles.addToCartButton}
                   onPress={() => handleAddToCart(product)}
                   activeOpacity={0.8}
@@ -282,123 +291,152 @@ const handleAddToCart = async (product) => {
             </View>
           </TouchableOpacity>
         ))}
-        
+
       </ScrollView>
       {/* 🆕 Dialog chọn option và số lượng */}
-            <Modal
-              visible={showOptionDialog}
-              transparent
-              animationType="fade"
-              onRequestClose={() => setShowOptionDialog(false)}
-            >
-              <View style={{
-                flex: 1,
-                backgroundColor: 'rgba(0,0,0,0.25)',
-                justifyContent: 'center',
-                alignItems: 'center'
-              }}>
-                <View style={{
-                  backgroundColor: '#fff',
-                  borderRadius: 16,
-                  padding: 20,
-                  width: '85%',
-                  maxWidth: 340,
-                  elevation: 10,
-                }}>
-                  <Text style={{ fontWeight: 'bold', fontSize: 16, marginBottom: 10 }}>
-                    Chọn phiên bản & số lượng
-                  </Text>
-                  {selectedProduct && (
-                    <>
-                      <Text style={{ fontWeight: '600', marginBottom: 8 }}>{selectedProduct.name}</Text>
-                      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
-                        {selectedProduct.variants[0]?.options?.map((option, idx) => (
-                          <Pressable
-                            key={idx}
-                            onPress={() => setSelectedOption(option)}
-                            style={{
-                              paddingHorizontal: 14,
-                              paddingVertical: 8,
-                              borderRadius: 10,
-                              backgroundColor: selectedOption === option ? '#667eea' : '#f3f4f6',
-                              marginRight: 8,
-                              borderWidth: selectedOption === option ? 2 : 1,
-                              borderColor: selectedOption === option ? '#667eea' : '#e0e7ef',
-                            }}
-                          >
-                            <Text style={{
-                              color: selectedOption === option ? '#fff' : '#333',
-                              fontWeight: selectedOption === option ? 'bold' : '500'
-                            }}>
-                              {option.label || option}
-                            </Text>
-                            {option.priceDiff ? (
-                              <Text style={{ color: selectedOption === option ? '#fff' : '#888', fontSize: 11 }}>
-                                +{option.priceDiff.toLocaleString('vi-VN')}₫
-                              </Text>
-                            ) : null}
-                          </Pressable>
-                        ))}
-                      </ScrollView>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
-                        <Text style={{ fontWeight: '500', marginRight: 10 }}>Số lượng:</Text>
-                        <TouchableOpacity
-                          onPress={() => setQuantity(q => Math.max(1, q - 1))}
-                          style={{
-                            width: 32, height: 32, borderRadius: 16,
-                            backgroundColor: '#f3f4f6', alignItems: 'center', justifyContent: 'center'
-                          }}
-                        >
-                          <Ionicons name="remove" size={18} color="#667eea" />
-                        </TouchableOpacity>
-                        <TextInput
-                          style={{
-                            width: 40, height: 32, borderRadius: 8,
-                            borderWidth: 1, borderColor: '#e0e7ef',
-                            marginHorizontal: 8, textAlign: 'center', fontWeight: 'bold'
-                          }}
-                          keyboardType="numeric"
-                          value={quantity.toString()}
-                          onChangeText={txt => {
-                            const val = parseInt(txt.replace(/[^0-9]/g, '')) || 1;
-                            setQuantity(val);
-                          }}
+      <Modal
+        visible={showOptionDialog}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowOptionDialog(false)}
+      >
+        <View style={{
+          flex: 1,
+          backgroundColor: 'rgba(0,0,0,0.25)',
+          justifyContent: 'center',
+          alignItems: 'center'
+        }}>
+          <View style={{
+            backgroundColor: '#fff',
+            borderRadius: 20,
+            padding: 22,
+            width: '88%',
+            maxWidth: 370,
+            elevation: 12,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 8 },
+            shadowOpacity: 0.18,
+            shadowRadius: 24,
+          }}>
+            <Text style={{ fontWeight: 'bold', fontSize: 18, marginBottom: 12, color: '#222', letterSpacing: 0.2 }}>
+              Chọn phiên bản & số lượng
+            </Text>
+            {selectedProduct && (
+              <>
+                <Text style={{ fontWeight: '700', fontSize: 15, marginBottom: 12, color: '#444' }}>
+                  {selectedProduct.name}
+                </Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 18 }}>
+                  {selectedProduct.variants[0]?.options?.map((option, idx) => (
+                    <TouchableOpacity
+                      key={idx}
+                      onPress={() => setSelectedOption(option)}
+                      style={{
+                        paddingHorizontal: 18,
+                        paddingVertical: 10,
+                        borderRadius: 14,
+                        backgroundColor: selectedOption === option ? '#667eea' : '#f3f4f6',
+                        marginRight: 10,
+                        borderWidth: selectedOption === option ? 2 : 1,
+                        borderColor: selectedOption === option ? '#667eea' : '#e0e7ef',
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        minWidth: 64,
+                        position: 'relative',
+                      }}
+                      activeOpacity={0.85}
+                    >
+                      <Text style={{
+                        color: selectedOption === option ? '#fff' : '#333',
+                        fontWeight: selectedOption === option ? 'bold' : '500',
+                        fontSize: 15,
+                      }}>
+                        {option.label || option}
+                      </Text>
+                      {option.priceDiff ? (
+                        <Text style={{
+                          color: selectedOption === option ? '#fff' : '#888',
+                          fontSize: 12,
+                          marginLeft: 6,
+                          fontWeight: '600'
+                        }}>
+                          +{option.priceDiff.toLocaleString('vi-VN')}₫
+                        </Text>
+                      ) : null}
+                      {selectedOption === option && (
+                        <Ionicons
+                          name="checkmark-circle"
+                          size={18}
+                          color="#fff"
+                          style={{ marginLeft: 6, position: 'absolute', top: -10, right: -10, backgroundColor: '#667eea', borderRadius: 9 }}
                         />
-                        <TouchableOpacity
-                          onPress={() => setQuantity(q => q + 1)}
-                          style={{
-                            width: 32, height: 32, borderRadius: 16,
-                            backgroundColor: '#f3f4f6', alignItems: 'center', justifyContent: 'center'
-                          }}
-                        >
-                          <Ionicons name="add" size={18} color="#667eea" />
-                        </TouchableOpacity>
-                      </View>
-                      <View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}>
-                        <TouchableOpacity
-                          onPress={() => setShowOptionDialog(false)}
-                          style={{
-                            paddingVertical: 8, paddingHorizontal: 18,
-                            borderRadius: 8, backgroundColor: '#e0e7ef', marginRight: 8
-                          }}
-                        >
-                          <Text style={{ color: '#333', fontWeight: '600' }}>Huỷ</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          onPress={handleAddToCart}
-                          style={{
-                            paddingVertical: 8, paddingHorizontal: 18,
-                            borderRadius: 8, backgroundColor: '#667eea'
-                          }}
-                        >
-                          <Text style={{ color: '#fff', fontWeight: '600' }}>Thêm vào giỏ</Text>
-                        </TouchableOpacity>
-                      </View>
-                    </>
-                  )}
+                      )}
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 20 }}>
+                  <Text style={{ fontWeight: '600', marginRight: 14, fontSize: 15, color: '#333' }}>Số lượng:</Text>
+                  <TouchableOpacity
+                    onPress={() => setQuantity(q => Math.max(1, q - 1))}
+                    disabled={quantity <= 1}
+                    style={{
+                      width: 36, height: 36, borderRadius: 18,
+                      backgroundColor: quantity <= 1 ? '#e5e7eb' : '#f3f4f6',
+                      alignItems: 'center', justifyContent: 'center',
+                      borderWidth: 1, borderColor: '#e0e7ef'
+                    }}
+                  >
+                    <Ionicons name="remove" size={20} color={quantity <= 1 ? "#bbb" : "#667eea"} />
+                  </TouchableOpacity>
+                  <TextInput
+                    style={{
+                      width: 48, height: 36, borderRadius: 8,
+                      borderWidth: 1, borderColor: '#e0e7ef',
+                      marginHorizontal: 10, textAlign: 'center', fontWeight: 'bold', fontSize: 16
+                    }}
+                    keyboardType="numeric"
+                    value={quantity.toString()}
+                    onChangeText={txt => {
+                      const val = parseInt(txt.replace(/[^0-9]/g, '')) || 1;
+                      setQuantity(val);
+                    }}
+                  />
+                  <TouchableOpacity
+                    onPress={() => setQuantity(q => q + 1)}
+                    style={{
+                      width: 36, height: 36, borderRadius: 18,
+                      backgroundColor: '#f3f4f6', alignItems: 'center', justifyContent: 'center',
+                      borderWidth: 1, borderColor: '#e0e7ef'
+                    }}
+                  >
+                    <Ionicons name="add" size={20} color="#667eea" />
+                  </TouchableOpacity>
                 </View>
-              </View>
-            </Modal>
+                <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 8 }}>
+                  <TouchableOpacity
+                    onPress={() => setShowOptionDialog(false)}
+                    style={{
+                      paddingVertical: 10, paddingHorizontal: 22,
+                      borderRadius: 10, backgroundColor: '#e0e7ef', marginRight: 10
+                    }}
+                  >
+                    <Text style={{ color: '#333', fontWeight: '700', fontSize: 15 }}>Huỷ</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => handleAddToCart(selectedProduct)}
+                    style={{
+                      paddingVertical: 10, paddingHorizontal: 22,
+                      borderRadius: 10, backgroundColor: '#667eea'
+                    }}
+                  >
+                    <Text style={{ color: '#fff', fontWeight: '700', fontSize: 15 }}>Thêm vào giỏ</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
