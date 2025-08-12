@@ -59,7 +59,7 @@ export default function ForYouGrid({
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [selectedOption, setSelectedOption] = useState(null);
   const [quantity, setQuantity] = useState(1);
- 
+
 
   // 🆕 Khi bấm icon giỏ hàng
   const handleAddToCart = async (product) => {
@@ -75,15 +75,15 @@ export default function ForYouGrid({
     try {
       const userStr = await AsyncStorage.getItem('user');
       if (!userStr) {
-        Toast.show({ type:'error', text1:'Vui lòng đăng nhập để mua hàng!', position:'top' });
+        Toast.show({ type: 'error', text1: 'Vui lòng đăng nhập để mua hàng!', position: 'top' });
         return router.push('/LoginScreen');
       }
       const userObj = JSON.parse(userStr);
       const userId = userObj._id || userObj.id;
       await axiosInstance.post('/cartt/add-to-cart', { user_id: userId, productId: product.id, quantity: 1 });
-      Toast.show({ type:'success', text1:'Đã thêm vào giỏ hàng!', position:'bottom' });
+      Toast.show({ type: 'success', text1: 'Đã thêm vào giỏ hàng!', position: 'bottom' });
     } catch {
-      Toast.show({ type:'error', text1:'Thêm giỏ hàng thất bại!', position:'top' });
+      Toast.show({ type: 'error', text1: 'Thêm giỏ hàng thất bại!', position: 'top' });
     }
   };
 
@@ -114,7 +114,7 @@ export default function ForYouGrid({
     try {
       const userStr = await AsyncStorage.getItem('user');
       if (!userStr) {
-        Toast.show({ type:'error', text1:'Vui lòng đăng nhập để mua hàng!', position:'top' });
+        Toast.show({ type: 'error', text1: 'Vui lòng đăng nhập để mua hàng!', position: 'top' });
         setShowOptionDialog(false);
         return router.push('/LoginScreen');
       }
@@ -126,33 +126,81 @@ export default function ForYouGrid({
         quantity,
         variant: selectedOption
           ? {
-              key: selectedOption.key || selectedOption.value || selectedOption.label,
-              label: selectedOption.label || selectedOption.value || selectedOption.key,
-              priceDiff: selectedOption.priceDiff || 0
-            }
+            key: selectedOption.key || selectedOption.value || selectedOption.label,
+            label: selectedOption.label || selectedOption.value || selectedOption.key,
+            priceDiff: selectedOption.priceDiff || 0
+          }
           : undefined,
       });
       setShowOptionDialog(false);
-      Toast.show({ type:'success', text1:'Đã thêm vào giỏ hàng!', position:'bottom' });
+      Toast.show({ type: 'success', text1: 'Đã thêm vào giỏ hàng!', position: 'bottom' });
     } catch (err) {
-      Toast.show({ type:'error', text1:'Thêm giỏ hàng thất bại!', position:'top' });
+      Toast.show({ type: 'error', text1: 'Thêm giỏ hàng thất bại!', position: 'top' });
       console.error('add-to-cart error:', err?.response?.data || err);
     }
   };
 
   const formatPrice = (price) => {
     if (!price) return 'Liên hệ';
-    
+
     // Nếu price đã là string có định dạng sẵn, trả về luôn
     if (typeof price === 'string' && (price.includes('.') || price.includes('đ') || price.includes(','))) {
       return price.replace('đ', ''); // Loại bỏ đ nếu có
     }
-    
+
     // Convert sang number và format
     const numPrice = Number(price);
     if (isNaN(numPrice) || numPrice === 0) return 'Liên hệ';
-    
+
     return new Intl.NumberFormat('vi-VN').format(numPrice);
+  };
+
+  const getPriceRange = (product) => {
+    const basePrice = Number(product.price) || 0;
+    if (!product.variants || !product.variants[0]?.options) {
+      return { min: basePrice, max: basePrice };
+    }
+
+    const options = product.variants[0].options;
+    const prices = options.map(option => basePrice + (option.priceDiff || 0));
+    return {
+      min: Math.min(basePrice, ...prices),
+      max: Math.max(basePrice, ...prices)
+    };
+  };
+
+  const formatPriceRange = (product) => {
+  const basePrice = Number(product.price);
+  // 1. Nếu không có giá gốc (null/undefined/"0"/NaN) → Liên hệ
+  if (!product.price || isNaN(basePrice) || basePrice === 0) {
+    return 'Liên hệ';
+  }
+
+  const { min, max } = getPriceRange(product);
+
+  // 2. Nếu tất cả variants cùng giá gốc
+  if (min === max) {
+    return formatPrice(min);
+  }
+
+  // 3. Nếu min lẻ (bằng 0) nhưng max >0, chỉ show max
+  if (min === 0 && max > 0) {
+    return formatPrice(max);
+  }
+
+  // 4. Bình thường: "min – max"
+  return `${formatPrice(min)} - ${formatPrice(max)}`;
+};
+
+  const getRandomVoucher = () => {
+    const vouchers = [
+      { text: "GIẢM 20%", color: "#ff6b6b" },
+      { text: "VOUCHER 30%", color: "#00d4aa" },
+      { text: "SALE 25%", color: "#667eea" },
+      { text: "KHUYẾN MÃI 15%", color: "#ff9f43" },
+      { text: "GIẢM 35%", color: "#e74c3c" }
+    ];
+    return vouchers[Math.floor(Math.random() * vouchers.length)];
   };
 
   return (
@@ -191,261 +239,237 @@ export default function ForYouGrid({
 
       {/* Enhanced Product Grid */}
       <View style={styles.forYouGrid}>
-        {products.concat(products).map((product, idx) => (
-          <TouchableOpacity
-            key={product.id + idx}
-            style={styles.card}
-            onPress={() => router.push({ pathname: './ctsp', params: { id: product.id } })}
-            activeOpacity={0.9}
-          >
-            <View style={styles.cardContent}>
-              {/* Enhanced Image Section */}
-              <View style={styles.imageContainer}>
-                <View style={styles.imageWrapper}>
-                  <Image 
-                    source={product.image} 
-                    style={styles.image} 
-                    resizeMode="cover"
-                  />
-                  
-                  {/* Image overlay for better visual */}
-                  <LinearGradient
-                    colors={['transparent', 'rgba(0,0,0,0.05)']}
-                    style={styles.imageOverlay}
-                  />
-                </View>
+  {products.concat(products).map((product, idx) => {
+    // Khởi tạo voucher ngẫu nhiên cho mỗi product
+    const voucher = getRandomVoucher();
 
-                {/* Enhanced Badges */}
-                <View style={styles.badgeWrapper}>
-                  {product.isNew && (renderNewBadge ? renderNewBadge() : defaultNewBadge())}
-                  {product.discount > 0 && (renderDiscountBadge ? renderDiscountBadge(product.discount) : defaultDiscountBadge(product.discount))}
-                </View>
+    return (
+      <TouchableOpacity
+        key={`${product.id}-${idx}`}
+        style={styles.card}
+        onPress={() => router.push({ pathname: './ctsp', params: { id: product.id } })}
+        activeOpacity={0.9}
+      >
+        <View style={styles.cardContent}>
+          {/* --- Enhanced Image Section --- */}
+          <View style={styles.imageContainer}>
+            <View style={styles.imageWrapper}>
+              <Image
+                source={product.image}
+                style={styles.image}
+                resizeMode="cover"
+              />
+              <LinearGradient
+                colors={['transparent', 'rgba(0,0,0,0.05)']}
+                style={styles.imageOverlay}
+              />
+            </View>
 
-                {/* Enhanced Rating Star */}
-                <View style={styles.ratingContainer}>
-                  <View style={styles.starWrapper}>
-                    <Ionicons name="star" size={12} color="#FFD700" />
-                    <Text style={styles.ratingText}>4.8</Text>
-                  </View>
-                </View>
+            {/* Badges cũ */}
+            <View style={styles.badgeWrapper}>
+              {product.isNew && (renderNewBadge ? renderNewBadge() : defaultNewBadge())}
+              {product.discount > 0 && (renderDiscountBadge ? renderDiscountBadge(product.discount) : defaultDiscountBadge(product.discount))}
+            </View>
 
-                {/* Wishlist Icon */}
-                <TouchableOpacity
-                  style={styles.wishlistButton}
-                  onPress={() =>
-                    wishlist.some((p) => p._id === product._id)
-                      ? removeFromWishlist(product._id)
-                      : addToWishlist(product)
-                  }
-                >
-                  <AntDesign
-                    name={wishlist.some((p) => p._id === product._id) ? "heart" : "hearto"}
-                    size={16}
-                    color="#ff4d4f"
-                  />
-                </TouchableOpacity>
-              </View>
-
-              {/* Enhanced Product Info */}
-              <View style={styles.productInfo}>
-                <Text numberOfLines={2} style={styles.productName}>
-                  {product.name}
-                </Text>
-                
-                <Text numberOfLines={1} style={styles.productDesc}>
-                  {product.shortDesc || "Hiệu suất mạnh, công nghệ cao"}
-                </Text>
-
-                {/* Feature Tags */}
-                <View style={styles.featureTags}>
-                  <View style={styles.featureTag}>
-                    <MaterialIcons name="verified" size={8} color="#00d4aa" />
-                    <Text style={styles.featureText}>CHÍNH HÃNG</Text>
-                  </View>
-                  <View style={styles.featureTag}>
-                    <MaterialIcons name="local-shipping" size={8} color="#667eea" />
-                    <Text style={styles.featureText}>FREESHIP</Text>
-                  </View>
-                </View>
-
-                {/* Enhanced Price Section */}
-                <View style={styles.priceSection}>
-                  <Text style={styles.productPrice}>{formatPrice(product.price)}₫</Text>
-                  {product.originalPrice && product.originalPrice !== product.price && (
-                    <View style={styles.originalPriceContainer}>
-                      <Text style={styles.originalPrice}>{formatPrice(product.originalPrice)}₫</Text>
-                    </View>
-                  )}
-                </View>
-                
-                {product.originalPrice && product.originalPrice !== product.price && Number(product.originalPrice) > Number(product.price) && (
-                  <Text style={styles.savingsText}>
-                    Tiết kiệm {formatPrice(Number(product.originalPrice) - Number(product.price))}₫
-                  </Text>
-                )}
-
-                {/* Enhanced Action Icons */}
-                <View style={styles.actionIcons}>
-                  {/* Thay thế icon share bằng rating */}
-                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    <Ionicons name="star" size={14} color="#FFD700" />
-                    <Text style={{ fontSize: 12, fontWeight: '600', color: '#333', marginLeft: 3 }}>
-                      {product.rating || '4.8'}
-                    </Text>
-                  </View>
-                  
-                  <TouchableOpacity style={styles.cartButton} onPress={() => handleAddToCart(product)}>
-                    <LinearGradient
-                      colors={['#667eea', '#764ba2']}
-                      style={styles.iconGradient}
-                    >
-                      <Ionicons name="cart-outline" size={14} color="#fff" />
-                    </LinearGradient>
-                  </TouchableOpacity>
-                </View>
+            {/* Rating */}
+            <View style={styles.ratingContainer}>
+              <View style={styles.starWrapper}>
+                <Ionicons name="star" size={12} color="#FFD700" />
+                <Text style={styles.ratingText}>{product.rating || '4.8'}</Text>
               </View>
             </View>
-          </TouchableOpacity>
-        ))}
+
+            {/* Wishlist */}
+            <TouchableOpacity
+              style={styles.wishlistButton}
+              onPress={() =>
+                wishlist.some(p => p._id === product._id)
+                  ? removeFromWishlist(product._id)
+                  : addToWishlist(product)
+              }
+            >
+              <AntDesign
+                name={wishlist.some(p => p._id === product._id) ? "heart" : "hearto"}
+                size={16}
+                color="#ff4d4f"
+              />
+            </TouchableOpacity>
+          </View>
+
+          {/* --- Enhanced Product Info --- */}
+          <View style={styles.productInfo}>
+            <Text numberOfLines={2} style={styles.productName}>
+              {product.name}
+            </Text>
+            <Text numberOfLines={1} style={styles.productDesc}>
+              {product.shortDesc || "Hiệu suất mạnh, công nghệ cao"}
+            </Text>
+
+            {/* Feature Tags */}
+            <View style={styles.featureTags}>
+              <View style={styles.featureTag}>
+                <MaterialIcons name="verified" size={8} color="#00d4aa" />
+                <Text style={styles.featureText}>CHÍNH HÃNG</Text>
+              </View>
+              <View style={styles.featureTag}>
+                <MaterialIcons name="local-shipping" size={8} color="#667eea" />
+                <Text style={styles.featureText}>FREESHIP</Text>
+              </View>
+            </View>
+
+            {/* 🆕 Khoảng giá */}
+             <View style={styles.priceSection}>
+          <Text style={styles.productPrice}>
+            {formatPriceRange(product)}₫
+          </Text>
+        </View>
+
+            {/* 🆕 Voucher Badge */}
+            <LinearGradient
+              colors={[voucher.color, voucher.color]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.voucherBadge}
+            >
+              <MaterialIcons name="local-offer" size={12} color="#fff" />
+              <Text style={styles.voucherText}>{voucher.text}</Text>
+            </LinearGradient>
+
+            {/* Action Icons */}
+            <View style={styles.actionIcons}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Ionicons name="star" size={14} color="#FFD700" />
+                <Text style={{ fontSize: 12, fontWeight: '600', color: '#333', marginLeft: 3 }}>
+                  {product.rating || '4.8'}
+                </Text>
+              </View>
+              <TouchableOpacity style={styles.cartButton} onPress={() => handleAddToCart(product)}>
+                <LinearGradient
+                  colors={['#667eea', '#764ba2']}
+                  style={styles.iconGradient}
+                >
+                  <Ionicons name="cart-outline" size={14} color="#fff" />
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </TouchableOpacity>
+    );
+  })}
+
+
+
       </View>
 
       {/* 🆕 Dialog chọn option và số lượng */}
       <Modal
         visible={showOptionDialog}
         transparent
-        animationType="fade"
+        animationType="slide"
         onRequestClose={() => setShowOptionDialog(false)}
       >
-        <View style={{
-          flex: 1,
-          backgroundColor: 'rgba(0,0,0,0.25)',
-          justifyContent: 'center',
-          alignItems: 'center'
-        }}>
-          <View style={{
-            backgroundColor: '#fff',
-            borderRadius: 20,
-            padding: 22,
-            width: '88%',
-            maxWidth: 370,
-            elevation: 12,
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 8 },
-            shadowOpacity: 0.18,
-            shadowRadius: 24,
-          }}>
-            <Text style={{ fontWeight: 'bold', fontSize: 18, marginBottom: 12, color: '#222', letterSpacing: 0.2 }}>
-              Chọn phiên bản & số lượng
-            </Text>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Chọn phiên bản & số lượng</Text>
+              <TouchableOpacity
+                onPress={() => setShowOptionDialog(false)}
+                style={styles.closeButton}
+              >
+                <Ionicons name="close" size={24} color="#666" />
+              </TouchableOpacity>
+            </View>
+
             {selectedProduct && (
               <>
-                <Text style={{ fontWeight: '700', fontSize: 15, marginBottom: 12, color: '#444' }}>
-                  {selectedProduct.name}
-                </Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 18 }}>
+                <View style={styles.productPreview}>
+                  <Image source={selectedProduct.image} style={styles.modalProductImage} />
+                  <View style={styles.productDetails}>
+                    <Text style={styles.modalProductName}>{selectedProduct.name}</Text>
+                    <Text style={styles.modalProductPrice}>{formatPrice(selectedProduct.price)}₫</Text>
+                  </View>
+                </View>
+
+                <Text style={styles.sectionLabel}>Chọn phiên bản:</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.optionsContainer}>
                   {selectedProduct.variants[0]?.options?.map((option, idx) => (
                     <TouchableOpacity
                       key={idx}
                       onPress={() => setSelectedOption(option)}
-                      style={{
-                        paddingHorizontal: 18,
-                        paddingVertical: 10,
-                        borderRadius: 14,
-                        backgroundColor: selectedOption === option ? '#667eea' : '#f3f4f6',
-                        marginRight: 10,
-                        borderWidth: selectedOption === option ? 2 : 1,
-                        borderColor: selectedOption === option ? '#667eea' : '#e0e7ef',
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        minWidth: 64,
-                        position: 'relative',
-                      }}
-                      activeOpacity={0.85}
+                      style={[
+                        styles.optionButton,
+                        selectedOption === option && styles.optionButtonSelected
+                      ]}
+                      activeOpacity={0.8}
                     >
-                      <Text style={{
-                        color: selectedOption === option ? '#fff' : '#333',
-                        fontWeight: selectedOption === option ? 'bold' : '500',
-                        fontSize: 15,
-                      }}>
+                      <Text style={[
+                        styles.optionText,
+                        selectedOption === option && styles.optionTextSelected
+                      ]}>
                         {option.label || option}
                       </Text>
                       {option.priceDiff ? (
-                        <Text style={{
-                          color: selectedOption === option ? '#fff' : '#888',
-                          fontSize: 12,
-                          marginLeft: 6,
-                          fontWeight: '600'
-                        }}>
+                        <Text style={[
+                          styles.priceDiffText,
+                          selectedOption === option && styles.priceDiffTextSelected
+                        ]}>
                           +{option.priceDiff.toLocaleString('vi-VN')}₫
                         </Text>
                       ) : null}
                       {selectedOption === option && (
-                        <Ionicons
-                          name="checkmark-circle"
-                          size={18}
-                          color="#fff"
-                          style={{ marginLeft: 6, position: 'absolute', top: -10, right: -10, backgroundColor: '#667eea', borderRadius: 9 }}
-                        />
+                        <View style={styles.selectedIndicator}>
+                          <Ionicons name="checkmark" size={16} color="#fff" />
+                        </View>
                       )}
                     </TouchableOpacity>
                   ))}
                 </ScrollView>
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 20 }}>
-                  <Text style={{ fontWeight: '600', marginRight: 14, fontSize: 15, color: '#333' }}>Số lượng:</Text>
+
+                <Text style={styles.sectionLabel}>Số lượng:</Text>
+                <View style={styles.quantityContainer}>
                   <TouchableOpacity
                     onPress={() => setQuantity(q => Math.max(1, q - 1))}
                     disabled={quantity <= 1}
-                    style={{
-                      width: 36, height: 36, borderRadius: 18,
-                      backgroundColor: quantity <= 1 ? '#e5e7eb' : '#f3f4f6',
-                      alignItems: 'center', justifyContent: 'center',
-                      borderWidth: 1, borderColor: '#e0e7ef'
-                    }}
+                    style={[styles.quantityButton, quantity <= 1 && styles.quantityButtonDisabled]}
                   >
-                    <Ionicons name="remove" size={20} color={quantity <= 1 ? "#bbb" : "#667eea"} />
+                    <Ionicons name="remove" size={20} color={quantity <= 1 ? "#ccc" : "#667eea"} />
                   </TouchableOpacity>
                   <TextInput
-                    style={{
-                      width: 48, height: 36, borderRadius: 8,
-                      borderWidth: 1, borderColor: '#e0e7ef',
-                      marginHorizontal: 10, textAlign: 'center', fontWeight: 'bold', fontSize: 16
-                    }}
+                    style={styles.quantityInput}
                     keyboardType="numeric"
                     value={quantity.toString()}
                     onChangeText={txt => {
                       const val = parseInt(txt.replace(/[^0-9]/g, '')) || 1;
                       setQuantity(val);
                     }}
+                    textAlign="center"
                   />
                   <TouchableOpacity
                     onPress={() => setQuantity(q => q + 1)}
-                    style={{
-                      width: 36, height: 36, borderRadius: 18,
-                      backgroundColor: '#f3f4f6', alignItems: 'center', justifyContent: 'center',
-                      borderWidth: 1, borderColor: '#e0e7ef'
-                    }}
+                    style={styles.quantityButton}
                   >
                     <Ionicons name="add" size={20} color="#667eea" />
                   </TouchableOpacity>
                 </View>
-                <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 8 }}>
+
+                <View style={styles.modalActions}>
                   <TouchableOpacity
                     onPress={() => setShowOptionDialog(false)}
-                    style={{
-                      paddingVertical: 10, paddingHorizontal: 22,
-                      borderRadius: 10, backgroundColor: '#e0e7ef', marginRight: 10
-                    }}
+                    style={styles.cancelButton}
                   >
-                    <Text style={{ color: '#333', fontWeight: '700', fontSize: 15 }}>Huỷ</Text>
+                    <Text style={styles.cancelButtonText}>Huỷ</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     onPress={handleConfirmOption}
-                    style={{
-                      paddingVertical: 10, paddingHorizontal: 22,
-                      borderRadius: 10, backgroundColor: '#667eea'
-                    }}
+                    style={styles.confirmButton}
                   >
-                    <Text style={{ color: '#fff', fontWeight: '700', fontSize: 15 }}>Thêm vào giỏ</Text>
+                    <LinearGradient
+                      colors={['#667eea', '#764ba2']}
+                      style={styles.confirmButtonGradient}
+                    >
+                      <Text style={styles.confirmButtonText}>Thêm vào giỏ</Text>
+                    </LinearGradient>
                   </TouchableOpacity>
                 </View>
               </>
@@ -750,4 +774,211 @@ const styles = StyleSheet.create({
     padding: 8,
     borderRadius: 10,
   },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContainer: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+    maxHeight: '80%',
+    elevation: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  modalTitle: {
+    fontWeight: '800',
+    fontSize: 20,
+    color: '#222',
+    letterSpacing: 0.3,
+  },
+  closeButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#f5f5f5',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  productPreview: {
+    flexDirection: 'row',
+    backgroundColor: '#f8f9fa',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 20,
+  },
+  modalProductImage: {
+    width: 60,
+    height: 60,
+    borderRadius: 12,
+    marginRight: 16,
+    resizeMode: 'contain',
+  },
+  productDetails: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  modalProductName: {
+    fontWeight: '700',
+    fontSize: 16,
+    color: '#333',
+    marginBottom: 4,
+  },
+  modalProductPrice: {
+    color: '#667eea',
+    fontWeight: '800',
+    fontSize: 18,
+  },
+  sectionLabel: {
+    fontWeight: '700',
+    fontSize: 16,
+    color: '#333',
+    marginBottom: 12,
+    marginTop: 8,
+  },
+  optionsContainer: {
+    marginBottom: 20,
+  },
+  optionButton: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 16,
+    backgroundColor: '#f3f4f6',
+    marginRight: 12,
+    borderWidth: 2,
+    borderColor: '#e0e7ef',
+    position: 'relative',
+    minWidth: 80,
+    alignItems: 'center',
+  },
+  optionButtonSelected: {
+    backgroundColor: '#667eea',
+    borderColor: '#667eea',
+  },
+  optionText: {
+    color: '#333',
+    fontWeight: '600',
+    fontSize: 14,
+    textAlign: 'center',
+  },
+  optionTextSelected: {
+    color: '#fff',
+    fontWeight: '700',
+  },
+  priceDiffText: {
+    color: '#888',
+    fontSize: 11,
+    marginTop: 2,
+    fontWeight: '600',
+  },
+  priceDiffTextSelected: {
+    color: 'rgba(255,255,255,0.9)',
+  },
+  selectedIndicator: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#667eea',
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 3,
+  },
+  quantityContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 24,
+  },
+  quantityButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#f3f4f6',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#e0e7ef',
+  },
+  quantityButtonDisabled: {
+    backgroundColor: '#e5e7eb',
+    borderColor: '#d1d5db',
+  },
+  quantityInput: {
+    width: 60,
+    height: 40,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#e0e7ef',
+    marginHorizontal: 16,
+    fontWeight: '700',
+    fontSize: 16,
+    backgroundColor: '#fff',
+  },
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  cancelButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    backgroundColor: '#f0f0f0',
+    alignItems: 'center',
+  },
+  cancelButtonText: {
+    color: '#666',
+    fontWeight: '700',
+    fontSize: 16,
+  },
+  confirmButton: {
+    flex: 2,
+    borderRadius: 12,
+    elevation: 4,
+    shadowColor: '#667eea',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+  },
+  confirmButtonGradient: {
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  confirmButtonText: {
+    color: '#fff',
+    fontWeight: '800',
+    fontSize: 16,
+  },
+  voucherBadge: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  paddingHorizontal: 8,
+  paddingVertical: 4,
+  borderRadius: 8,
+  marginBottom: 8,
+},
+voucherText: {
+  color: '#fff',
+  fontSize: 10,
+  fontWeight: '700',
+  marginLeft: 4,
+},
 });

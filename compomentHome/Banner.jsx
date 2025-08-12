@@ -1,16 +1,16 @@
-import React, { useState, useRef } from "react";
-import { 
-  View, 
-  Image, 
-  StyleSheet, 
-  TouchableOpacity, 
-  Text,
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useRef, useState } from "react";
+import {
   Animated,
   Dimensions,
-  Platform
+  Image,
+  Platform,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from "react-native";
-import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 
 const { width } = Dimensions.get('window');
 
@@ -129,29 +129,7 @@ export default function Banner({
         </View>
 
         {/* Top Right Buttons */}
-        <View style={styles.topRightButtons}>
-          {showFavoriteButton && (
-            <TouchableOpacity 
-              style={styles.actionButton}
-              onPress={toggleFavorite}
-              activeOpacity={0.8}
-            >
-              <View style={styles.buttonBackground}>
-                <Ionicons 
-                  name={isFavorite ? "heart" : "heart-outline"} 
-                  size={20} 
-                  color={isFavorite ? "#FF4757" : "#FFFFFF"} 
-                />
-              </View>
-            </TouchableOpacity>
-          )}
-          
-          <TouchableOpacity style={styles.actionButton} activeOpacity={0.8}>
-            <View style={styles.buttonBackground}>
-              <MaterialIcons name="share" size={18} color="#FFFFFF" />
-            </View>
-          </TouchableOpacity>
-        </View>
+        
 
         {/* Badge */}
         {badge && (

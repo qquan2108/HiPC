@@ -194,13 +194,7 @@ export default function Header({
                       color={notificationCount > 0 ? "#fff" : "#667eea"} 
                     />
                   </LinearGradient>
-                  {notificationCount > 0 && (
-                    <View style={styles.notificationBadge}>
-                      <Text style={styles.badgeText}>
-                        {notificationCount > 99 ? '99+' : notificationCount}
-                      </Text>
-                    </View>
-                  )}
+                  
                 </Animated.View>
               </TouchableOpacity>
             </View>
@@ -232,10 +226,8 @@ export default function Header({
           {/* Quick Actions */}
           <View style={styles.quickActionsContainer}>
             {[
-              { icon: 'zap', label: 'Nhanh' },
               { icon: 'gift', label: 'Khuyến mãi' },
               { icon: 'heart', label: 'Yêu thích' },
-              { icon: 'help-circle', label: 'Hỗ trợ' }
             ].map((item, index) => (
               <TouchableOpacity
                 key={index}

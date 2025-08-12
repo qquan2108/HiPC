@@ -1,22 +1,22 @@
 import { Feather, MaterialIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Picker } from "@react-native-picker/picker";
-import React, { useEffect, useState } from "react";
-import ghnApi from "../utils/ghnApi";
+import { useEffect, useState } from "react";
 import {
+  Animated,
   FlatList,
   Modal,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
-  StyleSheet,
-  StatusBar,
-  Animated,
-  ScrollView,
 } from "react-native";
 import Toast from "react-native-toast-message";
 import axiosInstance from "../utils/AxiosInstance";
+import ghnApi from "../utils/ghnApi";
 
 export default function AddressModal({
   visible,
@@ -70,23 +70,26 @@ export default function AddressModal({
       const userStr = await AsyncStorage.getItem("user");
       if (userStr) {
         const user = JSON.parse(userStr);
-        // Tạo địa chỉ mặc định từ thông tin user
-        if (user.address) {
+        // Đảm bảo có đủ trường id, provinceId, districtId, wardCode
+        if (user.address && user.provinceId && user.districtId && user.wardCode) {
           setUserDefaultAddress({
-            id: 'user-default',
+            id: 'user-default', // id duy nhất
             label: 'Địa chỉ của tôi',
             address: user.address,
             phone: user.phone || '',
             isUserDefault: true,
             isDefault: true,
-            provinceId: user.provinceId,
-            districtId: user.districtId,
+            provinceId: user.provinceId?.toString(),
+            districtId: user.districtId?.toString(),
             wardCode: user.wardCode,
           });
+        } else {
+          setUserDefaultAddress(null);
         }
       }
     } catch (error) {
       console.error('Error loading user default address:', error);
+      setUserDefaultAddress(null);
     }
   };
 
@@ -253,7 +256,7 @@ export default function AddressModal({
   // Combine user default address with other addresses
   const allAddresses = [
     ...(userDefaultAddress ? [userDefaultAddress] : []),
-    ...(addressList || [])
+    ...(addressList?.filter(a => a.id !== 'user-default') || [])
   ];
 
   const renderAddressItem = ({ item }) => {
@@ -360,12 +363,7 @@ export default function AddressModal({
 
           {/* Content */}
           <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
-            {/* Debug info */}
-            {__DEV__ && (
-              <Text style={{padding: 10, color: 'red'}}>
-                Debug: showAdd={showAdd.toString()}, provinces={provinces.length}
-              </Text>
-            )}
+            
             
             {/* Address List - Chỉ hiện khi không ở chế độ thêm */}
             {!showAdd && (
@@ -393,13 +391,19 @@ export default function AddressModal({
 
                 <View style={styles.inputContainer}>
                   <Text style={styles.inputLabel}>Tên địa chỉ *</Text>
-                  <TextInput
-                    placeholder="Ví dụ: Nhà riêng, Văn phòng..."
-                    value={label}
-                    onChangeText={setLabel}
-                    style={styles.textInput}
-                    placeholderTextColor="#999"
-                  />
+                  <View style={styles.pickerWrapper}>
+                    <Picker
+                      selectedValue={label}
+                      onValueChange={setLabel}
+                      style={styles.picker}
+                    >
+                      <Picker.Item label="Chọn loại địa chỉ" value="" />
+                      <Picker.Item label="Nhà riêng" value="Nhà riêng" />
+                      <Picker.Item label="Công ty" value="Công ty" />
+                      <Picker.Item label="Nhà người thân" value="Nhà người thân" />
+                      <Picker.Item label="Khác" value="Khác" />
+                    </Picker>
+                  </View>
                 </View>
 
                 <View style={styles.inputContainer}>

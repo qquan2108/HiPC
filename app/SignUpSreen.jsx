@@ -1,7 +1,7 @@
 import { FontAwesome, Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Alert,
   Dimensions,
@@ -16,8 +16,10 @@ import {
 } from "react-native";
 import Toast from 'react-native-toast-message';
 import axiosInstance from "../utils/AxiosInstance";
+import { getDistricts, getProvinces, getWards } from "../utils/ghnApi";
 
 // Components
+import AddressForm from "../compomentSignup/AddressForm";
 import InputField from "../compomentSignup/InputField";
 import PasswordInput from "../compomentSignup/PasswordInput";
 import RedirectText from "../compomentSignup/RedirectText";
@@ -37,10 +39,74 @@ const SignUpScreen = () => {
   const [showConfirmPass, setShowConfirmPass] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
+  // State cho các trường địa chỉ
+  const [label, setLabel] = useState("Địa chỉ nhận hàng");
+  const [provinceId, setProvinceId] = useState(null);
+  const [districtId, setDistrictId] = useState(null);
+  const [wardCode, setWardCode] = useState(null);
+  const [provinces, setProvinces] = useState([]);
+  const [districts, setDistricts] = useState([]);
+  const [wards, setWards] = useState([]);
+
+  useEffect(() => {
+    // Fetch danh sách tỉnh thành
+    const fetchProvinces = async () => {
+      try {
+        const data = await getProvinces();
+        setProvinces(data);
+      } catch (error) {
+        console.error(error);
+      }
+    };
+
+    fetchProvinces();
+  }, []);
+
+  useEffect(() => {
+    if (provinceId) {
+      // Fetch quận huyện khi provinceId thay đổi
+      const fetchDistrictsData = async () => {
+        try {
+          const data = await getDistricts(provinceId);
+          setDistricts(data);
+          setWardCode(null); // Reset wardCode khi thay đổi tỉnh
+        } catch (error) {
+          console.error(error);
+        }
+      };
+
+      fetchDistrictsData();
+    } else {
+      setDistricts([]);
+      setWards([]);
+    }
+  }, [provinceId]);
+
+  useEffect(() => {
+    if (districtId) {
+      // Fetch xã phường khi districtId thay đổi
+      const fetchWardsData = async () => {
+        try {
+          const data = await getWards(districtId);
+          setWards(data);
+        } catch (error) {
+          console.error(error);
+        }
+      };
+
+      fetchWardsData();
+    } else {
+      setWards([]);
+    }
+  }, [districtId]);
+
   const handleRegister = async () => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!fullName || !email || !pass || !confirmPass || !phone || !address) {
-      Alert.alert("Lỗi", "Vui lòng nhập đầy đủ thông tin.");
+    if (
+      !fullName || !email || !pass || !confirmPass || !phone ||
+      !address || !label || !provinceId || !districtId || !wardCode
+    ) {
+      Alert.alert("Lỗi", "Vui lòng nhập đầy đủ thông tin, bao gồm địa chỉ.");
       return;
     }
     if (!emailRegex.test(email)) {
@@ -64,6 +130,10 @@ const SignUpScreen = () => {
         password: pass,
         phone,
         address,
+        label,
+        provinceId,
+        districtId,
+        wardCode,
       });
 
       Toast.show({
@@ -140,11 +210,16 @@ const SignUpScreen = () => {
                 onChangeText={setPhone}
                 keyboardType="phone-pad"
               />
-              <InputField
-                icon={<FontAwesome name="map-marker" size={20} color="#aaa" style={{ marginRight: 10 }} />}
-                placeholder="Địa chỉ"
-                value={address}
-                onChangeText={setAddress}
+              <AddressForm
+                label={label} setLabel={setLabel}
+                address={address} setAddress={setAddress}
+                provinceId={provinceId} setProvinceId={setProvinceId}
+                districtId={districtId} setDistrictId={setDistrictId}
+                wardCode={wardCode} setWardCode={setWardCode}
+                provinces={provinces}
+                districts={districts}
+                wards={wards}
+                styles={styles}
               />
               <InputField
                 icon={<FontAwesome name="envelope" size={20} color="#aaa" style={{ marginRight: 10 }} />}

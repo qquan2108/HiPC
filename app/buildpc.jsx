@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
+import { Ionicons } from "@expo/vector-icons";
 import {
   ActivityIndicator,
   Alert,
@@ -332,11 +333,7 @@ export default function UngDungLapPC() {
             <Text style={styles.buildSubtitle}>{build.description}</Text>
             <View style={styles.buildPriceContainer}>
               <Text style={styles.buildPrice}>{formatCurrency(build.price)}</Text>
-              {isSelected && (
-                <View style={styles.selectedBadge}>
-                  <Text style={styles.selectedBadgeText}>✓</Text>
-                </View>
-              )}
+              
             </View>
           </LinearGradient>
         </TouchableOpacity>
