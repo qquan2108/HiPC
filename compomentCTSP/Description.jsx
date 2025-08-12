@@ -6,13 +6,16 @@ export default function ProductDescription({ htmlContent }) {
   const { width } = useWindowDimensions();
   const contentWidth = width - 32; // padding 16 hai bên
 
+  // Chuyển đổi <section> thành <div> để RenderHTML hỗ trợ tốt hơn
+  const normalizedHtml = (htmlContent || '').replace(/<(\/?)(section)([^>]*)>/gi, '<$1div$3>');
+
   return (
     <View style={styles.wrapper}>
       <Text style={styles.title}>Mô tả sản phẩm</Text>
 
       <RenderHTML
         contentWidth={contentWidth}
-        source={{ html: `<div>${htmlContent || ''}</div>` }}
+        source={{ html: normalizedHtml }}
         baseStyle={styles.baseText}
         tagsStyles={styles.tags}
       />

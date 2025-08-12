@@ -1,10 +1,12 @@
-import { ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Text, TextInput, View } from 'react-native';
+import AddressForm from "../../compomentSignup/AddressForm";
 import UserInfoField from './UserInfoField';
 
 export default function UserInfoForm({
   edit, isUploading, form, setForm,
-  addressInput, setAddressInput, suggestions, selectSuggestion,
-  user, handleSave, handleCancel, styles
+  user, handleSave, handleCancel, styles,
+  provinces, setProvinces, districts, setDistricts, wards, setWards,
+  fetchProvinces, fetchDistricts, fetchWards
 }) {
   return (
     <>
@@ -16,48 +18,6 @@ export default function UserInfoForm({
           onChangeText={v => setForm(prev => ({ ...prev, full_name: v }))}
           placeholder="Nhập họ và tên"
         />
-      </UserInfoField>
-
-      <UserInfoField label="Địa chỉ">
-        {edit ? (
-          <>
-            <TextInput
-              style={[styles.input, styles.inputEdit]}
-              placeholder="Nhập địa chỉ"
-              value={addressInput}
-              onChangeText={setAddressInput}
-              editable={!isUploading}
-            />
-            {suggestions.length > 0 && (
-              <View style={styles.suggestionBox}>
-                <ScrollView style={styles.suggestionScroll} nestedScrollEnabled>
-                  {suggestions.map(s => (
-                    <TouchableOpacity
-                      key={s.wardCode}
-                      style={styles.suggestionItem}
-                      onPress={() => selectSuggestion(s)}
-                      disabled={isUploading}
-                    >
-                      <Text numberOfLines={2}>{s.description}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </View>
-            )}
-          </>
-        ) : (
-          <TextInput
-            style={styles.input}
-            value={form.address || ''}
-            editable={false}
-            placeholder="Chưa có địa chỉ"
-          />
-        )}
-        {!edit && form.latitude && form.longitude && (
-          <Text style={styles.coordText}>
-            Tọa độ: {form.latitude.toFixed(6)}, {form.longitude.toFixed(6)}
-          </Text>
-        )}
       </UserInfoField>
 
       <UserInfoField label="Email">
@@ -81,29 +41,30 @@ export default function UserInfoForm({
       </UserInfoField>
 
       {edit && (
-        <View style={styles.btnRow}>
-          <TouchableOpacity
-            style={[styles.btnSave, isUploading && styles.btnDisabled]}
-            onPress={handleSave}
-            disabled={isUploading}
-          >
-            <Text style={styles.btnText}>
-              {isUploading ? 'Đang lưu...' : 'Lưu'}
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.btnCancel, isUploading && styles.btnDisabled]}
-            onPress={handleCancel}
-            disabled={isUploading}
-          >
-            <Text style={[styles.btnText, { color: '#555' }]}>Hủy</Text>
-          </TouchableOpacity>
+        <View style={styles.sectionCard}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Địa chỉ nhận hàng</Text>
+          </View>
+
+          <AddressForm
+            label={form.label} setLabel={v => setForm(f => ({ ...f, label: v }))}
+            address={form.address} setAddress={v => setForm(f => ({ ...f, address: v }))}
+            provinceId={form.provinceId} setProvinceId={v => setForm(f => ({ ...f, provinceId: v }))}
+            districtId={form.districtId} setDistrictId={v => setForm(f => ({ ...f, districtId: v }))}
+            wardCode={form.wardCode} setWardCode={v => setForm(f => ({ ...f, wardCode: v }))}
+            provinces={provinces} setProvinces={setProvinces}
+            districts={districts} setDistricts={setDistricts}
+            wards={wards} setWards={setWards}
+            fetchProvinces={fetchProvinces}
+            fetchDistricts={fetchDistricts}
+            fetchWards={fetchWards}
+            style={{ marginBottom: 0 }}
+          />
+
+          <Text style={styles.helperText}>
+            Vui lòng chọn Tỉnh/Quận/Phường chính xác để nhận hàng nhanh hơn.
+          </Text>
         </View>
-      )}
-      {edit && (
-        <Text style={{textAlign:'center', color:'#888', marginTop:4}}>
-          Nhấn Lưu để xác nhận thay đổi ảnh hoặc thông tin
-        </Text>
       )}
     </>
   );

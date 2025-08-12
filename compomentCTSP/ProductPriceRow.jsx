@@ -1,38 +1,58 @@
-import React from "react";
-import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
-import { Feather } from "@expo/vector-icons";
+import { StyleSheet, Text, View } from "react-native";
 
-export default function ProductPriceRow({ price, oldPrice, onLike }) {
+export default function ProductPriceRow({
+  price,      // number: ví dụ 3200000
+  oldPrice,   // number hoặc null: giá gốc
+  liked,      // boolean: trạng thái đã thích
+  onLike,     // () => void
+}) {
+  // Kiểm tra giảm giá
+  const hasDiscount = typeof oldPrice === 'number' && oldPrice > price;
+
+  // Format VND
+  const formatVND = (value) =>
+    value.toLocaleString("vi-VN", { style: "currency", currency: "VND" });
+
   return (
-    <View style={styles.priceRow}>
-      <Text style={styles.productPrice}>{price}</Text>
-      <Text style={styles.productOldPrice}>{oldPrice}</Text>
-      <TouchableOpacity style={{ marginLeft: 8 }} onPress={onLike}>
-        <Feather name="heart" size={24} color="#f55858" />
-      </TouchableOpacity>
+    <View style={styles.container}>
+      <Text style={styles.priceText}>{formatVND(price)}</Text>
+
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  priceRow: {
+  container: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    marginHorizontal: 12,
-    marginBottom: 8,
+    justifyContent: "space-between",
+    marginHorizontal: 16,
+    marginVertical: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 12,
+    // shadow iOS
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    // elevation Android
+    elevation: 3,
   },
-  productPrice: {
-    color: "#f55858",
-    fontWeight: "bold",
-    fontSize: 22,
-    marginRight: 10,
+  priceText: {
+    fontSize: 26,
+    fontWeight: "700",
+    color: "#FF5722",
   },
-  productOldPrice: {
-    color: "#888",
-    fontSize: 16,
-    textDecorationLine: "line-through",
-    marginRight: 10,
-    fontWeight: "bold",
+  likeButton: {
+    borderRadius: 20,
+    padding: 8,
+  },
+  likedButton: {
+    backgroundColor: "#FFE5EC",
+  },
+  unlikedButton: {
+    backgroundColor: "#F5F5F5",
   },
 });

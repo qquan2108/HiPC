@@ -3,10 +3,9 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { useState, useRef } from 'react';
+import { useRef, useState } from 'react';
 import {
   Alert,
-  Animated,
   Dimensions,
   Keyboard,
   KeyboardAvoidingView,
@@ -17,7 +16,7 @@ import {
   Text,
   TouchableOpacity,
   TouchableWithoutFeedback,
-  View,
+  View
 } from 'react-native';
 import Toast from 'react-native-toast-message';
 import AuthInput from '../compomentLogin/AuthInput';
@@ -44,10 +43,14 @@ const LoginScreen = () => {
     setIsLoading(true);
     try {
       const res = await axiosInstance.post('/users/login', { email, password });
+      console.log("🧩 res.data:", res.data);
       if (res.data?.token) {
         await AsyncStorage.setItem('token', res.data.token);
-        const user = res.data.user; // Assuming the user data is in res.data.user
+        const user = res.data.user;
+        console.log("👤 res.data.user:", user);
+        console.log("🆔 user._id:", user?._id);
         await AsyncStorage.setItem('user', JSON.stringify(user));
+        await AsyncStorage.setItem('user_id', user.id);
         Toast.show({
           type: 'success',
           text1: 'Đăng nhập thành công!',
@@ -187,13 +190,6 @@ const LoginScreen = () => {
                     )}
                   </LinearGradient>
                 </TouchableOpacity>
-
-                <View style={styles.dividerContainer}>
-                  <View style={styles.dividerLine} />
-                  <Text style={styles.dividerText}>Hoặc tiếp tục với</Text>
-                  <View style={styles.dividerLine} />
-                </View>
-
                 <SocialButtons />
 
                 <RegisterPrompt onPress={() => router.push('/SignUpSreen')} />

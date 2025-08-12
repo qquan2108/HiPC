@@ -1,31 +1,53 @@
-import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  KeyboardAvoidingView,
-  ScrollView,
-  Platform,
-  StatusBar,
-} from 'react-native';
 import { FontAwesome, Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
+import { useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import axiosInstance from '../utils/AxiosInstance';
 
-const ForgotPasswordScreen = () => {
+export default function ForgotPasswordScreen() {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleSendRecoveryCode = () => {
-    if (!email) return;
+  const handleSendRecoveryCode = async () => {
+    if (!email.trim()) {
+      Alert.alert('Lỗi', 'Vui lòng nhập email.');
+      return;
+    }
+
     setIsLoading(true);
-    setTimeout(() => {
-      console.log('Email khôi phục:', email);
+    try {
+      const res = await axiosInstance.post('/users/forgot-password', {
+        email: email.trim(),
+      });
+      if (res.data?.message === 'Email đặt lại mật khẩu đã được gửi') {
+        Alert.alert(
+          'Thành công',
+          'Email khôi phục mật khẩu đã được gửi đến bạn',
+          [{ text: 'OK', onPress: () => router.push('/LoginScreen') }],
+        );
+      } else {
+        Alert.alert('Lỗi', 'Có lỗi xảy ra. Vui lòng thử lại.');
+      }
+    } catch (error) {
+      console.error('Forgot password error:', error);
+      Alert.alert('Lỗi', 'Có lỗi xảy ra khi gửi email khôi phục.');
+    } finally {
       setIsLoading(false);
-    }, 1500);
+    }
   };
 
   return (
@@ -45,7 +67,6 @@ const ForgotPasswordScreen = () => {
             contentContainerStyle={styles.scrollContainer}
             showsVerticalScrollIndicator={false}
           >
-            {/* Brand / Logo */}
             <View style={styles.brandSection}>
               <View style={styles.logoContainer}>
                 <Ionicons name="cloud" size={40} color="#fff" />
@@ -54,14 +75,18 @@ const ForgotPasswordScreen = () => {
               <Text style={styles.tagline}>Phục hồi mật khẩu</Text>
             </View>
 
-            {/* Content Card */}
             <View style={styles.contentCard}>
               <Text style={styles.title}>Quên mật khẩu?</Text>
 
               <View style={styles.inputContainer}>
-                <FontAwesome name="envelope" size={20} color="#aaa" style={styles.icon} />
+                <FontAwesome
+                  name="envelope"
+                  size={20}
+                  color="#aaa"
+                  style={styles.icon}
+                />
                 <TextInput
-                  placeholder="Nhập email của bạn."
+                  placeholder="Nhập email của bạn"
                   placeholderTextColor="#999"
                   style={styles.input}
                   value={email}
@@ -72,7 +97,7 @@ const ForgotPasswordScreen = () => {
               </View>
 
               <Text style={styles.note}>
-                * Chúng tôi sẽ gửi mã khôi phục đến email bạn đã đăng ký.
+                * Chúng tôi sẽ gửi link khôi phục đến email bạn đã đăng ký.
               </Text>
 
               <TouchableOpacity
@@ -84,9 +109,11 @@ const ForgotPasswordScreen = () => {
                   colors={['#667eea', '#764ba2']}
                   style={styles.buttonGradient}
                 >
-                  <Text style={styles.buttonText}>
-                    {isLoading ? 'Đang gửi...' : 'Nhận mã khôi phục'}
-                  </Text>
+                  {isLoading ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Text style={styles.buttonText}>Nhận link khôi phục</Text>
+                  )}
                 </LinearGradient>
               </TouchableOpacity>
 
@@ -102,9 +129,7 @@ const ForgotPasswordScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  gradientBackground: {
-    flex: 1,
-  },
+  gradientBackground: { flex: 1 },
   scrollContainer: {
     flexGrow: 1,
     paddingHorizontal: 24,
@@ -163,19 +188,14 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     marginBottom: 12,
   },
-  icon: {
-    marginRight: 10,
-  },
-  input: {
-    flex: 1,
-    fontSize: 16,
-    color: '#000',
-  },
+  icon: { marginRight: 10 },
+  input: { flex: 1, fontSize: 16, color: '#000' },
   note: {
     color: '#999',
     fontSize: 13,
     marginBottom: 30,
     textAlign: 'center',
+    lineHeight: 18,
   },
   button: {
     borderRadius: 20,
@@ -201,4 +221,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default ForgotPasswordScreen;
+

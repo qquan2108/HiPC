@@ -16,7 +16,7 @@ export default function Index() {
 
   useEffect(() => {
     if (isReady) {
-      router.replace('./hipc');
+      router.replace('./HomeScreen'); // Điều hướng đến HomeScreen khi đã sẵn sàng
     }
   }, [isReady]);
 

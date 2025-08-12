@@ -1,12 +1,11 @@
 // components/Auth/RegisterPrompt.jsx
-import React from 'react';
-import { 
-  View, 
-  Text, 
-  TouchableOpacity, 
-  StyleSheet 
-} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import {
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
+} from 'react-native';
 
 const RegisterPrompt = ({ onPress }) => (
   <View style={styles.container}>
@@ -24,23 +23,6 @@ const RegisterPrompt = ({ onPress }) => (
           color="#8B5CF6" 
           style={styles.arrowIcon}
         />
-      </TouchableOpacity>
-    </View>
-    
-    {/* Premium CTA Card */}
-    <View style={styles.ctaCard}>
-      <View style={styles.ctaContent}>
-        <Ionicons name="sparkles" size={20} color="#F59E0B" />
-        <Text style={styles.ctaText}>
-          Tham gia cộng đồng hơn 1M+ người dùng
-        </Text>
-      </View>
-      <TouchableOpacity 
-        onPress={onPress}
-        style={styles.ctaButton}
-        activeOpacity={0.9}
-      >
-        <Text style={styles.ctaButtonText}>Bắt đầu miễn phí</Text>
       </TouchableOpacity>
     </View>
   </View>

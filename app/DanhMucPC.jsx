@@ -1,6 +1,5 @@
 // screens/DanhMucPCScreen.js
 import { Feather } from '@expo/vector-icons';
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from 'react';
 import {
@@ -27,90 +26,98 @@ export default function DanhMucPCScreen() {
   const [categories, setCategories] = useState([]);
   const [selectedCat, setSelectedCat] = useState(null);
   const [products, setProducts] = useState([]);
-  const [showLoginDialog, setShowLoginDialog] = useState(false); // Thêm state này
-  const [loading, setLoading] = useState(true); // Thêm state này
-   const [brands, setBrands] = useState([]);
+  const [showLoginDialog, setShowLoginDialog] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [brands, setBrands] = useState([]);
+  const [bestSellers, setBestSellers] = useState([]);
+  const [selectedBrand, setSelectedBrand] = useState(null); // Thêm state chọn hãng
+  const [selectedPrice, setSelectedPrice] = useState(null); // Thêm state chọn giá
   const router = useRouter();
 
   // Kiểm tra đăng nhập
-  useEffect(() => {
-    AsyncStorage.getItem("token").then((token) => {
-      if (!token) {
-        setShowLoginDialog(true);
-        setLoading(false);
-        return;
-      }
-      AsyncStorage.getItem("user").then((userStr) => {
-        if (!userStr || userStr === "undefined") {
-          setShowLoginDialog(true);
-          setLoading(false);
-          return;
-        }
-        let stored;
-        try {
-          stored = JSON.parse(userStr);
-        } catch (e) {
-          setShowLoginDialog(true);
-          setLoading(false);
-          return;
-        }
-        const userId = stored.id || stored._id;
-        if (!userId) {
-          setShowLoginDialog(true);
-          setLoading(false);
-          return;
-        }
-        setShowLoginDialog(false);
-        setLoading(false);
-      });
-    });
-  }, []);
+  // useEffect(() => {
+  //   AsyncStorage.getItem("token").then((token) => {
+  //     if (!token) {
+  //       setShowLoginDialog(true);
+  //       setLoading(false);
+  //       return;
+  //     }
+  //     AsyncStorage.getItem("user").then((userStr) => {
+  //       if (!userStr || userStr === "undefined") {
+  //         setShowLoginDialog(true);
+  //         setLoading(false);
+  //         return;
+  //       }
+  //       let stored;
+  //       try {
+  //         stored = JSON.parse(userStr);
+  //       } catch (e) {
+  //         setShowLoginDialog(true);
+  //         setLoading(false);
+  //         return;
+  //       }
+  //       const userId = stored.id || stored._id;
+  //       if (!userId) {
+  //         setShowLoginDialog(true);
+  //         setLoading(false);
+  //         return;
+  //       }
+  //       setShowLoginDialog(false);
+  //       setLoading(false);
+  //     });
+  //   });
+  // }, []);
 
   // Bộ lọc mẫu (tuỳ ý)
- 
-const PRICE_SEGMENTS = [
+
+  const PRICE_SEGMENTS = [
     { label: 'Dưới 2 triệu', min: 0, max: 2_000_000 },
-    { label: '2–4 triệu',    min: 2_000_000, max: 4_000_000 },
-    { label: '4–7 triệu',    min: 4_000_000, max: 7_000_000 },
-    { label: '7–13 triệu',   min: 7_000_000, max: 13_000_000 },
+    { label: '2–4 triệu', min: 2_000_000, max: 4_000_000 },
+    { label: '4–7 triệu', min: 4_000_000, max: 7_000_000 },
+    { label: '7–13 triệu', min: 7_000_000, max: 13_000_000 },
     { label: 'Trên 13 triệu', min: 13_000_000, max: Infinity },
   ];
-
-
-  useEffect(() => {
-    axios.get('/brands')
-      .then(res => setBrands(res.data || []))
-      .catch(err => console.error('Brand API error', err));
-  }, []);
-
-  // Fetch categories + icon
   useEffect(() => {
     (async () => {
       try {
-        const [catRes, imgRes] = await Promise.all([
+        // song song categories+images + products
+        const [catRes, imgRes, prodRes, brandRes] = await Promise.all([
           axios.get('/category'),
-          axios.get('/images')
+          axios.get('/images'),
+          axios.get('/product'),
+          axios.get('/brands'),
         ]);
+        // xử lý categories/images như cũ
         const imgs = imgRes.data;
-        setCategories(catRes.data.map(cat => {
+        const cats = catRes.data.map(cat => {
           const found = imgs.find(i => i.category_id?._id === cat._id);
           return {
             _id: cat._id,
             name: cat.name,
             icon: found ? { uri: found.url } : require('../assets/images/pc.png'),
           };
-        }));
-        if (catRes.data[0]) setSelectedCat(catRes.data[0]._id);
-      } catch (e) { console.error(e); }
+        });
+        setCategories(cats);
+        if (cats.length) setSelectedCat(cats[0]._id);
+
+        setProducts(prodRes.data.products || []);
+        setBrands(brandRes.data || []);
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setLoading(false);
+      }
     })();
   }, []);
 
-  // Fetch ALL products
+
+  // Fetch best sellers mỗi khi đổi danh mục
   useEffect(() => {
-    axios.get('/product')
-      .then(res => setProducts(res.data.products || []))
-      .catch(() => setProducts([]));
-  }, []);
+    if (!selectedCat) return;
+    axios.get(`/product/best-sellers?category=${selectedCat}&limit=5`)
+      .then(res => setBestSellers(res.data || []))
+      .catch(() => setBestSellers([]));
+  }, [selectedCat]);
 
   // Tìm object category đang chọn
   const catObj = categories.find(c => c._id === selectedCat);
@@ -213,129 +220,87 @@ const PRICE_SEGMENTS = [
           {/* TITLE + “Xem tất cả” */}
           <View style={styles.titleRow}>
             <Text style={styles.titleText}>{catObj?.name || '—'}</Text>
-            <TouchableOpacity>
+            <TouchableOpacity onPress={() => router.push("./danhmucall")}> 
               <Text style={styles.viewAll}>Xem tất cả</Text>
             </TouchableOpacity>
           </View>
 
+          {/* --- Bộ lọc tuỳ chọn --- */}
+          <View style={{marginBottom: 24, padding: 12, backgroundColor: '#fff', borderRadius: 12, shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 8, elevation: 2}}>
+            <Text style={{fontWeight:'bold', marginBottom: 8, fontSize: 16}}>Chọn danh mục:</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{marginBottom: 12}}>
+              {categories.map(cat => (
+                <TouchableOpacity
+                  key={cat._id}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: selectedCat === cat._id ? '#ee4d2d' : '#ccc', marginRight: 10, backgroundColor: selectedCat === cat._id ? '#ee4d2d' : '#f7f7f7'
+                  }}
+                  onPress={() => setSelectedCat(cat._id)}
+                >
+                  <Image source={cat.icon} style={{width: 22, height: 22, marginRight: 6, borderRadius: 11}} />
+                  <Text style={{color: selectedCat === cat._id ? '#fff' : '#333', fontWeight: selectedCat === cat._id ? 'bold' : 'normal'}}>{cat.name}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            <Text style={{fontWeight:'bold', marginBottom: 8, fontSize: 16}}>Chọn hãng:</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{marginBottom: 12}}>
+              {brands.map(brand => (
+                <TouchableOpacity
+                  key={brand._id}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: selectedBrand === brand._id ? '#ee4d2d' : '#ccc', marginRight: 10, backgroundColor: selectedBrand === brand._id ? '#ee4d2d' : '#f7f7f7'
+                  }}
+                  onPress={() => setSelectedBrand(brand._id)}
+                >
+                  {brand.logo && <Image source={{uri: brand.logo}} style={{width: 22, height: 22, marginRight: 6, borderRadius: 11, backgroundColor:'#fff'}} />}
+                  <Text style={{color: selectedBrand === brand._id ? '#fff' : '#333', fontWeight: selectedBrand === brand._id ? 'bold' : 'normal'}}>{brand.name}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            <Text style={{fontWeight:'bold', marginBottom: 8, fontSize: 16}}>Chọn giá:</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{marginBottom: 12}}>
+              {PRICE_SEGMENTS.map(seg => (
+                <TouchableOpacity
+                  key={seg.label}
+                  style={{
+                    paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: selectedPrice === seg.label ? '#ee4d2d' : '#ccc', marginRight: 10, backgroundColor: selectedPrice === seg.label ? '#ee4d2d' : '#f7f7f7'
+                  }}
+                  onPress={() => setSelectedPrice(seg.label)}
+                >
+                  <Text style={{color: selectedPrice === seg.label ? '#fff' : '#333', fontWeight: selectedPrice === seg.label ? 'bold' : 'normal'}}>{seg.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            <TouchableOpacity
+              style={{marginTop: 8, backgroundColor: '#ee4d2d', borderRadius: 8, paddingVertical: 14, alignItems: 'center', shadowColor:'#ee4d2d', shadowOpacity:0.12, shadowRadius:4, elevation:1}} 
+              onPress={() => {
+                const priceObj = PRICE_SEGMENTS.find(seg => seg.label === selectedPrice);
+                router.push({
+                  pathname: '/danhmucall',
+                  params: {
+                    categoryId: selectedCat,
+                    brandId: selectedBrand,
+                    min: priceObj ? priceObj.min : undefined,
+                    max: priceObj ? priceObj.max : undefined
+                  }
+                });
+              }}
+            >
+              <Text style={{color:'#fff', fontWeight:'bold', fontSize:16}}>Xem sản phẩm</Text>
+            </TouchableOpacity>
+          </View>
+
           {/* DANH SÁCH SẢN PHẨM */}
-          {filteredProducts.length === 0 ? (
-            <Text style={{ color: '#888', textAlign: 'center', marginTop: 24 }}>
-              Không có sản phẩm nào
-            </Text>
-          ) : (
-            filteredProducts.map(p => (
-              <TouchableOpacity
-                key={p._id || p.id}
-                style={{
-                  backgroundColor: '#fff',
-                  borderRadius: 8,
-                  marginBottom: 12,
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  padding: 12,
-                  shadowColor: '#eee',
-                  shadowOffset: { width: 0, height: 1 },
-                  shadowOpacity: 0.2,
-                  shadowRadius: 2,
-                  elevation: 2,
-                }}
-                onPress={() => router.push({ pathname: '/ctsp', params: { id: p._id || p.id } })}
-              >
-                <Image
-                  source={p.image ? { uri: p.image } : require('../assets/images/pc1.png')}
-                  style={{ width: 54, height: 54, borderRadius: 8, marginRight: 12, backgroundColor: '#f2f2f2' }}
-                />
-                <View style={{ flex: 1 }}>
-                  <Text numberOfLines={2} style={{ fontWeight: '700' }}>{p.name}</Text>
-                  <Text style={{ color: '#009688', marginTop: 2 }}>
-                    {Number(p.price).toLocaleString('vi-VN')}₫
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            ))
-          )}
-          {/* Filter: Hãng */}
-          <FilterSection
-            title="Hãng"
-            data={brands}
-            onSelect={brand =>
-              router.push({
-                pathname: '/danhmucall',
-                params: { type: 'brand', brandId: brand._id }
-              })
-            }
-          />
 
-          {/* Filter: Phân khúc giá */}
-          <FilterSection
-            title="Phân khúc giá"
-            data={PRICE_SEGMENTS}
-            onSelect={seg =>
-              router.push({
-                pathname: '/danhmucall',
-                params: { type: 'price', min: seg.min, max: seg.max }
-              })
-            }
-          />
-
-          {/* Filter: HOT */}
-          <FilterSection
-            title="HOT ⚡️"
-            data={products}
-            onSelect={p =>
-              router.push({
-                pathname: '/ctsp',
-                params: { id: p._id }
-              })
-            }
-          />
-
-          {/* Các filter */}
-          
-          <View style={{ height: 80 }} />
         </ScrollView>
       </View>
       {/* TAB BAR */}
       <CustomTabBar router={router} style={styles.tabbar} />
     </SafeAreaView>
-  );
-}
-
-// Component con cho mỗi section filter
-function FilterSection({ title, data, onSelect }) {
-  return (
-    <View style={styles.sec}>
-      <Text style={styles.secTitle}>{title}</Text>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.filterRow}
-      >
-        {data.map((item, i) => {
-         // Lấy label cho cả brand (name) và phân khúc giá (label) 
-         const label = item.name ?? item.label ?? ''; 
-         return ( 
-           <TouchableOpacity 
-             key={item._id || i} 
-             style={styles.tag}               // vẫn dùng style.tag cũ 
-             onPress={() => onSelect(item)} 
-           > 
-             {item.logo 
-               // Brand: show logo 
-               ? <Image 
-                   source={{ uri: item.logo }} 
-                   style={styles.brandLogo} 
-                  resizeMode="contain" 
-                 /> 
-               // Price segment hoặc fallback: show text label 
-               : <Text style={styles.tagText}>{label}</Text> 
-             } 
-           </TouchableOpacity> 
-         ); 
-       })}
-      </ScrollView>
-    </View>
   );
 }
 

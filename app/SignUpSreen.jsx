@@ -1,27 +1,29 @@
-import React, { useState } from "react";
+import { FontAwesome, Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
+import { useEffect, useState } from "react";
 import {
   Alert,
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  ScrollView,
+  Dimensions,
   KeyboardAvoidingView,
   Platform,
-  Dimensions,
+  ScrollView,
   StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
-import { FontAwesome, Ionicons } from "@expo/vector-icons";
+import Toast from 'react-native-toast-message';
 import axiosInstance from "../utils/AxiosInstance";
-import { LinearGradient } from "expo-linear-gradient";
+import { getDistricts, getProvinces, getWards } from "../utils/ghnApi";
 
 // Components
-import AuthTitle from "../compomentSignup/AuthTitle";
+import AddressForm from "../compomentSignup/AddressForm";
 import InputField from "../compomentSignup/InputField";
 import PasswordInput from "../compomentSignup/PasswordInput";
-import SocialLogin from "../compomentSignup/SocialLogin";
 import RedirectText from "../compomentSignup/RedirectText";
+import SocialLogin from "../compomentSignup/SocialLogin";
 
 const { width } = Dimensions.get("window");
 
@@ -37,12 +39,84 @@ const SignUpScreen = () => {
   const [showConfirmPass, setShowConfirmPass] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
+  // State cho các trường địa chỉ
+  const [label, setLabel] = useState("Địa chỉ nhận hàng");
+  const [provinceId, setProvinceId] = useState(null);
+  const [districtId, setDistrictId] = useState(null);
+  const [wardCode, setWardCode] = useState(null);
+  const [provinces, setProvinces] = useState([]);
+  const [districts, setDistricts] = useState([]);
+  const [wards, setWards] = useState([]);
+
+  useEffect(() => {
+    // Fetch danh sách tỉnh thành
+    const fetchProvinces = async () => {
+      try {
+        const data = await getProvinces();
+        setProvinces(data);
+      } catch (error) {
+        console.error(error);
+      }
+    };
+
+    fetchProvinces();
+  }, []);
+
+  useEffect(() => {
+    if (provinceId) {
+      // Fetch quận huyện khi provinceId thay đổi
+      const fetchDistrictsData = async () => {
+        try {
+          const data = await getDistricts(provinceId);
+          setDistricts(data);
+          setWardCode(null); // Reset wardCode khi thay đổi tỉnh
+        } catch (error) {
+          console.error(error);
+        }
+      };
+
+      fetchDistrictsData();
+    } else {
+      setDistricts([]);
+      setWards([]);
+    }
+  }, [provinceId]);
+
+  useEffect(() => {
+    if (districtId) {
+      // Fetch xã phường khi districtId thay đổi
+      const fetchWardsData = async () => {
+        try {
+          const data = await getWards(districtId);
+          setWards(data);
+        } catch (error) {
+          console.error(error);
+        }
+      };
+
+      fetchWardsData();
+    } else {
+      setWards([]);
+    }
+  }, [districtId]);
+
   const handleRegister = async () => {
-    if (!fullName || !email || !pass || !confirmPass || !phone || !address) {
-      Alert.alert("Lỗi", "Vui lòng nhập đầy đủ thông tin.");
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (
+      !fullName || !email || !pass || !confirmPass || !phone ||
+      !address || !label || !provinceId || !districtId || !wardCode
+    ) {
+      Alert.alert("Lỗi", "Vui lòng nhập đầy đủ thông tin, bao gồm địa chỉ.");
       return;
     }
-
+    if (!emailRegex.test(email)) {
+      Alert.alert("Lỗi", "Email không hợp lệ.");
+      return;
+    }
+    if (pass.length < 6) {
+      Alert.alert("Lỗi", "Mật khẩu phải từ 6 ký tự trở lên.");
+      return;
+    }
     if (pass !== confirmPass) {
       Alert.alert("Lỗi", "Mật khẩu không khớp.");
       return;
@@ -56,16 +130,33 @@ const SignUpScreen = () => {
         password: pass,
         phone,
         address,
+        label,
+        provinceId,
+        districtId,
+        wardCode,
       });
 
-      Alert.alert("Thành công", res.data.message || "Đăng ký thành công");
-      router.push("/LoginScreen");
+      Toast.show({
+        type: 'success',
+        text1: 'Đăng ký thành công!',
+        text2: res.data.message || 'Chào mừng bạn đến với HIPC 🎉',
+        visibilityTime: 2000,
+        position: 'top',
+        autoHide: true,
+      });
+      setTimeout(() => {
+        router.push("/LoginScreen");
+      }, 1500);
     } catch (err) {
       console.error(err);
-      Alert.alert(
-        "Đăng ký thất bại",
-        err.response?.data?.message || "Có lỗi xảy ra."
-      );
+      Toast.show({
+        type: 'error',
+        text1: 'Đăng ký thất bại',
+        text2: err.response?.data?.message || "Có lỗi xảy ra.",
+        visibilityTime: 3000,
+        position: 'top',
+        autoHide: true,
+      });
     } finally {
       setIsLoading(false);
     }
@@ -119,11 +210,16 @@ const SignUpScreen = () => {
                 onChangeText={setPhone}
                 keyboardType="phone-pad"
               />
-              <InputField
-                icon={<FontAwesome name="map-marker" size={20} color="#aaa" style={{ marginRight: 10 }} />}
-                placeholder="Địa chỉ"
-                value={address}
-                onChangeText={setAddress}
+              <AddressForm
+                label={label} setLabel={setLabel}
+                address={address} setAddress={setAddress}
+                provinceId={provinceId} setProvinceId={setProvinceId}
+                districtId={districtId} setDistrictId={setDistrictId}
+                wardCode={wardCode} setWardCode={setWardCode}
+                provinces={provinces}
+                districts={districts}
+                wards={wards}
+                styles={styles}
               />
               <InputField
                 icon={<FontAwesome name="envelope" size={20} color="#aaa" style={{ marginRight: 10 }} />}

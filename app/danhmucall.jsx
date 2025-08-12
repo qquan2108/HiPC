@@ -1,30 +1,93 @@
-import Slider from '@react-native-community/slider';
+import MultiSlider from '@ptomasroos/react-native-multi-slider';
+import Constants from 'expo-constants';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Dimensions,
-    FlatList,
-    Image,
-    Modal,
-    SafeAreaView,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Dimensions,
+  FlatList,
+  Image,
+  Modal,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import CustomTabBar from '../compomentHome/CustomTabBar';
 import axios from '../utils/AxiosInstance';
+const API_BASE_URL =
+  Constants.manifest?.extra?.apiBaseUrl ||
+  process.env.EXPO_PUBLIC_API_BASE_URL ||
+  axios.defaults.baseURL;
+
+function computeSource(uri, fallback) {
+  if (!uri) return fallback;
+  if (uri.startsWith('http://') || uri.startsWith('https://')) {
+    return { uri };
+  }
+  return {
+    uri: API_BASE_URL.replace(/\/$/, '') + '/' + uri.replace(/^\/+/, '')
+  };
+}
 
 const { width, height } = Dimensions.get('window');
-const tabs = ['Phổ biến', 'Khuyến mãi', 'Giá', 'Bộ lọc'];
+const tabs = ['Mới nhất', 'Giá thấp', 'Giá cao', 'Bộ lọc'];
 
-const FilterModal = ({ visible, onClose, onApply, filters, setFilters }) => {
+const FilterModal = ({ visible, onClose, onApply, filters, setFilters, categoryId }) => {
   const [tempFilters, setTempFilters] = useState(filters);
+  const [filterFields, setFilterFields] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [categories, setCategories] = useState([]); // Danh sách danh mục
+  const [brands, setBrands] = useState([]); // Danh sách hãng
+  const [selectedCategory, setSelectedCategory] = useState(categoryId); // Danh mục đang chọn
+
+  useEffect(() => {
+    if (visible) {
+      fetchCategories();
+      fetchBrands();
+      if (selectedCategory) {
+        fetchFilterFields(selectedCategory);
+      } else {
+        setFilterFields([]);
+        setLoading(false);
+      }
+    }
+  }, [visible, selectedCategory]);
+
+  const fetchCategories = async () => {
+    try {
+      const res = await axios.get('/category/all');
+      setCategories(Array.isArray(res.data.categories) ? res.data.categories : []);
+    } catch (e) {
+      setCategories([]);
+    }
+  };
+
+  const fetchBrands = async () => {
+    try {
+      const res = await axios.get('/brands');
+      setBrands(Array.isArray(res.data) ? res.data : []);
+    } catch (e) {
+      setBrands([]);
+    }
+  };
+
+  const fetchFilterFields = async (catId) => {
+    try {
+      setLoading(true);
+      const response = await axios.get(`/tsktproducts/filters/${catId}`);
+      setFilterFields(response.data.fields || []);
+    } catch (error) {
+      setFilterFields([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const brandOptions = ['HP', 'ASUS', 'LG', 'Dell', 'MSI', 'Lenovo', 'Gigabyte', 'Acer', 'Apple', 'Huawei', 'Vaio', 'Masstel'];
   const storageOptions = ['256GB', '512GB', '1TB', '2TB', '128GB', '120GB', '8TB', 'HDD: 1TB'];
@@ -37,14 +100,26 @@ const FilterModal = ({ visible, onClose, onApply, filters, setFilters }) => {
   const updateFilter = (key, value) => {
     setTempFilters(prev => ({
       ...prev,
-      [key]: prev[key].includes(value) 
+      [key]: prev[key].includes(value)
         ? prev[key].filter(item => item !== value)
         : [...prev[key], value]
     }));
   };
 
+  const updateSpecificationFilter = (specKey, specValue) => {
+    setTempFilters(prev => ({
+      ...prev,
+      specifications: {
+        ...prev.specifications,
+        [specKey]: prev.specifications[specKey] && prev.specifications[specKey].includes(specValue)
+          ? prev.specifications[specKey].filter(item => item !== specValue)
+          : [...(prev.specifications[specKey] || []), specValue]
+      }
+    }));
+  };
+
   const handleApply = () => {
-    setFilters(tempFilters);
+    setFilters({ ...tempFilters, category: selectedCategory });
     onApply();
     onClose();
   };
@@ -59,9 +134,13 @@ const FilterModal = ({ visible, onClose, onApply, filters, setFilters }) => {
       cpu: [],
       screenSize: [],
       graphics: [],
-      resolution: []
+      resolution: [],
+      specifications: {},
+      category: null
     };
     setTempFilters(resetData);
+    setSelectedCategory(null);
+    setFilterFields([]);
     setFilters(resetData);
   };
 
@@ -90,6 +169,78 @@ const FilterModal = ({ visible, onClose, onApply, filters, setFilters }) => {
     </View>
   );
 
+  const renderSpecificationSection = (specKey) => {
+    const options = getSpecificationOptions(specKey);
+    return (
+      <View style={filterStyles.section}>
+        <Text style={filterStyles.sectionTitle}>{specKey}</Text>
+        <View style={filterStyles.optionContainer}>
+          {options.map((option, index) => (
+            <TouchableOpacity
+              key={index}
+              style={[
+                filterStyles.option,
+                tempFilters.specifications[specKey]?.includes(option) && filterStyles.optionSelected
+              ]}
+              onPress={() => updateSpecificationFilter(specKey, option)}
+            >
+              <Text style={[
+                filterStyles.optionText,
+                tempFilters.specifications[specKey]?.includes(option) && filterStyles.optionTextSelected
+              ]}>
+                {option}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+    );
+  };
+
+  const getSpecificationOptions = (specKey) => {
+    switch (specKey.toLowerCase()) {
+      case 'cpu':
+        return cpuOptions;
+      case 'storage':
+      case 'dung lượng':
+        return storageOptions;
+      case 'screen size':
+      case 'kích thước màn hình':
+        return screenSizeOptions;
+      case 'graphics':
+      case 'card đồ họa':
+        return graphicsOptions;
+      case 'resolution':
+      case 'độ phân giải':
+        return resolutionOptions;
+      default:
+        return ['Option 1', 'Option 2', 'Option 3'];
+    }
+  };
+
+  const renderBrandSection = () => (
+    <View style={filterStyles.section}>
+      <Text style={filterStyles.sectionTitle}>Hãng sản xuất</Text>
+      <View style={filterStyles.optionContainer}>
+        {brands.map((brand, index) => (
+          <TouchableOpacity
+            key={brand._id || index}
+            style={[
+              filterStyles.option,
+              tempFilters.brands.includes(brand._id) && filterStyles.optionSelected
+            ]}
+            onPress={() => updateFilter('brands', brand._id)}
+          >
+            <Text style={[
+              filterStyles.optionText,
+              tempFilters.brands.includes(brand._id) && filterStyles.optionTextSelected
+            ]}>{brand.name}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+    </View>
+  );
+
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
       <SafeAreaView style={filterStyles.container}>
@@ -102,63 +253,70 @@ const FilterModal = ({ visible, onClose, onApply, filters, setFilters }) => {
             <Text style={filterStyles.resetButton}>Thiết lập lại</Text>
           </TouchableOpacity>
         </View>
-
         <ScrollView style={filterStyles.content} showsVerticalScrollIndicator={false}>
-          {/* Price Range */}
-          <View style={filterStyles.section}>
-            <Text style={filterStyles.sectionTitle}>Khoảng giá</Text>
-            <View style={filterStyles.priceContainer}>
-              <Text style={filterStyles.priceText}>{tempFilters.priceRange[0].toLocaleString()}đ</Text>
-              <Text style={filterStyles.priceText}>{tempFilters.priceRange[1].toLocaleString()}đ</Text>
+          {loading ? (
+            <View style={filterStyles.loadingContainer}>
+              <ActivityIndicator size="large" color="#ee4d2d" />
+              <Text>Đang tải bộ lọc...</Text>
             </View>
-            <Slider
-              style={filterStyles.slider}
-              minimumValue={0}
-              maximumValue={200000000}
-              value={tempFilters.priceRange[1]}
-              onValueChange={(value) => setTempFilters(prev => ({
-                ...prev,
-                priceRange: [prev.priceRange[0], value]
-              }))}
-              minimumTrackTintColor="#ee4d2d"
-              maximumTrackTintColor="#ddd"
-              thumbStyle={filterStyles.sliderThumb}
-            />
-          </View>
-
-          {/* Status */}
-          <View style={filterStyles.section}>
-            <Text style={filterStyles.sectionTitle}>Trạng thái hàng</Text>
-            <View style={filterStyles.optionContainer}>
-              {['Sẵn hàng', 'Hết hàng', 'Sắp về'].map((status, index) => (
-                <TouchableOpacity
-                  key={index}
-                  style={[
-                    filterStyles.option,
-                    tempFilters.status.includes(status) && filterStyles.optionSelected
-                  ]}
-                  onPress={() => updateFilter('status', status)}
-                >
-                  <Text style={[
-                    filterStyles.optionText,
-                    tempFilters.status.includes(status) && filterStyles.optionTextSelected
-                  ]}>
-                    {status}
-                  </Text>
-                </TouchableOpacity>
+          ) : (
+            <>
+              {/* Price Range */}
+              <View style={filterStyles.section}>
+                <Text style={filterStyles.sectionTitle}>Khoảng giá</Text>
+                <View style={filterStyles.priceContainer}>
+                  <Text style={filterStyles.priceText}>{tempFilters.priceRange[0].toLocaleString()}đ</Text>
+                  <Text style={filterStyles.priceText}>{tempFilters.priceRange[1].toLocaleString()}đ</Text>
+                </View>
+                <MultiSlider
+                  values={tempFilters.priceRange}
+                  min={0}
+                  max={200000000}
+                  step={100000}
+                  onValuesChange={(values) =>
+                    setTempFilters(prev => ({
+                      ...prev,
+                      priceRange: values
+                    }))
+                  }
+                />
+              </View>
+              {/* Brand Filter từ API */}
+              {renderBrandSection()}
+              {/* Category Filter */}
+              <View style={filterStyles.section}>
+                <Text style={filterStyles.sectionTitle}>Danh mục</Text>
+                <View style={filterStyles.optionContainer}>
+                  {Array.isArray(categories) && categories.length > 0 ? categories.map((cat, idx) => (
+                    <TouchableOpacity
+                      key={cat._id || idx}
+                      style={[
+                        filterStyles.option,
+                        selectedCategory === cat._id && filterStyles.optionSelected
+                      ]}
+                      onPress={() => {
+                        setSelectedCategory(cat._id);
+                        setFilterFields([]); // reset specs khi đổi danh mục
+                        setTempFilters(prev => ({ ...prev, specifications: {} }));
+                      }}
+                    >
+                      <Text style={[
+                        filterStyles.optionText,
+                        selectedCategory === cat._id && filterStyles.optionTextSelected
+                      ]}>{cat.name}</Text>
+                    </TouchableOpacity>
+                  )) : (
+                    <Text style={{ color: '#999' }}>Không có danh mục</Text>
+                  )}
+                </View>
+              </View>
+              {/* Dynamic specification filters theo danh mục */}
+              {selectedCategory && filterFields.length > 0 && filterFields.map((field, index) => (
+                <View key={index}>{renderSpecificationSection(field)}</View>
               ))}
-            </View>
-          </View>
-
-          {renderFilterSection('Hãng sản xuất', brandOptions, 'brands')}
-          {renderFilterSection('Dung lượng', storageOptions, 'storage')}
-          {renderFilterSection('Nhu cầu sử dụng', usageOptions, 'usage')}
-          {renderFilterSection('CPU', cpuOptions, 'cpu')}
-          {renderFilterSection('Kích thước màn hình', screenSizeOptions, 'screenSize')}
-          {renderFilterSection('Card đồ họa', graphicsOptions, 'graphics')}
-          {renderFilterSection('Độ phân giải', resolutionOptions, 'resolution')}
+            </>
+          )}
         </ScrollView>
-
         <View style={filterStyles.footer}>
           <TouchableOpacity style={filterStyles.resetBtn} onPress={resetFilters}>
             <Text style={filterStyles.resetBtnText}>Thiết lập lại</Text>
@@ -172,15 +330,14 @@ const FilterModal = ({ visible, onClose, onApply, filters, setFilters }) => {
   );
 };
 
-export default function DanhMucAll() {
+export default function DanhMucAll(props) {
   const router = useRouter();
-  const [brands, setBrands] = useState([]);
-  const [banners, setBanners] = useState([]);
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState(0);
   const [filterVisible, setFilterVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [categoryId, setCategoryId] = useState(null);
   const [filters, setFilters] = useState({
     priceRange: [0, 200000000],
     status: [],
@@ -190,23 +347,118 @@ export default function DanhMucAll() {
     cpu: [],
     screenSize: [],
     graphics: [],
-    resolution: []
+    resolution: [],
+    specifications: {}
   });
 
+  // Đọc params từ router để set filters khi chuyển từ DanhMucPC
   useEffect(() => {
-    Promise.all([
-      axios.get('/brands'),
-      axios.get('/banners'),
-      axios.get('/product')
-    ])
-      .then(([bRes, bnRes, pRes]) => {
-        setBrands(bRes.data || []);
-        setBanners(bnRes.data || []);
-        setProducts(pRes.data.products || pRes.data || []);
-      })
-      .catch(err => console.error(err))
-      .finally(() => setLoading(false));
-  }, []);
+    if (router && router.query) {
+      const { type, brandId, min, max, categoryId: catId } = router.query;
+      if (!type && !brandId && !min && !max && !catId) {
+        // Không có filter, reset về mặc định (hiện tất cả)
+        setFilters({
+          priceRange: [0, 200000000],
+          status: [],
+          brands: [],
+          storage: [],
+          usage: [],
+          cpu: [],
+          screenSize: [],
+          graphics: [],
+          resolution: [],
+          specifications: {}
+        });
+        setCategoryId(null);
+      } else if (type === 'brand' && brandId) {
+        setFilters(prev => ({
+          ...prev,
+          brands: [brandId],
+        }));
+        setCategoryId(null);
+      } else if (type === 'price' && min && max) {
+        setFilters(prev => ({
+          ...prev,
+          priceRange: [parseInt(min), parseInt(max)]
+        }));
+        setCategoryId(null);
+      } else if (catId) {
+        setFilters(prev => ({
+          ...prev,
+          category: catId
+        }));
+        setCategoryId(catId);
+      }
+    }
+  }, [router.query]);
+
+  useEffect(() => {
+    fetchProducts();
+  }, [activeTab, filters]);
+
+
+
+  const fetchProducts = async () => {
+    try {
+      setLoading(true);
+      const params = new URLSearchParams();
+      if (searchQuery.trim()) {
+        params.append('q', searchQuery.trim());
+      }
+      let sortParam = 'newest';
+      switch (activeTab) {
+        case 0: sortParam = 'newest'; break;
+        case 1: sortParam = 'price_asc'; break;
+        case 2: sortParam = 'price_desc'; break;
+        default: sortParam = 'newest';
+      }
+      params.append('sort', sortParam);
+      params.append('page', '1');
+      params.append('limit', '50');
+      // Chỉ truyền filter khi ở tab Bộ lọc
+      if (activeTab === 3) {
+        const catId = filters.category || selectedCategory || categoryId;
+        if (catId) {
+          params.append('category', catId);
+        }
+        if (filters.priceRange[0] > 0) {
+          params.append('priceMin', filters.priceRange[0].toString());
+        }
+        if (filters.priceRange[1] < 200000000) {
+          params.append('priceMax', filters.priceRange[1].toString());
+        }
+        if (filters.brands && filters.brands.length > 0) {
+          params.append('brand', filters.brands.join(','));
+        }
+        const specFilters = Object.keys(filters.specifications).filter(
+          key => filters.specifications[key] && filters.specifications[key].length > 0
+        );
+        if (specFilters.length > 0) {
+          const firstSpecKey = specFilters[0];
+          params.append('specKey', firstSpecKey);
+          params.append('specValue', filters.specifications[firstSpecKey].join(','));
+        }
+      }
+      const queryString = params.toString();
+      const apiUrl = `/product/filter?${queryString}`;
+      const response = await axios.get(apiUrl);
+      if (response.data) {
+        if (response.data.products && Array.isArray(response.data.products)) {
+          setProducts(response.data.products);
+        } else if (Array.isArray(response.data)) {
+          setProducts(response.data);
+        } else {
+          setProducts([]);
+        }
+      } else {
+        setProducts([]);
+      }
+    } catch (error) {
+      setProducts([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleTabPress = (index) => {
     setActiveTab(index);
@@ -216,8 +468,11 @@ export default function DanhMucAll() {
   };
 
   const applyFilters = () => {
-    // Filter logic here
-    console.log('Applying filters:', filters);
+    fetchProducts();
+  };
+
+  const handleSearch = () => {
+    fetchProducts();
   };
 
   if (loading) {
@@ -229,89 +484,69 @@ export default function DanhMucAll() {
     );
   }
 
-  // Filter data
-const popularSortedAsc = [...products].sort((a, b) => a.price - b.price);
-const promoSortedDesc = [...products].sort((a, b) => b.price - a.price);
-
-let displayData = [];
-if (activeTab === 0) {
-  // Tab 0: Phổ biến → giá tăng dần
-  displayData = popularSortedAsc;
-} else if (activeTab === 1) {
-  // Tab 1: Khuyến mãi → giá giảm dần
-  displayData = promoSortedDesc;
-}
-
-  // Render product card with enhanced design
-  const renderItem = ({ item }) => (
-    <TouchableOpacity
-      style={styles.card}
-      onPress={() => router.push({ pathname: '/ctsp', params: { id: item._id || item.id } })}
-      activeOpacity={0.9}
-    >
-      <View style={styles.cardHeader}>
-        {item.discount > 0 && (
-          <LinearGradient
-            colors={['#ff6b6b', '#ee5a24']}
-            style={styles.discountTag}
-          >
-            <Text style={styles.discountText}>-{item.discount}%</Text>
-          </LinearGradient>
-        )}
-        <TouchableOpacity style={styles.favoriteBtn}>
-          <Text style={styles.favoriteIcon}>♡</Text>
-        </TouchableOpacity>
-      </View>
-      
-      <View style={styles.imageContainer}>
-        <Image
-          source={item.image ? { uri: item.image } : require('../assets/images/pc1.png')}
-          style={styles.image}
-          resizeMode="contain"
-        />
-      </View>
-      
-      <View style={styles.info}>
-        <Text numberOfLines={2} style={styles.title}>{item.name}</Text>
-        
-        <View style={styles.ratingContainer}>
-          <View style={styles.stars}>
-            {[...Array(5)].map((_, i) => (
-              <Text key={i} style={[styles.star, i < Math.floor(item.rating || 0) ? styles.starFilled : styles.starEmpty]}>
-                ★
-              </Text>
-            ))}
-          </View>
-          <Text style={styles.ratingText}>({item.reviews || 0})</Text>
+  // Enhanced product rendering with better error handling
+  const renderItem = ({ item }) => {
+    if (!item) return null;
+      console.log('🖼️ item.image:', item.image);
+    return (
+      <TouchableOpacity
+        style={styles.card}
+        onPress={() => router.push({ pathname: '/ctsp', params: { id: item._id || item.id } })}
+        activeOpacity={0.9}
+      >
+        <View style={styles.cardHeader}>
+          <TouchableOpacity style={styles.favoriteBtn}>
+            <Text style={styles.favoriteIcon}>♡</Text>
+          </TouchableOpacity>
         </View>
 
-        <View style={styles.priceContainer}>
-          <Text style={styles.price}>{item.price.toLocaleString()}đ</Text>
-          {item.originalPrice && (
-            <Text style={styles.originalPrice}>{item.originalPrice.toLocaleString()}đ</Text>
-          )}
+        <View style={styles.imageContainer}>
+          <Image
+            source={computeSource(item.image, require('../assets/images/pc1.png'))}
+            
+            style={styles.image}
+            resizeMode="contain"
+          />
         </View>
 
-        <View style={styles.badges}>
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>Trả góp 0%</Text>
+        <View style={styles.info}>
+          <Text numberOfLines={2} style={styles.title}>{item.name || 'Tên sản phẩm'}</Text>
+
+          <View style={styles.ratingContainer}>
+            <View style={styles.stars}>
+              {[...Array(5)].map((_, i) => (
+                <Text key={i} style={[styles.star, i < 4 ? styles.starFilled : styles.starEmpty]}>
+                  ★
+                </Text>
+              ))}
+            </View>
+            <Text style={styles.ratingText}>(0)</Text>
           </View>
-          {item.freeShipping && (
-            <View style={[styles.badge, styles.shippingBadge]}>
+
+          <View style={styles.priceContainer}>
+            <Text style={styles.price}>{(item.price || 0).toLocaleString()}đ</Text>
+          </View>
+
+          <View style={styles.badges}>
+            <View style={styles.badge}>
               <Text style={styles.badgeText}>Miễn phí vận chuyển</Text>
             </View>
-          )}
+            <View style={[styles.badge, styles.stockBadge]}>
+              <Text style={styles.badgeText}>
+                {item.stock > 0 ? `Còn ${item.stock} sản phẩm` : 'Hết hàng'}
+              </Text>
+            </View>
+          </View>
         </View>
-      </View>
-    </TouchableOpacity>
-  );
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#ee4d2d" />
-      
-      {/* Enhanced Header */}
-      <LinearGradient colors={['blue', 'gray']} style={styles.header}>
+
+      <LinearGradient colors={['#ee4d2d', '#ff6b6b']} style={styles.header}>
         <SafeAreaView>
           <View style={styles.headerContent}>
             <TouchableOpacity onPress={() => router.back()}>
@@ -324,8 +559,9 @@ if (activeTab === 0) {
                 placeholderTextColor="#999"
                 value={searchQuery}
                 onChangeText={setSearchQuery}
+                onSubmitEditing={handleSearch}
               />
-              <TouchableOpacity style={styles.searchIcon}>
+              <TouchableOpacity style={styles.searchIcon} onPress={handleSearch}>
                 <Text style={styles.searchIconText}>🔍</Text>
               </TouchableOpacity>
             </View>
@@ -333,56 +569,6 @@ if (activeTab === 0) {
         </SafeAreaView>
       </LinearGradient>
 
-      {/* Enhanced Banner Slider */}
-      <View style={styles.bannerSection}>
-        <FlatList
-          data={banners.filter(b => !b.brand_id && !b.product_id)}
-          horizontal
-          keyExtractor={b => b._id}
-          showsHorizontalScrollIndicator={false}
-          pagingEnabled
-          snapToInterval={width * 0.9 + 16}
-          decelerationRate="fast"
-          contentContainerStyle={styles.bannerContainer}
-          renderItem={({ item }) => (
-            <View style={styles.bannerWrapper}>
-              <Image
-                source={item.image ? { uri: item.image } : require('../assets/images/banner11.jpg')}
-                style={styles.banner}
-              />
-            </View>
-          )}
-        />
-      </View>
-
-      {/* Enhanced Brands */}
-      <View style={styles.brandsSection}>
-        <Text style={styles.sectionTitle}>Thương hiệu nổi bật</Text>
-        <FlatList
-          data={brands}
-          horizontal
-          keyExtractor={b => b._id}
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.brandsContainer}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={styles.brandItem}
-              onPress={() => router.push({ pathname: '/danhmucall', params: { type: 'brand', brandId: item._id } })}
-            >
-              <View style={styles.brandLogoContainer}>
-                <Image
-                  source={item.logo ? { uri: item.logo } : require('../assets/images/pc1.png')}
-                  style={styles.brandLogo}
-                  resizeMode="contain"
-                />
-              </View>
-              <Text style={styles.brandName}>{item.name}</Text>
-            </TouchableOpacity>
-          )}
-        />
-      </View>
-
-      {/* Enhanced Tabs */}
       <View style={styles.tabsContainer}>
         <View style={styles.tabs}>
           {tabs.map((tab, index) => (
@@ -393,7 +579,8 @@ if (activeTab === 0) {
             >
               <Text style={[styles.tabText, activeTab === index && styles.activeTabText]}>
                 {tab}
-                {tab === 'Giá' && ' ⇅'}
+                {tab === 'Giá thấp' && ' ↑'}
+                {tab === 'Giá cao' && ' ↓'}
                 {tab === 'Bộ lọc' && ' ⚙'}
               </Text>
               {activeTab === index && <View style={styles.tabIndicator} />}
@@ -402,27 +589,39 @@ if (activeTab === 0) {
         </View>
       </View>
 
-      {/* Enhanced Product Grid */}
       <FlatList
-        data={displayData}
-        keyExtractor={item => item._id || item.id}
+        data={products}
+        keyExtractor={(item, index) => item._id || item.id || index.toString()}
         numColumns={2}
         columnWrapperStyle={styles.productRow}
         contentContainerStyle={styles.productList}
         renderItem={renderItem}
         showsVerticalScrollIndicator={false}
+        refreshing={loading}
+        onRefresh={fetchProducts}
+        ListEmptyComponent={
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>Không tìm thấy sản phẩm nào</Text>
+            <TouchableOpacity style={styles.retryButton} onPress={fetchProducts}>
+              <Text style={styles.retryButtonText}>Thử lại</Text>
+            </TouchableOpacity>
+          </View>
+        }
       />
 
-      {/* Filter Modal */}
       <FilterModal
         visible={filterVisible}
         onClose={() => setFilterVisible(false)}
         onApply={applyFilters}
         filters={filters}
         setFilters={setFilters}
+        categoryId={categoryId}
       />
 
-      <CustomTabBar router={router} style={styles.tabbar} />
+      <CustomTabBar
+        router={router}
+        style={styles.tabbar}
+      />
     </View>
   );
 }
@@ -477,62 +676,6 @@ const styles = StyleSheet.create({
   searchIconText: {
     fontSize: 16
   },
-  bannerSection: {
-    marginVertical: 16
-  },
-  bannerContainer: {
-    paddingHorizontal: 16
-  },
-  bannerWrapper: {
-    marginRight: 16
-  },
-  banner: {
-    width: width * 0.9,
-    height: width * 0.45,
-    borderRadius: 12,
-    backgroundColor: '#f0f0f0'
-  },
-  brandsSection: {
-    marginBottom: 16
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#333',
-    marginHorizontal: 16,
-    marginBottom: 12
-  },
-  brandsContainer: {
-    paddingHorizontal: 16
-  },
-  brandItem: {
-    alignItems: 'center',
-    marginRight: 20,
-    width: 80
-  },
-  brandLogoContainer: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#fff',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3
-  },
-  brandLogo: {
-    width: 40,
-    height: 40
-  },
-  brandName: {
-    fontSize: 12,
-    color: '#666',
-    marginTop: 8,
-    textAlign: 'center'
-  },
   tabsContainer: {
     backgroundColor: '#fff',
     shadowColor: '#000',
@@ -581,6 +724,29 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 16
   },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 50
+  },
+  emptyText: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 16
+  },
+  retryButton: {
+    backgroundColor: '#ee4d2d',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8
+  },
+  retryButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600'
+  },
   card: {
     backgroundColor: '#fff',
     borderRadius: 12,
@@ -594,23 +760,12 @@ const styles = StyleSheet.create({
   },
   cardHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-end',
     alignItems: 'flex-start',
     position: 'absolute',
     top: 8,
-    left: 8,
     right: 8,
     zIndex: 1
-  },
-  discountTag: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6
-  },
-  discountText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '600'
   },
   favoriteBtn: {
     width: 32,
@@ -677,11 +832,6 @@ const styles = StyleSheet.create({
     color: '#ee4d2d',
     marginRight: 8
   },
-  originalPrice: {
-    fontSize: 12,
-    color: '#999',
-    textDecorationLine: 'line-through'
-  },
   badges: {
     flexDirection: 'row',
     flexWrap: 'wrap'
@@ -694,7 +844,7 @@ const styles = StyleSheet.create({
     marginRight: 4,
     marginBottom: 4
   },
-  shippingBadge: {
+  stockBadge: {
     backgroundColor: '#e8f5e8'
   },
   badgeText: {
@@ -740,6 +890,12 @@ const filterStyles = StyleSheet.create({
   content: {
     flex: 1,
     paddingHorizontal: 16
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 50
   },
   section: {
     marginVertical: 16
