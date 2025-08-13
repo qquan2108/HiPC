@@ -314,9 +314,7 @@ export default function PCChatBoxAI() {
       
       // Get AI response from backend
       const aiResponse = await callBackendAI(currentInput);
-
       const { products: extractedProducts, intro } = extractProductsFromResponse(aiResponse);
-
       const aiMsgId = Date.now() + 1;
       const aiMsg = {
         id: aiMsgId,
