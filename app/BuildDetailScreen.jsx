@@ -26,7 +26,7 @@ export default function BuildDetailScreen() {
         const res = await axiosInstance.get(`/pcbuild/${id}`);
         setBuild(res.data.build);
         setProducts(res.data.products || []);
-      } catch (err) {
+      } catch (_err) {
         setBuild(null);
         setProducts([]);
       } finally {
@@ -45,11 +45,15 @@ export default function BuildDetailScreen() {
 
       const buildIds = [];
       for (const item of products) {
-        await axiosInstance.post("/cartt/add-to-cart", {
+        const payload = {
           user_id: userId,
           productId: item.product_id?._id,
           quantity: item.quantity || 1,
-        });
+        };
+        if (item.variant) {
+          payload.variant = item.variant;
+        }
+        await axiosInstance.post("/cartt/add-to-cart", payload);
         if (item.product_id?._id) buildIds.push(item.product_id._id);
       }
 
@@ -91,7 +95,12 @@ export default function BuildDetailScreen() {
           </View>
         }
         renderItem={({ item }) => (
-          <View style={styles.productCard}>
+          <TouchableOpacity
+            style={styles.productCard}
+            onPress={() =>
+              item.product_id?._id && router.push(`/ctsp?id=${item.product_id._id}`)
+            }
+          >
             <Image
               source=
                 {item.product_id?.image
@@ -102,9 +111,18 @@ export default function BuildDetailScreen() {
             <View style={{ flex: 1, marginLeft: 10 }}>
               <Text style={styles.productName}>{item.product_id?.name || "Không tên"}</Text>
               <Text style={styles.productCategory}>{item.product_id?.category_id?.name || ""}</Text>
-              <Text style={styles.productPrice}>{formatCurrency(item.product_id?.price)}</Text>
+              {item.variant && (
+                <Text style={styles.productVariant}>
+                  Phiên bản: {item.variant.label}
+                </Text>
+              )}
+              <Text style={styles.productPrice}>
+                {formatCurrency(
+                  (item.product_id?.price || 0) + (item.variant?.priceDiff || 0)
+                )}
+              </Text>
             </View>
-          </View>
+          </TouchableOpacity>
         )}
         ListFooterComponent={
           <TouchableOpacity style={styles.orderButton} onPress={handleOrder}>
@@ -135,6 +153,7 @@ const styles = StyleSheet.create({
   productImage: { width: 60, height: 60, borderRadius: 6 },
   productName: { fontWeight: "bold" },
   productCategory: { color: "#888", marginTop: 2 },
+  productVariant: { color: "#666", marginTop: 2 },
   productPrice: { color: "#2979ff", marginTop: 2 },
   orderButton: {
     backgroundColor: "#28a745",

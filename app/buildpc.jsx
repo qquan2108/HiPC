@@ -622,11 +622,29 @@ export default function UngDungLapPC() {
       const allComponents = [
         ...presetComponents.map(comp => ({
           productId: comp.productId,
-          quantity: comp.quantity || 1
+          quantity: comp.quantity || 1,
+          ...(comp.variant && comp.variant.key && comp.variant.label
+            ? {
+                variant: {
+                  key: comp.variant.key,
+                  label: comp.variant.label,
+                  priceDiff: comp.variant.priceDiff || 0
+                }
+              }
+            : {})
         })),
         ...Object.values(selectedComponents).map(comp => ({
           productId: comp.id,
-          quantity: 1
+          quantity: 1,
+          ...(comp.variant && comp.variant.key && comp.variant.label
+            ? {
+                variant: {
+                  key: comp.variant.key,
+                  label: comp.variant.label,
+                  priceDiff: comp.variant.priceDiff || 0
+                }
+              }
+            : {})
         }))
       ];
 
