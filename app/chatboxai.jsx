@@ -23,10 +23,6 @@ import axiosInstance from '../utils/AxiosInstance';
 
 const { width, height } = Dimensions.get('window');
 
-// Enhanced Gemini API configuration
-const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent";
-const GEMINI_API_KEY = "AIzaSyDxrSe7xriTAd731tDr6CVcxFl3tTBFEEs"; // Thay bằng key thực của bạn
-
 // Rate limiting for professional use
 const DAILY_MESSAGE_LIMIT = 100;
 const STORAGE_KEY = 'hipc_ai_daily_count';
@@ -103,7 +99,7 @@ export default function PCChatBoxAI() {
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [showLoginDialog, setShowLoginDialog] = useState(false);
   const [loginLoading, setLoginLoading] = useState(true);
-  const [productsForBuild, setProductsForBuild] = useState({});
+  const [productsByMessage, setProductsByMessage] = useState({});
   const [conversationHistory, setConversationHistory] = useState([]);
   const flatListRef = useRef();
   const inputRef = useRef();
@@ -196,57 +192,12 @@ export default function PCChatBoxAI() {
     }
   };
 
-  // Enhanced Gemini API call with conversation context
-  const callGeminiAI = async (userInput, retryCount = 0) => {
+  // Call backend AI chat API
+  const callBackendAI = async (userInput) => {
     try {
-      const requestBody = {
-        contents: [
-          ...conversationHistory,
-          { role: "user", parts: [{ text: userInput }] }
-        ],
-        generationConfig: {
-          temperature: 0.8,
-          topK: 40,
-          topP: 0.95,
-          maxOutputTokens: 2048,
-        },
-        safetySettings: [
-          { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_MEDIUM_AND_ABOVE" },
-          { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_MEDIUM_AND_ABOVE" },
-          { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_MEDIUM_AND_ABOVE" },
-          { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_MEDIUM_AND_ABOVE" }
-        ]
-      };
+      const { data } = await axiosInstance.post('/ai/chat', { message: userInput });
+      const aiResponse = data?.reply || '';
 
-      const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(requestBody)
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        console.log('Gemini API Error:', response.status, errorData);
-        
-        if (response.status === 429 && retryCount < 2) {
-          // Rate limit hit, wait and retry
-          await new Promise(resolve => setTimeout(resolve, (retryCount + 1) * 2000));
-          return callGeminiAI(userInput, retryCount + 1);
-        }
-        
-        throw new Error(`API Error: ${response.status}`);
-      }
-
-      const data = await response.json();
-      
-      if (!data.candidates || data.candidates.length === 0) {
-        throw new Error('No response from AI');
-      }
-
-      const aiResponse = data.candidates[0].content.parts[0].text;
-      
       // Update conversation history
       setConversationHistory(prev => [
         ...prev,
@@ -255,10 +206,9 @@ export default function PCChatBoxAI() {
       ]);
 
       return aiResponse;
-
     } catch (error) {
-      console.log('Gemini AI Error:', error);
-      
+      console.log('Backend AI Error:', error);
+
       // Fallback response with PC knowledge
       return generateFallbackResponse(userInput);
     }
@@ -293,40 +243,40 @@ export default function PCChatBoxAI() {
     return 'general';
   };
 
-  const fetchRelatedProducts = async (category, userInput) => {
-    try {
-      let keyword = '';
-      const input = userInput.toLowerCase();
-      
-      // Determine search keyword based on category and input
-      if (category === 'build') {
-        // For build, search for popular components
-        keyword = 'gaming pc';
-      } else if (category === 'cpu') {
-        keyword = input.includes('intel') ? 'intel cpu' : 
-                 input.includes('amd') ? 'amd cpu' : 'cpu';
-      } else if (category === 'gpu') {
-        keyword = input.includes('rtx') ? 'rtx' : 
-                 input.includes('amd') ? 'rx' : 'vga';
-      } else if (category === 'ram') {
-        keyword = 'ram memory';
-      } else if (category === 'case') {
-        keyword = 'pc case';
+  const extractProductsFromResponse = (response) => {
+    const lines = response.split('\n');
+    const productRegex = /^\s*[*-]\s*(.+?),\s*giá\s*([\d\.,]+)\s*(?:VND|vnđ|đ)?\s*(?:\(SKU:\s*([^)]+)\))?/i;
+    const products = [];
+    const introLines = [];
+    lines.forEach(line => {
+      const match = productRegex.exec(line);
+      if (match) {
+        const price = parseInt(match[2].replace(/[^\d]/g, ''), 10);
+        products.push({
+          name: match[1].trim(),
+          price: price,
+          sku: match[3] ? match[3].trim() : undefined
+        });
       } else {
-        keyword = 'pc component';
+        introLines.push(line);
       }
+    });
+    return { products, intro: introLines.join('\n').trim() };
+  };
 
+  const fetchProductDetails = async (name) => {
+    try {
       const params = new URLSearchParams();
-      params.append('keyword', keyword);
+      params.append('keyword', name);
       params.append('page', '1');
-      params.append('limit', '6');
-
+      params.append('limit', '1');
       const { data } = await axiosInstance.get('/product/filter-keyword?' + params.toString());
-      return Array.isArray(data.products) ? data.products : Array.isArray(data) ? data : [];
-      
+      if (Array.isArray(data?.products) && data.products.length > 0) return data.products[0];
+      if (Array.isArray(data) && data.length > 0) return data[0];
+      return null;
     } catch (error) {
-      console.log('Error fetching products:', error);
-      return [];
+      console.log('Error fetching product detail:', error);
+      return null;
     }
   };
 
@@ -362,25 +312,31 @@ export default function PCChatBoxAI() {
       
       const category = detectCategory(currentInput);
       
-      // Get AI response
-      const aiResponse = await callGeminiAI(currentInput);
-      
+      // Get AI response from backend
+      const aiResponse = await callBackendAI(currentInput);
+
+      const { products: extractedProducts, intro } = extractProductsFromResponse(aiResponse);
+
       const aiMsgId = Date.now() + 1;
       const aiMsg = {
         id: aiMsgId,
         from: "ai",
-        text: aiResponse,
+        text: intro || aiResponse,
         timestamp: new Date().toLocaleTimeString(),
         category: category
       };
 
       setMessages(prev => [...prev, aiMsg]);
 
-      // Fetch related products for certain categories
-      if (['build', 'cpu', 'gpu', 'ram', 'case'].includes(category)) {
-        const products = await fetchRelatedProducts(category, currentInput);
+      if (extractedProducts.length > 0) {
+        const detailed = await Promise.all(
+          extractedProducts.map(p => fetchProductDetails(p.sku || p.name))
+        );
+        const products = detailed.map((d, idx) =>
+          d ? d : { _id: extractedProducts[idx].sku || idx, name: extractedProducts[idx].name, price: extractedProducts[idx].price }
+        );
         if (products.length > 0) {
-          setProductsForBuild(prev => ({
+          setProductsByMessage(prev => ({
             ...prev,
             [aiMsgId]: products
           }));
@@ -426,28 +382,28 @@ export default function PCChatBoxAI() {
     );
   };
 
-  const renderBuildProducts = (msgId) => {
-    const products = productsForBuild[msgId];
+  const renderProductCards = (msgId) => {
+    const products = productsByMessage[msgId];
     if (!products || !Array.isArray(products) || products.length === 0) return null;
-    
+
     return (
       <View style={styles.productsContainer}>
-        <Text style={styles.productsTitle}>💡 Sản phẩm gợi ý:</Text>
+        <Text style={styles.productsTitle}>💡 Sản phẩm:</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.productsScroll}>
           {products.map((product) => (
             <TouchableOpacity
               key={product._id || product.id}
               style={styles.productCard}
-              onPress={() => router.push({pathname:'/ctsp', params:{id: product._id || product.id}})}
+              onPress={() => router.push({ pathname: '/ctsp', params: { id: product._id || product.id } })}
             >
               <View style={styles.productImageContainer}>
-                <Animated.Image 
-                  source={product.image ? 
-                    (typeof product.image === 'string' ? {uri: product.image} : product.image) : 
+                <Animated.Image
+                  source={product.image ?
+                    (typeof product.image === 'string' ? { uri: product.image } : product.image) :
                     require('../assets/images/pc1.png')
-                  } 
-                  style={styles.productImage} 
-                  resizeMode="contain" 
+                  }
+                  style={styles.productImage}
+                  resizeMode="contain"
                 />
               </View>
               <Text numberOfLines={2} style={styles.productName}>
@@ -510,8 +466,8 @@ export default function PCChatBoxAI() {
               {item.timestamp} {item.category && `• ${getCategoryEmoji(item.category)}`}
             </Text>
             
-            {/* Render related products */}
-            {!isUser && renderBuildProducts(item.id)}
+            {/* Render product cards */}
+            {!isUser && renderProductCards(item.id)}
           </View>
           
           {isUser && (
