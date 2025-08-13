@@ -1,15 +1,13 @@
 import { Feather } from "@expo/vector-icons";
-import { useState, useEffect } from "react";
-import { 
-  Image, 
-  StyleSheet, 
-  Text, 
-  TouchableOpacity, 
-  View, 
-  TextInput,
-  Animated
+import { useState } from "react";
+import {
+  Image,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+  TextInput
 } from "react-native";
-import Toast from "react-native-toast-message";
 
 export default function CartProductList({ 
   cart, 
@@ -60,7 +58,8 @@ export default function CartProductList({
           <View
             style={[
               styles.productCard,
-              item.type === 'combo' && { backgroundColor: '#fef7f0' }
+              item.type === 'combo' && { backgroundColor: '#fef7f0' },
+              item.type === 'build' && { backgroundColor: '#e3f2fd' }
             ]}
           >
             {/* Checkbox với animation */}
@@ -92,6 +91,12 @@ export default function CartProductList({
               {item.type === 'combo' && (
                 <View style={styles.comboBadge}>
                   <Text style={styles.comboBadgeText}>COMBO</Text>
+                </View>
+              )}
+              {/* 🟦 Build badge */}
+              {item.type === 'build' && (
+                <View style={styles.buildBadge}>
+                  <Text style={styles.buildBadgeText}>BUILD</Text>
                 </View>
               )}
             </View>
@@ -362,6 +367,20 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   comboBadgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
+  buildBadge: {
+    position: 'absolute',
+    left: 0,
+    bottom: 0,
+    backgroundColor: '#2979ff',
+    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  buildBadgeText: {
     color: '#fff',
     fontSize: 10,
     fontWeight: 'bold',
