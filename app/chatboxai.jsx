@@ -23,10 +23,6 @@ import axiosInstance from '../utils/AxiosInstance';
 
 const { width, height } = Dimensions.get('window');
 
-// Enhanced Gemini API configuration
-const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent";
-const GEMINI_API_KEY = "AIzaSyDxrSe7xriTAd731tDr6CVcxFl3tTBFEEs"; // Thay bằng key thực của bạn
-
 // Rate limiting for professional use
 const DAILY_MESSAGE_LIMIT = 100;
 const STORAGE_KEY = 'hipc_ai_daily_count';
@@ -196,57 +192,12 @@ export default function PCChatBoxAI() {
     }
   };
 
-  // Enhanced Gemini API call with conversation context
-  const callGeminiAI = async (userInput, retryCount = 0) => {
+  // Call backend AI chat API
+  const callBackendAI = async (userInput) => {
     try {
-      const requestBody = {
-        contents: [
-          ...conversationHistory,
-          { role: "user", parts: [{ text: userInput }] }
-        ],
-        generationConfig: {
-          temperature: 0.8,
-          topK: 40,
-          topP: 0.95,
-          maxOutputTokens: 2048,
-        },
-        safetySettings: [
-          { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_MEDIUM_AND_ABOVE" },
-          { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_MEDIUM_AND_ABOVE" },
-          { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_MEDIUM_AND_ABOVE" },
-          { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_MEDIUM_AND_ABOVE" }
-        ]
-      };
+      const { data } = await axiosInstance.post('/ai/chat', { message: userInput });
+      const aiResponse = data?.reply || '';
 
-      const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(requestBody)
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        console.log('Gemini API Error:', response.status, errorData);
-        
-        if (response.status === 429 && retryCount < 2) {
-          // Rate limit hit, wait and retry
-          await new Promise(resolve => setTimeout(resolve, (retryCount + 1) * 2000));
-          return callGeminiAI(userInput, retryCount + 1);
-        }
-        
-        throw new Error(`API Error: ${response.status}`);
-      }
-
-      const data = await response.json();
-      
-      if (!data.candidates || data.candidates.length === 0) {
-        throw new Error('No response from AI');
-      }
-
-      const aiResponse = data.candidates[0].content.parts[0].text;
-      
       // Update conversation history
       setConversationHistory(prev => [
         ...prev,
@@ -255,10 +206,9 @@ export default function PCChatBoxAI() {
       ]);
 
       return aiResponse;
-
     } catch (error) {
-      console.log('Gemini AI Error:', error);
-      
+      console.log('Backend AI Error:', error);
+
       // Fallback response with PC knowledge
       return generateFallbackResponse(userInput);
     }
@@ -362,8 +312,8 @@ export default function PCChatBoxAI() {
       
       const category = detectCategory(currentInput);
       
-      // Get AI response
-      const aiResponse = await callGeminiAI(currentInput);
+      // Get AI response from backend
+      const aiResponse = await callBackendAI(currentInput);
       
       const aiMsgId = Date.now() + 1;
       const aiMsg = {
