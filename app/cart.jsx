@@ -125,6 +125,13 @@ export default function CartScreen() {
       const products = Array.isArray(res.data.products) ? res.data.products : [];
       console.log("Fetched cart items count:", products.length);
 
+      // 🆕 Lấy danh sách sản phẩm từ build nếu có
+      let buildIds = [];
+      const buildStr = await AsyncStorage.getItem('buildCartItems');
+      if (buildStr) {
+        try { buildIds = JSON.parse(buildStr); } catch (e) {}
+      }
+
       // 🆕 Xử lý cả product và combo items
       const items = [];
 
@@ -161,7 +168,7 @@ export default function CartScreen() {
             image: imageUri,
             quantity: item.quantity ?? 1,
             variant,
-            type: 'product' // 🆕 Thêm type để phân biệt
+            type: buildIds.includes(item.productId._id) ? 'build' : 'product'
           });
         }
 
@@ -222,6 +229,7 @@ export default function CartScreen() {
 
       console.log('Final mapped items:', items.length);
       setCart(items);
+      if (buildStr) await AsyncStorage.removeItem('buildCartItems');
     } catch (err) {
       console.error("Detailed error when fetching cart:");
       console.error("Error message:", err.message);

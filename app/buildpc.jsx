@@ -646,9 +646,12 @@ export default function UngDungLapPC() {
       const data = res.data.data || res.data;
 
       Alert.alert(
-        'Đặt hàng thành công! 🎉',
+        'Cấu hình đã được lưu!',
         `Build ID: ${data.buildId}\nTổng giá trị: ${formatCurrency(tongGia)}`,
-        [{ text: 'OK', onPress: () => router.push('/orders') }]
+        [
+          { text: 'Tiếp tục mua sắm' },
+          { text: 'Xem cấu hình', onPress: () => router.push('/BuildListScreen') }
+        ]
       );
     } catch (e) {
       Alert.alert('Lỗi', e.response?.data?.error || e.message);
