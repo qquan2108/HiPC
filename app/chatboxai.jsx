@@ -245,7 +245,7 @@ export default function PCChatBoxAI() {
 
   const extractProductsFromResponse = (response) => {
     const lines = response.split('\n');
-    const productRegex = /^\s*[*-]\s*(.+?),\s*giá\s*([\d\.,]+)\s*(?:VND|vnđ|đ)?\s*(?:\(SKU:\s*([^)]+)\))?/i;
+    const productRegex = /^\s*[*-]\s*(.+?),\s*giá\s*([\d\.,]+)\s*(?:VND|vnđ|đ)?\s*(?:\(ID:\s*([^)]+)\))?/i;
     const products = [];
     const introLines = [];
     lines.forEach(line => {
