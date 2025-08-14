@@ -24,6 +24,8 @@ export default function FlashSale  ({ flashSale, renderDiscountBadge, renderHotB
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [selectedOption, setSelectedOption] = useState(null);
   const [quantity, setQuantity] = useState(1);
+  const [showBuyNowDialog, setShowBuyNowDialog] = useState(false);
+  const [buyNowInfo, setBuyNowInfo] = useState({ address: '', paymentMethod: '', shippingMethod: '', voucher: '' });
 
   // Thời gian kết thúc flash sale (ví dụ: 1 giờ từ lúc load)
   const [timeLeft, setTimeLeft] = useState(3600); // 1 giờ = 3600 giây
@@ -77,47 +79,78 @@ export default function FlashSale  ({ flashSale, renderDiscountBadge, renderHotB
       Toast.show({ type:'error', text1:'Thêm giỏ hàng thất bại!', position:'top' });
     }
   };
+const handleConfirmOption = async () => {
+  if (!selectedOption) {
+    Toast.show({ type: 'info', text1: 'Vui lòng chọn phiên bản/cấu hình!' });
+    return;
+  }
 
-  const handleConfirmOption = async () => {
-    if (!selectedOption) {
-      Toast.show({ type: 'info', text1: 'Vui lòng chọn phiên bản/cấu hình!' });
-      return;
-    }
+  if (!isLoggedIn) return onRequireLogin();
 
-    if (!isLoggedIn) return onRequireLogin();
-    try {
-      const userStr = await AsyncStorage.getItem('user');
-      if (!userStr) {
-        Toast.show({ type:'error', text1:'Vui lòng đăng nhập để mua hàng!', position:'top' });
-        setShowOptionDialog(false);
-        return router.push('/LoginScreen');
-      }
-      const userObj = JSON.parse(userStr);
-      const userId = userObj._id || userObj.id;
-      await axiosInstance.post('/cartt/add-to-cart', {
-        user_id: userId,
-        productId: selectedProduct.id || selectedProduct._id,
-        quantity,
+  // Sửa lại lấy giá gốc đúng kiểu số
+  const basePrice = parsePrice(selectedProduct.price);
+  const priceDiff = Math.abs(Number(selectedOption.priceDiff) || 0);
+  const finalPrice = basePrice + priceDiff;
+
+  console.log({ basePrice, priceDiff, finalPrice, selectedProduct, selectedOption });
+
+  router.push({
+    pathname: "/pay",
+    params: {
+      selectedProducts: JSON.stringify([{
+        id: selectedProduct.id || selectedProduct._id,
+        name: selectedProduct.name,
+        price: finalPrice, // Đúng: giá gốc + giá biến thể
+        image: selectedProduct.image,
+        quantity: Number(quantity) || 1,
         variant: {
           key: selectedProduct.variants[0]?.key || 'Phiên bản',
           label: selectedOption.label || selectedOption.value || selectedOption.key,
-          priceDiff: selectedOption.priceDiff || 0
+          priceDiff: priceDiff
         }
-      });
-      setShowOptionDialog(false);
-      Toast.show({ type:'success', text1:'Đã thêm vào giỏ hàng!', position:'bottom' });
-    } catch (err) {
-      Toast.show({ type:'error', text1:'Thêm giỏ hàng thất bại!', position:'top' });
-      setShowOptionDialog(false);
+      }])
     }
-  };
+  });
+  setShowOptionDialog(false);
+};
 
-  const handleBuyNow = (product, event) => {
-    event?.stopPropagation();
-    if (!isLoggedIn) return onRequireLogin();
-    // Thực hiện mua ngay
-  };
+// Thêm hàm parsePrice ở đầu file
+function parsePrice(priceStr) {
+  if (typeof priceStr === 'number') return priceStr;
+  if (!priceStr) return 0;
+  return Number(priceStr.replace(/[^\d]/g, '')) || 0;
+}
 
+// Cũng cần sửa handleBuyNow cho sản phẩm không có biến thể
+const handleBuyNow = async (product, event) => {
+  event?.stopPropagation();
+
+  // Nếu có biến thể thì chọn trước
+  if (product.variants && product.variants.length > 0 && product.variants[0]?.options?.length > 0) {
+    setSelectedProduct(product);
+    setSelectedOption(null);
+    setQuantity(1);
+    setShowOptionDialog(true);
+    // Khi xác nhận chọn biến thể, chuyển qua pay luôn
+    return;
+  }
+
+  // Nếu không có biến thể, chuyển qua pay luôn
+  if (!isLoggedIn) return onRequireLogin();
+  router.push({
+    pathname: "/pay",
+    params: {
+      selectedProducts: JSON.stringify([{
+        id: product.id || product._id,
+        name: product.name,
+        price: Number(product.price), // Đảm bảo là số
+        image: product.image,
+        quantity: 1,
+        variant: null
+      }])
+    }
+  });
+};
   const handleFavorite = (product, event) => {
     event?.stopPropagation();
     if (!isLoggedIn) {
@@ -384,7 +417,7 @@ export default function FlashSale  ({ flashSale, renderDiscountBadge, renderHotB
                             styles.priceDiffText,
                             selectedOption === option && styles.priceDiffTextSelected
                           ]}>
-                            +{option.priceDiff.toLocaleString('vi-VN')}₫
+                            +{Math.abs(option.priceDiff).toLocaleString('vi-VN')}₫
                           </Text>
                         ) : null}
                         {selectedOption === option && (
@@ -444,6 +477,103 @@ export default function FlashSale  ({ flashSale, renderDiscountBadge, renderHotB
                   </View>
                 </>
               )}
+            </View>
+          </View>
+        </Modal>
+
+        {/* Modal mua ngay - Enhanced */}
+        <Modal
+          visible={showBuyNowDialog}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setShowBuyNowDialog(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContainer}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Mua ngay</Text>
+                <TouchableOpacity
+                  onPress={() => setShowBuyNowDialog(false)}
+                  style={styles.closeButton}
+                >
+                  <Ionicons name="close" size={24} color="#666" />
+                </TouchableOpacity>
+              </View>
+              <Text style={styles.sectionLabel}>Địa chỉ nhận hàng:</Text>
+              <TextInput
+                style={styles.quantityInput}
+                placeholder="Nhập địa chỉ nhận hàng"
+                value={buyNowInfo.address}
+                onChangeText={txt => setBuyNowInfo(info => ({ ...info, address: txt }))}
+              />
+              <Text style={styles.sectionLabel}>Phương thức thanh toán:</Text>
+              <TextInput
+                style={styles.quantityInput}
+                placeholder="Chuyển khoản/ COD"
+                value={buyNowInfo.paymentMethod}
+                onChangeText={txt => setBuyNowInfo(info => ({ ...info, paymentMethod: txt }))}
+              />
+              <Text style={styles.sectionLabel}>Phương thức vận chuyển:</Text>
+              <TextInput
+                style={styles.quantityInput}
+                placeholder="Giao hàng nhanh/ tiết kiệm"
+                value={buyNowInfo.shippingMethod}
+                onChangeText={txt => setBuyNowInfo(info => ({ ...info, shippingMethod: txt }))}
+              />
+              <Text style={styles.sectionLabel}>Mã giảm giá (nếu có):</Text>
+              <TextInput
+                style={styles.quantityInput}
+                placeholder="Nhập mã giảm giá"
+                value={buyNowInfo.voucher}
+                onChangeText={txt => setBuyNowInfo(info => ({ ...info, voucher: txt }))}
+              />
+              <View style={styles.modalActions}>
+                <TouchableOpacity
+                  onPress={() => setShowBuyNowDialog(false)}
+                  style={styles.cancelButton}
+                >
+                  <Text style={styles.cancelButtonText}>Huỷ</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={async () => {
+                    if (!isLoggedIn) return onRequireLogin();
+                    try {
+                      const userStr = await AsyncStorage.getItem('user');
+                      const userObj = JSON.parse(userStr);
+                      const userId = userObj._id || userObj.id;
+                      const res = await axiosInstance.post('/buy-now', {
+                        user_id: userId,
+                        productId: selectedProduct.id || selectedProduct._id,
+                        quantity,
+                        variant: selectedOption ? {
+                          key: selectedProduct.variants[0]?.key || 'Phiên bản',
+                          label: selectedOption.label || selectedOption.value || selectedOption.key,
+                          priceDiff: selectedOption.priceDiff || 0
+                        } : undefined,
+                        address: buyNowInfo.address,
+                        paymentMethod: buyNowInfo.paymentMethod,
+                        shippingMethod: buyNowInfo.shippingMethod,
+                        voucher: buyNowInfo.voucher
+                      });
+                      setShowBuyNowDialog(false);
+                      Toast.show({ type:'success', text1:'Đặt hàng thành công!', position:'bottom' });
+                      // Hiển thị thông tin chuyển khoản nếu cần
+                      // res.data.acc, res.data.bank, res.data.amount, res.data.des
+                    } catch (err) {
+                      Toast.show({ type:'error', text1:'Đặt hàng thất bại!', position:'top' });
+                      setShowBuyNowDialog(false);
+                    }
+                  }}
+                  style={styles.confirmButton}
+                >
+                  <LinearGradient
+                    colors={['#FFD700', '#FFC107']}
+                    style={styles.confirmButtonGradient}
+                  >
+                    <Text style={styles.confirmButtonText}>Xác nhận mua ngay</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
         </Modal>
@@ -1051,5 +1181,69 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '800',
     fontSize: 16,
+  },
+  // Modal mua ngay Styles
+  paymentMethodContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  paymentMethodButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 16,
+    backgroundColor: '#f3f4f6',
+    marginRight: 8,
+    borderWidth: 2,
+    borderColor: '#e0e7ef',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  paymentMethodSelected: {
+    backgroundColor: '#667eea',
+    borderColor: '#667eea',
+  },
+  paymentMethodText: {
+    color: '#333',
+    fontWeight: '600',
+    fontSize: 14,
+    textAlign: 'center',
+  },
+  shippingMethodContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  shippingMethodButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 16,
+    backgroundColor: '#f3f4f6',
+    marginRight: 8,
+    borderWidth: 2,
+    borderColor: '#e0e7ef',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  shippingMethodSelected: {
+    backgroundColor: '#667eea',
+    borderColor: '#667eea',
+  },
+  shippingMethodText: {
+    color: '#333',
+    fontWeight: '600',
+    fontSize: 14,
+    textAlign: 'center',
+  },
+  inputField: {
+    height: 48,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#e0e7ef',
+    paddingHorizontal: 12,
+    marginBottom: 16,
+    backgroundColor: '#fff',
+    fontSize: 14,
+    color: '#333',
   },
 });

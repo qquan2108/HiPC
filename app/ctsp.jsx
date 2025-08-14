@@ -310,6 +310,47 @@ export default function CTSP() {
     });
   };
 
+  const handleBuyNow = async () => {
+    // Kiểm tra đăng nhập
+    let userStr;
+    try {
+      userStr = await AsyncStorage.getItem('user');
+    } catch {}
+    if (!userStr) {
+      Toast.show({ type: 'error', text1: 'Vui lòng đăng nhập để mua hàng!', position: 'top' });
+      return router.replace('/LoginScreen');
+    }
+
+    // Lấy biến thể đã chọn (nếu có)
+    const variant = selectedVariant
+      ? {
+          key: selectedVariant.key || product.variants[0]?.key || 'Phiên bản',
+          label: selectedVariant.label || selectedVariant.value || selectedVariant.key,
+          priceDiff: selectedVariant.priceDiff || 0
+        }
+      : null;
+
+    // Tính giá tổng
+    const basePrice = typeof product.price === 'number'
+      ? product.price
+      : Number(String(product.price).replace(/[^\d]/g, ''));
+    const totalPrice = basePrice + (variant?.priceDiff || 0);
+
+    router.push({
+      pathname: "/pay",
+      params: {
+        selectedProducts: JSON.stringify([{
+          id: product._id || product.id,
+          name: product.name,
+          price: totalPrice,
+          image: product.image,
+          quantity: 1,
+          variant: variant
+        }])
+      }
+    });
+  };
+
   if (loading) {
     return <SkeletonCTSP />;
   }
@@ -445,7 +486,7 @@ export default function CTSP() {
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.bottomBuyBtn}
-          onPress={() => AddToCart(product)}
+          onPress={handleBuyNow}
         >
           <Text style={styles.bottomBuyText}>Mua ngay</Text>
         </TouchableOpacity>

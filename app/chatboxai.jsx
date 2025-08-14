@@ -26,6 +26,7 @@ const { width, height } = Dimensions.get('window');
 // Rate limiting for professional use
 const DAILY_MESSAGE_LIMIT = 100;
 const STORAGE_KEY = 'hipc_ai_daily_count';
+const CHAT_HISTORY_KEY = 'hipc_ai_chat_history';
 
 // PC Knowledge Base - Enhanced
 const PC_KNOWLEDGE = {
@@ -101,6 +102,12 @@ export default function PCChatBoxAI() {
   const [loginLoading, setLoginLoading] = useState(true);
   const [productsByMessage, setProductsByMessage] = useState({});
   const [conversationHistory, setConversationHistory] = useState([]);
+  const [showVariantDialog, setShowVariantDialog] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [selectedVariant, setSelectedVariant] = useState(null);
+  const [variantQuantity, setVariantQuantity] = useState(1);
+  const [pendingAction, setPendingAction] = useState(""); // "cart" hoặc "buy"
+  const [buyNowInfo, setBuyNowInfo] = useState({ address: '', paymentMethod: '', shippingMethod: '', voucher: '' });
   const flatListRef = useRef();
   const inputRef = useRef();
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -108,8 +115,7 @@ export default function PCChatBoxAI() {
 
   useEffect(() => {
     loadDailyCount();
-    initializeConversation();
-    
+    loadChatHistory(); // Thay vì initializeConversation
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 1,
@@ -189,6 +195,36 @@ export default function PCChatBoxAI() {
       setDailyCount(newCount);
     } catch (error) {
       console.log('Error updating daily count:', error);
+    }
+  };
+
+  // Lưu lịch sử chat vào AsyncStorage
+  const saveChatHistory = async (history) => {
+    try {
+      await AsyncStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify(history));
+    } catch (error) {
+      console.log('Error saving chat history:', error);
+    }
+  };
+
+  // Tải lịch sử chat từ AsyncStorage
+  const loadChatHistory = async () => {
+    try {
+      const stored = await AsyncStorage.getItem(CHAT_HISTORY_KEY);
+      if (stored) {
+        setMessages(JSON.parse(stored));
+      }
+    } catch (error) {
+      console.log('Error loading chat history:', error);
+    }
+  };
+
+  const clearChatHistory = async () => {
+    try {
+      await AsyncStorage.removeItem(CHAT_HISTORY_KEY);
+      setMessages([messages[0]]);
+    } catch (error) {
+      console.log('Error clearing chat history:', error);
     }
   };
 
@@ -299,7 +335,11 @@ export default function PCChatBoxAI() {
       timestamp: new Date().toLocaleTimeString(),
     };
 
-    setMessages(prev => [...prev, userMsg]);
+    setMessages(prev => {
+      const updated = [...prev, userMsg];
+      saveChatHistory(updated);
+      return updated;
+    });
     const currentInput = input.trim();
     setInput("");
     setLoading(true);
@@ -324,7 +364,11 @@ export default function PCChatBoxAI() {
         category: category
       };
 
-      setMessages(prev => [...prev, aiMsg]);
+      setMessages(prev => {
+        const updated = [...prev, aiMsg];
+        saveChatHistory(updated);
+        return updated;
+      });
 
       if (extractedProducts.length > 0) {
         const detailed = await Promise.all(
@@ -352,7 +396,11 @@ export default function PCChatBoxAI() {
         text: "⚠️ Có lỗi xảy ra khi kết nối với AI. Tôi vẫn có thể tư vấn PC dựa trên kiến thức sẵn có. Hãy thử hỏi lại! 🔧",
         timestamp: new Date().toLocaleTimeString(),
       };
-      setMessages(prev => [...prev, errorMsg]);
+      setMessages(prev => {
+        const updated = [...prev, errorMsg];
+        saveChatHistory(updated);
+        return updated;
+      });
     }
 
     setLoading(false);
@@ -380,6 +428,108 @@ export default function PCChatBoxAI() {
     );
   };
 
+  const addToCart = async (product, variant, quantity) => {
+    try {
+      const userStr = await AsyncStorage.getItem('user');
+      if (!userStr) {
+        Alert.alert('Vui lòng đăng nhập để mua hàng!');
+        return router.push('/login');
+      }
+      const userObj = JSON.parse(userStr);
+      const userId = userObj._id || userObj.id;
+      await axiosInstance.post('/cartt/add-to-cart', {
+        user_id: userId,
+        productId: product._id || product.id,
+        quantity: quantity || 1,
+        variant: variant ? {
+          key: variant.key || product.variants[0]?.key || 'Phiên bản',
+          label: variant.label || variant.value || variant.key,
+          priceDiff: variant.priceDiff || 0
+        } : undefined
+      });
+      Alert.alert('Đã thêm vào giỏ hàng', product.name || product.title);
+    } catch (err) {
+      Alert.alert('Thêm giỏ hàng thất bại!');
+    }
+  };
+
+  const buyNow = async (product, variant, quantity) => {
+    try {
+      const userStr = await AsyncStorage.getItem('user');
+      if (!userStr) {
+        Alert.alert('Vui lòng đăng nhập để mua hàng!');
+        return router.push('/login');
+      }
+      const userObj = JSON.parse(userStr);
+      const userId = userObj._id || userObj.id;
+      // Chuyển sang trang pay với thông tin sản phẩm và biến thể
+      router.push({
+        pathname: "/pay",
+        params: {
+          selectedProducts: JSON.stringify([{
+            id: product._id || product.id,
+            name: product.name,
+            price: typeof product.price === 'number'
+              ? product.price + (variant?.priceDiff || 0)
+              : Number(String(product.price).replace(/[^\d]/g, '')) + (variant?.priceDiff || 0),
+            image: product.image,
+            quantity: quantity || 1,
+            variant: variant ? {
+              key: variant.key || product.variants[0]?.key || 'Phiên bản',
+              label: variant.label || variant.value || variant.key,
+              priceDiff: variant.priceDiff || 0
+            } : null
+          }])
+        }
+      });
+    } catch (err) {
+      Alert.alert('Mua ngay thất bại!');
+    }
+  };
+
+  const handleAddToCart = (product) => {
+    if (product.variants && product.variants.length > 0 && product.variants[0]?.options?.length > 0) {
+      setSelectedProduct(product);
+      setPendingAction("cart");
+      setShowVariantDialog(true);
+      setSelectedVariant(null);
+      setVariantQuantity(1);
+      return;
+    }
+    addToCart(product, null, 1);
+  };
+
+  const handleBuyNow = (product) => {
+    if (product.variants && product.variants.length > 0 && product.variants[0]?.options?.length > 0) {
+      setSelectedProduct(product);
+      setPendingAction("buy");
+      setShowVariantDialog(true);
+      setSelectedVariant(null);
+      setVariantQuantity(1);
+      return;
+    }
+    // Chuyển sang trang pay luôn nếu không có biến thể
+    buyNow(product, null, 1);
+  };
+
+  // Khi xác nhận dialog chọn biến thể
+  const handleConfirmVariant = async () => {
+    if (!selectedVariant) {
+      Alert.alert("Vui lòng chọn phiên bản/cấu hình!");
+      return;
+    }
+    if (pendingAction === "cart") {
+      await addToCart(selectedProduct, selectedVariant, variantQuantity);
+    } else if (pendingAction === "buy") {
+      await buyNow(selectedProduct, selectedVariant, variantQuantity);
+    }
+    setShowVariantDialog(false);
+    setSelectedProduct(null);
+    setSelectedVariant(null);
+    setPendingAction("");
+    setVariantQuantity(1);
+  };
+
   const renderProductCards = (msgId) => {
     const products = productsByMessage[msgId];
     if (!products || !Array.isArray(products) || products.length === 0) return null;
@@ -389,28 +539,48 @@ export default function PCChatBoxAI() {
         <Text style={styles.productsTitle}>💡 Sản phẩm:</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.productsScroll}>
           {products.map((product) => (
-            <TouchableOpacity
+            <View
               key={product._id || product.id}
               style={styles.productCard}
-              onPress={() => router.push({ pathname: '/ctsp', params: { id: product._id || product.id } })}
             >
-              <View style={styles.productImageContainer}>
-                <Animated.Image
-                  source={product.image ?
-                    (typeof product.image === 'string' ? { uri: product.image } : product.image) :
-                    require('../assets/images/pc1.png')
-                  }
-                  style={styles.productImage}
-                  resizeMode="contain"
-                />
+              <TouchableOpacity
+                onPress={() => router.push({ pathname: '/ctsp', params: { id: product._id || product.id } })}
+              >
+                <View style={styles.productImageContainer}>
+                  <Animated.Image
+                    source={product.image ?
+                      (typeof product.image === 'string' ? { uri: product.image } : product.image) :
+                      require('../assets/images/pc1.png')
+                    }
+                    style={styles.productImage}
+                    resizeMode="contain"
+                  />
+                </View>
+                <Text numberOfLines={2} style={styles.productName}>
+                  {product.name || product.title || 'Sản phẩm PC'}
+                </Text>
+                <Text style={styles.productPrice}>
+                  {(product.price || 0).toLocaleString('vi-VN')}đ
+                </Text>
+              </TouchableOpacity>
+              {/* Thêm nút chức năng */}
+              <View style={styles.productActions}>
+                <TouchableOpacity
+                  style={styles.cartButton}
+                  onPress={() => handleAddToCart(product)}
+                >
+                  <MaterialIcons name="add-shopping-cart" size={16} color="#667eea" />
+                  <Text style={styles.actionText}>Thêm vào giỏ</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.buyButton}
+                  onPress={() => handleBuyNow(product)}
+                >
+                  <MaterialIcons name="flash-on" size={16} color="#e53e3e" />
+                  <Text style={styles.actionText}>Mua ngay</Text>
+                </TouchableOpacity>
               </View>
-              <Text numberOfLines={2} style={styles.productName}>
-                {product.name || product.title || 'Sản phẩm PC'}
-              </Text>
-              <Text style={styles.productPrice}>
-                {(product.price || 0).toLocaleString('vi-VN')}đ
-              </Text>
-            </TouchableOpacity>
+            </View>
           ))}
         </ScrollView>
       </View>
@@ -705,6 +875,93 @@ export default function PCChatBoxAI() {
           </View>
         </View>
       </View>
+
+      {/* Thêm dialog chọn biến thể vào cuối file, trước return */}
+      {showVariantDialog && selectedProduct && (
+        <View style={{
+          position: 'absolute', left: 0, right: 0, top: 0, bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.25)', justifyContent: 'center', alignItems: 'center', zIndex: 99
+        }}>
+          <View style={{
+            backgroundColor: '#fff', borderRadius: 12, padding: 20, width: 320, maxWidth: '90%'
+          }}>
+            <Text style={{ fontWeight: 'bold', fontSize: 16, marginBottom: 12 }}>
+              Chọn phiên bản/cấu hình
+            </Text>
+            {selectedProduct.variants[0]?.options?.map((option, idx) => (
+              <TouchableOpacity
+                key={idx}
+                style={{
+                  padding: 10,
+                  borderRadius: 8,
+                  backgroundColor: selectedVariant === option ? '#eef2ff' : '#f8fafc',
+                  marginBottom: 8,
+                  borderWidth: selectedVariant === option ? 2 : 1,
+                  borderColor: selectedVariant === option ? '#667eea' : '#e2e8f0'
+                }}
+                onPress={() => setSelectedVariant(option)}
+              >
+                <Text style={{ fontWeight: '600', color: '#2d3748' }}>
+                  {option.label || option.value || option.key}
+                </Text>
+                {option.priceDiff ? (
+                  <Text style={{ color: '#e53e3e', fontSize: 12, marginTop: 2 }}>
+                    +{Number(option.priceDiff).toLocaleString('vi-VN')}đ
+                  </Text>
+                ) : null}
+              </TouchableOpacity>
+            ))}
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
+              <Text style={{ fontWeight: '600', marginRight: 8 }}>Số lượng:</Text>
+              <TouchableOpacity
+                onPress={() => setVariantQuantity(q => Math.max(1, q - 1))}
+                disabled={variantQuantity <= 1}
+                style={{
+                  padding: 6,
+                  borderRadius: 8,
+                  backgroundColor: variantQuantity <= 1 ? '#eee' : '#eef2ff',
+                  marginRight: 6
+                }}
+              >
+                <MaterialIcons name="remove" size={18} color={variantQuantity <= 1 ? "#ccc" : "#667eea"} />
+              </TouchableOpacity>
+              <Text style={{ fontWeight: '700', fontSize: 16 }}>{variantQuantity}</Text>
+              <TouchableOpacity
+                onPress={() => setVariantQuantity(q => q + 1)}
+                style={{
+                  padding: 6,
+                  borderRadius: 8,
+                  backgroundColor: '#eef2ff',
+                  marginLeft: 6
+                }}
+              >
+                <MaterialIcons name="add" size={18} color="#667eea" />
+              </TouchableOpacity>
+            </View>
+            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 12 }}>
+              <TouchableOpacity
+                onPress={() => setShowVariantDialog(false)}
+                style={{ marginRight: 12 }}
+              >
+                <Text style={{ color: '#718096', fontWeight: '600' }}>Huỷ</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleConfirmVariant}
+                style={{
+                  backgroundColor: '#667eea',
+                  paddingHorizontal: 18,
+                  paddingVertical: 8,
+                  borderRadius: 8
+                }}
+              >
+                <Text style={{ color: '#fff', fontWeight: 'bold' }}>
+                  Xác nhận
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      )}
     </KeyboardAvoidingView>
   );
 }
@@ -1083,5 +1340,36 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: '#718096',
     fontWeight: '500',
+  },
+  productActions: {
+    flexDirection: 'column', // Đổi từ 'row' sang 'column'
+    alignItems: 'center',    // Căn giữa các nút
+    marginTop: 8,
+    width: '100%',
+    gap: 6,                  // Thêm khoảng cách giữa các nút (React Native >=0.71)
+  },
+  cartButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#eef2ff',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    marginBottom: 4,         // Thêm margin dưới cho nút trên
+  },
+  buyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fee2e2',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    marginTop: 4,            // Thêm margin trên cho nút dưới
+  },
+  actionText: {
+    fontSize: 11,
+    fontWeight: '600',
+    marginLeft: 4,
+    color: '#2d3748',
   },
 });
