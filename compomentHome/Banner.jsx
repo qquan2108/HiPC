@@ -1,16 +1,16 @@
-import React, { useState, useRef } from "react";
-import { 
-  View, 
-  Image, 
-  StyleSheet, 
-  TouchableOpacity, 
-  Text,
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useRef, useState } from "react";
+import {
   Animated,
   Dimensions,
-  Platform
+  Image,
+  Platform,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from "react-native";
-import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 
 const { width } = Dimensions.get('window');
 

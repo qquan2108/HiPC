@@ -1,14 +1,13 @@
 // compomentCTSP/SectionBox.jsx
-import React from "react";
+import { useRouter } from "expo-router"; // ← import router hook
 import {
-  View,
-  Text,
-  TouchableOpacity,
   FlatList,
   Image,
-  StyleSheet
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from "react-native";
-import { useRouter } from "expo-router";  // ← import router hook
 
 export function SectionPopular({ data, onPressItem }) {
   const router = useRouter();  // ← khởi tạo router

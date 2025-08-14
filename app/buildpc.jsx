@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
+import { Ionicons } from "@expo/vector-icons";
 import {
   ActivityIndicator,
   Alert,
@@ -332,11 +333,7 @@ export default function UngDungLapPC() {
             <Text style={styles.buildSubtitle}>{build.description}</Text>
             <View style={styles.buildPriceContainer}>
               <Text style={styles.buildPrice}>{formatCurrency(build.price)}</Text>
-              {isSelected && (
-                <View style={styles.selectedBadge}>
-                  <Text style={styles.selectedBadgeText}>✓</Text>
-                </View>
-              )}
+              
             </View>
           </LinearGradient>
         </TouchableOpacity>
@@ -625,11 +622,29 @@ export default function UngDungLapPC() {
       const allComponents = [
         ...presetComponents.map(comp => ({
           productId: comp.productId,
-          quantity: comp.quantity || 1
+          quantity: comp.quantity || 1,
+          ...(comp.variant && comp.variant.key && comp.variant.label
+            ? {
+                variant: {
+                  key: comp.variant.key,
+                  label: comp.variant.label,
+                  priceDiff: comp.variant.priceDiff || 0
+                }
+              }
+            : {})
         })),
         ...Object.values(selectedComponents).map(comp => ({
           productId: comp.id,
-          quantity: 1
+          quantity: 1,
+          ...(comp.variant && comp.variant.key && comp.variant.label
+            ? {
+                variant: {
+                  key: comp.variant.key,
+                  label: comp.variant.label,
+                  priceDiff: comp.variant.priceDiff || 0
+                }
+              }
+            : {})
         }))
       ];
 
@@ -649,9 +664,12 @@ export default function UngDungLapPC() {
       const data = res.data.data || res.data;
 
       Alert.alert(
-        'Đặt hàng thành công! 🎉',
+        'Cấu hình đã được lưu!',
         `Build ID: ${data.buildId}\nTổng giá trị: ${formatCurrency(tongGia)}`,
-        [{ text: 'OK', onPress: () => router.push('/orders') }]
+        [
+          { text: 'Tiếp tục mua sắm' },
+          { text: 'Xem cấu hình', onPress: () => router.push('/BuildListScreen') }
+        ]
       );
     } catch (e) {
       Alert.alert('Lỗi', e.response?.data?.error || e.message);

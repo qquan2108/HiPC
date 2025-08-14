@@ -3,7 +3,6 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import {
-  ActivityIndicator,
   Dimensions,
   Modal,
   ScrollView,
@@ -13,15 +12,14 @@ import {
   View
 } from "react-native";
 import Toast from "react-native-toast-message";
-import { useWishlist } from "../context/WishlistContext";
-import axiosInstance from "../utils/AxiosInstance";
-import SkeletonCart from "./SkeletonCart";
-import CartAddressModal from "../compomentCart/CartAddressModal";
 import CartEmpty from "../compomentCart/CartEmpty";
 import CartProductList from "../compomentCart/CartProductList";
 import CartTotalBar from "../compomentCart/CartTotalBar";
 import CartWishlist from "../compomentCart/CartWishlist";
 import PayVoucherModal from "../compomentPay/PayVoucherModal";
+import { useWishlist } from "../context/WishlistContext";
+import axiosInstance from "../utils/AxiosInstance";
+import SkeletonCart from "./SkeletonCart";
 const base = axiosInstance.defaults.baseURL;
 const { width } = Dimensions.get("window");
 const defaultAddresses = [
@@ -127,6 +125,13 @@ export default function CartScreen() {
       const products = Array.isArray(res.data.products) ? res.data.products : [];
       console.log("Fetched cart items count:", products.length);
 
+      // 🆕 Lấy danh sách sản phẩm từ build nếu có
+      let buildIds = [];
+      const buildStr = await AsyncStorage.getItem('buildCartItems');
+      if (buildStr) {
+        try { buildIds = JSON.parse(buildStr); } catch (e) {}
+      }
+
       // 🆕 Xử lý cả product và combo items
       const items = [];
 
@@ -163,7 +168,7 @@ export default function CartScreen() {
             image: imageUri,
             quantity: item.quantity ?? 1,
             variant,
-            type: 'product' // 🆕 Thêm type để phân biệt
+            type: buildIds.includes(item.productId._id) ? 'build' : 'product'
           });
         }
 
@@ -224,6 +229,7 @@ export default function CartScreen() {
 
       console.log('Final mapped items:', items.length);
       setCart(items);
+      if (buildStr) await AsyncStorage.removeItem('buildCartItems');
     } catch (err) {
       console.error("Detailed error when fetching cart:");
       console.error("Error message:", err.message);
@@ -350,13 +356,37 @@ export default function CartScreen() {
   const handleRemoveSelected = async () => {
     if (selectedIds.length === 0) return;
     try {
+      // Xóa từng sản phẩm đã chọn (combo hoặc thường)
       await Promise.all(
-        selectedIds.map((id) =>
-          axiosInstance.delete(`/cartt/remove-product/${userId}/${id}`)
-        )
+        selectedIds.map(async (id) => {
+          const prod = cart.find((item) => item.id === id);
+          if (!prod) return;
+          if (prod.type === 'combo') {
+            await axiosInstance.delete("/cartt/remove-combo", {
+              data: {
+                user_id: userId,
+                comboId: prod.comboId
+              }
+            });
+          } else {
+            await axiosInstance.delete("/cartt/remove-product", {
+              data: {
+                user_id: userId,
+                productId: prod.id,
+                variant: prod.variant
+              }
+            });
+          }
+        })
       );
       setCart((prev) => prev.filter((item) => !selectedIds.includes(item.id)));
       setSelectedIds([]);
+      Toast.show({
+        type: "success",
+        text1: "Đã xóa các sản phẩm đã chọn!",
+        position: "top",
+        visibilityTime: 2000,
+      });
     } catch (err) {
       Toast.show({
         type: "error",
@@ -378,13 +408,20 @@ export default function CartScreen() {
 
   // 3) Tính discount dựa trên selectedTotal
   let discount = 0;
+  let voucherError = null;
   if (selectedVoucher) {
-    const dv = selectedVoucher.discount_value;
-    // nếu discount_value < 100, coi như %; còn lại coi như tiền cố định
-    if (dv > 0 && dv < 100) {
-      discount = Math.round((selectedTotal * dv) / 100);
+    // Điều kiện tối thiểu
+    const minOrder = selectedVoucher.min_order_value || 0;
+    if (selectedTotal < minOrder) {
+      voucherError = `Đơn hàng phải từ ${formatCurrency(minOrder)} mới áp dụng được voucher này.`;
+      discount = 0;
     } else {
-      discount = dv;
+      const dv = selectedVoucher.discount_value;
+      if (dv > 0 && dv < 100) {
+        discount = Math.round((selectedTotal * dv) / 100);
+      } else {
+        discount = dv;
+      }
     }
   }
 
@@ -602,6 +639,15 @@ export default function CartScreen() {
         allSelected={selectedIds.length === cart.length}
         onToggleSelectAll={selectAll}
         onCheckout={() => {
+          if (voucherError) {
+            Toast.show({
+              type: "error",
+              text1: voucherError,
+              position: "top",
+              visibilityTime: 2500,
+            });
+            return;
+          }
           const selectedProducts = cart.filter((item) =>
             selectedIds.includes(item.id)
           );
@@ -622,12 +668,15 @@ export default function CartScreen() {
             },
           });
         }}
-
         onShowVoucher={() => setShowVoucher(true)}
         onClearVoucher={() => setSelectedVoucher(null)}
         disabled={isNothingSelected}
-
       />
+      {voucherError && (
+        <Text style={{ color: "red", textAlign: "center", marginBottom: 8 }}>
+          {voucherError}
+        </Text>
+      )}
       {/* Voucher modal vẫn để trong CartScreen */}
       <PayVoucherModal
         visible={showVoucher}
@@ -635,6 +684,7 @@ export default function CartScreen() {
         selectedVoucher={selectedVoucher}
         setSelectedVoucher={setSelectedVoucher}
         setShowVoucher={setShowVoucher}
+        orderAmount={selectedTotal}
 
       />
     </View>

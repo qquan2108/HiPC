@@ -5,13 +5,12 @@ import { Video } from "expo-av";
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
-import SkeletonLiveVideo from "./SkeletonLiveVideo";
 import {
-  ActivityIndicator,
   Alert,
   Animated,
   Dimensions,
   FlatList,
+  Image,
   Modal,
   SafeAreaView,
   ScrollView,
@@ -20,10 +19,10 @@ import {
   TextInput,
   TouchableOpacity,
   TouchableWithoutFeedback,
-  Image,
   View
 } from "react-native";
 import axiosInstance from "../utils/AxiosInstance";
+import SkeletonLiveVideo from "./SkeletonLiveVideo";
 
 const { height, width } = Dimensions.get("window");
 
@@ -261,15 +260,34 @@ const handleAddToCart = async (comboId) => {
   if (error) return <Text style={styles.errorText}>{error}</Text>;
 
   return (
-    <FlatList
-      data={videos}
-      keyExtractor={(item) => item._id}
-      renderItem={renderItem}
-      pagingEnabled
-      snapToInterval={height}
-      viewabilityConfig={viewConfig}
-      onViewableItemsChanged={onViewableItemsChanged}
-    />
+    <>
+      {/* Nút back ở góc trên bên trái */}
+      <View style={{
+        position: 'absolute',
+        top: 40,
+        left: 16,
+        zIndex: 100,
+        backgroundColor: 'rgba(0,0,0,0.35)',
+        borderRadius: 20,
+        width: 40,
+        height: 40,
+        justifyContent: 'center',
+        alignItems: 'center',
+      }}>
+        <TouchableOpacity onPress={() => router.back()}>
+          <Ionicons name="arrow-back" size={24} color="#fff" />
+        </TouchableOpacity>
+      </View>
+      <FlatList
+        data={videos}
+        keyExtractor={(item) => item._id}
+        renderItem={renderItem}
+        pagingEnabled
+        snapToInterval={height}
+        viewabilityConfig={viewConfig}
+        onViewableItemsChanged={onViewableItemsChanged}
+      />
+    </>
   );
 }
 

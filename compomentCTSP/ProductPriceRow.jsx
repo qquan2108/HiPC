@@ -1,6 +1,4 @@
-import React from "react";
-import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
-import { Feather } from "@expo/vector-icons";
+import { StyleSheet, Text, View } from "react-native";
 
 export default function ProductPriceRow({
   price,      // number: ví dụ 3200000
@@ -19,20 +17,6 @@ export default function ProductPriceRow({
     <View style={styles.container}>
       <Text style={styles.priceText}>{formatVND(price)}</Text>
 
-      <TouchableOpacity
-        style={[
-          styles.likeButton,
-          liked ? styles.likedButton : styles.unlikedButton,
-        ]}
-        onPress={onLike}
-        activeOpacity={0.7}
-      >
-        <Feather
-          name="heart"
-          size={20}
-          color={liked ? "#E0245E" : "#BBB"}
-        />
-      </TouchableOpacity>
     </View>
   );
 }

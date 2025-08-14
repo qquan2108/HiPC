@@ -9,13 +9,13 @@ import {
   Alert,
   Image,
   Modal,
+  Platform,
   ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
-  StatusBar,
-  Platform,
 } from "react-native";
 import axiosInstance from "../utils/AxiosInstance";
 
@@ -88,6 +88,18 @@ export default function Profile() {
     });
   }, [])
 );
+
+  // Hàm xác nhận đăng xuất
+  const confirmLogout = () => {
+    Alert.alert(
+      'Đăng xuất',
+      'Bạn có chắc chắn muốn đăng xuất?',
+      [
+        { text: 'Hủy', style: 'cancel' },
+        { text: 'Đăng xuất', style: 'destructive', onPress: handleLogout }
+      ]
+    );
+  };
 
   const handleLogout = async () => {
     await AsyncStorage.multiRemove(["token", "user"]);
@@ -271,7 +283,7 @@ export default function Profile() {
                   <Feather name="help-circle" size={22} color="#1976ff" />
                 ),
                 label: "Chăm sóc khách hàng",
-                onPress: () => router.push("./buildpc"),
+                onPress: () => router.push("./BuildListScreen"),
               },
               {
                 icon: (
@@ -287,7 +299,7 @@ export default function Profile() {
               {
                 icon: <Feather name="log-out" size={22} color="#1976ff" />,
                 label: "Đăng xuất",
-                onPress: handleLogout,
+                onPress: confirmLogout,
               },
             ].map((item, i) => (
               <TouchableOpacity

@@ -1,32 +1,29 @@
-import { AntDesign, Ionicons, Feather } from "@expo/vector-icons";
+import { AntDesign, Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
 import { useFocusEffect, useRouter } from "expo-router";
-import React, { useEffect, useRef, useState, useCallback } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Animated,
   Dimensions,
   ImageBackground,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
-  RefreshControl,
 } from "react-native";
 import BackgroundImage from "../assets/images/backroundLogin.png";
 import AIChatBox from "../compomentHome/AIChatBox";
 import Banner from "../compomentHome/Banner";
-import BestSellerList from "../compomentHome/BestSellerList";
 import CategoryList from "../compomentHome/CategoryList";
 import CustomTabBar from "../compomentHome/CustomTabBar";
 import FlashSale from "../compomentHome/FlashSale";
 import ForYouGrid from "../compomentHome/ForYouGrid";
 import Header from "../compomentHome/Header";
 import NewProducts from "../compomentHome/NewProducts";
-import PromoPopup from "../compomentHome/PromoPopup";
 import axiosInstance from "../utils/AxiosInstance";
-import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import SkeletonHome from "./SkeletonHome";
 
 const { width } = Dimensions.get("window");
@@ -394,7 +391,7 @@ export default function HomeScreen() {
             </View>
 
             {/* Slider banner */}
-            <View style={{ height: 200, marginVertical: 7 }}>
+            <View style={{ height: 220, marginVertical: 7 }}>
               <ScrollView
                 ref={scrollRef}
                 horizontal
