@@ -356,13 +356,37 @@ export default function CartScreen() {
   const handleRemoveSelected = async () => {
     if (selectedIds.length === 0) return;
     try {
+      // Xóa từng sản phẩm đã chọn (combo hoặc thường)
       await Promise.all(
-        selectedIds.map((id) =>
-          axiosInstance.delete(`/cartt/remove-product/${userId}/${id}`)
-        )
+        selectedIds.map(async (id) => {
+          const prod = cart.find((item) => item.id === id);
+          if (!prod) return;
+          if (prod.type === 'combo') {
+            await axiosInstance.delete("/cartt/remove-combo", {
+              data: {
+                user_id: userId,
+                comboId: prod.comboId
+              }
+            });
+          } else {
+            await axiosInstance.delete("/cartt/remove-product", {
+              data: {
+                user_id: userId,
+                productId: prod.id,
+                variant: prod.variant
+              }
+            });
+          }
+        })
       );
       setCart((prev) => prev.filter((item) => !selectedIds.includes(item.id)));
       setSelectedIds([]);
+      Toast.show({
+        type: "success",
+        text1: "Đã xóa các sản phẩm đã chọn!",
+        position: "top",
+        visibilityTime: 2000,
+      });
     } catch (err) {
       Toast.show({
         type: "error",

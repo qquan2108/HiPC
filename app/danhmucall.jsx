@@ -396,7 +396,27 @@ export default function DanhMucAll(props) {
     fetchProducts();
   }, [activeTab, filters]);
 
-
+  useEffect(() => {
+    // Nếu có params truyền sang thì lọc theo params
+    const { categoryId, brandId, min, max } = router?.params || {};
+    if (categoryId || brandId || min || max) {
+      setLoading(true);
+      axios.get('/product/filter', {
+        params: {
+          category: categoryId,
+          brand: brandId,
+          priceMin: min,
+          priceMax: max
+        }
+      })
+      .then(res => setProducts(res.data.products || []))
+      .catch(() => setProducts([]))
+      .finally(() => setLoading(false));
+      return; // Không gọi fetchProducts nữa
+    }
+    // Nếu không có params thì gọi fetchProducts như cũ
+    fetchProducts();
+  }, [router?.params, activeTab, filters]);
 
   const fetchProducts = async () => {
     try {

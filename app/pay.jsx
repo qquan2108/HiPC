@@ -1,27 +1,26 @@
-import { Feather, MaterialIcons, Ionicons } from "@expo/vector-icons";
+import { Feather, Ionicons, MaterialIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
+  SafeAreaView,
   ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
-  StatusBar,
-  SafeAreaView,
-  LinearGradient,
+  View
 } from "react-native";
 import Toast from "react-native-toast-message";
-import axiosInstance from "../utils/AxiosInstance";
-import VnPayModal from "../compomentPay/Vnpaymodal";
 import PayCardModal from "../compomentPay/PayCardModal";
 import PayProductList from "../compomentPay/PayProductList";
 import PayStatusModal from "../compomentPay/PayStatusModal";
-import AddressModal from "./AddressModal";
-import StripeModal from "../compomentPay/StripeModal";
 import PayVoucherModal from "../compomentPay/PayVoucherModal";
+import StripeModal from "../compomentPay/StripeModal";
+import VnPayModal from "../compomentPay/Vnpaymodal";
+import axiosInstance from "../utils/AxiosInstance";
+import AddressModal from "./AddressModal";
 
 // GHN credentials
 const GHN_TOKEN = "08749195-4da3-11f0-bf1c-e283f3defbd9";
@@ -66,7 +65,7 @@ const paymentMethods = [
 ];
 
 function formatCurrency(num) {
-  return typeof num === "number" ? num.toLocaleString("vi-VN") + " ₫" : "";
+  return typeof num === "number" ? num.toLocaleString("vi-VN") + " ₫" : "0 ₫";
 }
 
 export default function PayScreen() {
@@ -377,28 +376,37 @@ export default function PayScreen() {
     setShowAddressModal(false);
   };
 
-  // Effects
-  useEffect(() => {
-    (async () => {
-      if (params.selectedProducts) {
-        try {
-          const selected = JSON.parse(params.selectedProducts);
-          setProducts(selected);
-          return;
-        } catch { }
-      }
+  // Effects// Trong pay.jsx - sửa phần useEffect xử lý selectedProducts
+useEffect(() => {
+  (async () => {
+    if (params.selectedProducts) {
       try {
-        const userStr = await AsyncStorage.getItem("user");
-        if (!userStr) return;
-        const user = JSON.parse(userStr);
-        const userId = user.id || user._id;
-        const res = await axiosInstance.get(`/cartt/user/${userId}`);
-        const orders = Array.isArray(res.data) ? res.data : [];
-        const pending = orders.find((o) => o.status === "pending") || {
-          products: [],
-        };
-        const items = Array.isArray(pending.products)
-          ? pending.products.map((item) => ({
+        const selected = JSON.parse(params.selectedProducts);
+        console.log('selectedProducts:', selected); // Thêm dòng này để kiểm tra
+        // Đúng: chỉ lấy price đã truyền, không cộng thêm priceDiff
+        const productsFixed = selected.map(p => ({
+          ...p,
+          price: Number(p.price), // Đã là tổng giá
+          quantity: Number(p.quantity) || 1,
+        }));
+        setProducts(productsFixed);
+        return;
+      } catch { }
+    }
+    
+    // Phần xử lý cart từ AsyncStorage giữ nguyên
+    try {
+      const userStr = await AsyncStorage.getItem("user");
+      if (!userStr) return;
+      const user = JSON.parse(userStr);
+      const userId = user.id || user._id;
+      const res = await axiosInstance.get(`/cartt/user/${userId}`);
+      const orders = Array.isArray(res.data) ? res.data : [];
+      const pending = orders.find((o) => o.status === "pending") || {
+        products: [],
+      };
+      const items = Array.isArray(pending.products)
+        ? pending.products.map((item) => ({
             id: item.productId?._id || item.productId,
             name: item.productId?.name || "Không có tên",
             price: item.productId?.price ?? 0,
@@ -411,13 +419,13 @@ export default function PayScreen() {
             width: item.productId?.width ?? 20,
             height: item.productId?.height ?? 20,
           }))
-          : [];
-        setProducts(items);
-      } catch (err) {
-        console.error(err);
-      }
-    })();
-  }, []);
+        : [];
+      setProducts(items);
+    } catch (err) {
+      console.error(err);
+    }
+  })();
+}, []);
 
   useEffect(() => {
     if (params.selectedVoucher) {
@@ -714,6 +722,11 @@ export default function PayScreen() {
         return <Feather name={iconName} size={size} color={color} />;
     }
   };
+
+  const totalPrice = products.reduce(
+    (sum, item) => sum + Number(item.price) * Number(item.quantity),
+    0
+  );
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -1345,5 +1358,12 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 17,
     fontWeight: "600",
+  },
+  totalPrice: {
+    fontSize: 17,
+    fontWeight: "700",
+    color: "#1C1C1E",
+    textAlign: "right",
+    marginTop: 8,
   },
 });

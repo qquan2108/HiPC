@@ -276,7 +276,17 @@ export default function DanhMucPCScreen() {
               ))}
             </ScrollView>
             <TouchableOpacity
-              style={{marginTop: 8, backgroundColor: '#ee4d2d', borderRadius: 8, paddingVertical: 14, alignItems: 'center', shadowColor:'#ee4d2d', shadowOpacity:0.12, shadowRadius:4, elevation:1}} 
+              style={{
+                marginTop: 8,
+                backgroundColor: '#ee4d2d',
+                borderRadius: 8,
+                paddingVertical: 14,
+                alignItems: 'center',
+                shadowColor: '#ee4d2d',
+                shadowOpacity: 0.12,
+                shadowRadius: 4,
+                elevation: 1
+              }}
               onPress={() => {
                 const priceObj = PRICE_SEGMENTS.find(seg => seg.label === selectedPrice);
                 router.push({
@@ -285,12 +295,13 @@ export default function DanhMucPCScreen() {
                     categoryId: selectedCat,
                     brandId: selectedBrand,
                     min: priceObj ? priceObj.min : undefined,
-                    max: priceObj ? priceObj.max : undefined
+                    max: priceObj ? priceObj.max : undefined,
+                    // Có thể truyền thêm các option khác nếu cần
                   }
                 });
               }}
             >
-              <Text style={{color:'#fff', fontWeight:'bold', fontSize:16}}>Xem sản phẩm</Text>
+              <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>Xem sản phẩm</Text>
             </TouchableOpacity>
           </View>
 
