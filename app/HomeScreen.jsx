@@ -391,7 +391,7 @@ export default function HomeScreen() {
             </View>
 
             {/* Slider banner */}
-            <View style={{ height: 200, marginVertical: 7 }}>
+            <View style={{ height: 220, marginVertical: 7 }}>
               <ScrollView
                 ref={scrollRef}
                 horizontal
