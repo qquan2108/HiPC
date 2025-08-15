@@ -54,7 +54,8 @@
           "displayName": "HiPC",
           "scheme": "fb1287087949733876"
         }
-      ]
+      ],
+      "expo-notifications"
     ],
     "experiments": {
       "typedRoutes": true
