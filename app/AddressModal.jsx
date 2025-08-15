@@ -32,6 +32,7 @@ export default function AddressModal({
   const [provinceId, setProvinceId] = useState("");
   const [districtId, setDistrictId] = useState("");
   const [wardCode, setWardCode] = useState("");
+  const [phone, setPhone] = useState(""); // Thêm state
   const [provinces, setProvinces] = useState([]);
   const [districts, setDistricts] = useState([]);
   const [wards, setWards] = useState([]);
@@ -140,7 +141,7 @@ export default function AddressModal({
   };
 
   const handleAdd = async () => {
-    if (!label.trim() || !address.trim() || !provinceId || !districtId || !wardCode) {
+    if (!label.trim() || !address.trim() || !provinceId || !districtId || !wardCode || !phone.trim()) {
       Toast.show({
         type: "error",
         text1: "Thông tin chưa đầy đủ",
@@ -163,7 +164,7 @@ export default function AddressModal({
       const user = JSON.parse(userStr);
       const res = await axiosInstance.post(
         `/users/${user.id || user._id}/addresses`,
-        { label: label.trim(), address: address.trim(), provinceId, districtId, wardCode }
+        { label: label.trim(), address: address.trim(), provinceId, districtId, wardCode, phone: phone.trim() }
       );
       const newAddress = res.data;
 
@@ -222,6 +223,7 @@ export default function AddressModal({
     setWardCode("");
     setDistricts([]);
     setWards([]);
+    setPhone(""); // reset phone
   };
 
   const handleShowAddForm = () => {
@@ -493,6 +495,19 @@ export default function AddressModal({
                       ))}
                     </Picker>
                   </View>
+                </View>
+
+                <View style={styles.inputContainer}>
+                  <Text style={styles.inputLabel}>Số điện thoại *</Text>
+                  <TextInput
+                    placeholder="Nhập số điện thoại"
+                    value={phone}
+                    onChangeText={setPhone}
+                    style={styles.textInput}
+                    keyboardType="phone-pad"
+                    maxLength={15}
+                    placeholderTextColor="#999"
+                  />
                 </View>
 
                 <TouchableOpacity style={styles.saveButton} onPress={handleAdd}>

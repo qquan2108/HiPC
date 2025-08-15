@@ -402,7 +402,7 @@ export default function HomeScreen() {
                 {banners.map((item, i) => (
                   <View key={item._id} style={{ width, paddingHorizontal: 7 }}>
                     <Banner
-                      onPress={() => router.push("./DanhMucPC")}
+                      onPress={() => router.push("./danhmucall")}
                       source={{
                         uri: item.imageUrl.startsWith("http")
                           ? item.imageUrl

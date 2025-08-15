@@ -4,9 +4,9 @@ import {
   Image,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
-  View,
-  TextInput
+  View
 } from "react-native";
 
 export default function CartProductList({ 

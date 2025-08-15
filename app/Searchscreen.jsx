@@ -216,20 +216,44 @@ console.log("Navigating to:", `/ctsp?id=${productId}`);
   const renderPopularSearch = ({ item }) => (
     <TouchableOpacity
       style={styles.popularSearchItem}
-      onPress={() => handleHistoryPress(item)}
+      onPress={() => {
+        if (item.id) {
+          router.push(`/ctsp?id=${item.id}`);
+        } else {
+          // Nếu là dữ liệu mẫu, fallback tìm kiếm theo tên
+          handleHistoryPress(item.name || item);
+        }
+      }}
     >
       <Feather name="trending-up" size={16} color="#6366f1" />
-      <Text style={styles.popularSearchText}>{item}</Text>
+      <Text style={styles.popularSearchText}>{item.name || item}</Text>
     </TouchableOpacity>
   );
 
-  const popularSearches = [
+  const [popularSearches, setPopularSearches] = useState([
     "Laptop Gaming",
     "iPhone",
     "MacBook",
     "Gaming PC",
     "Tai nghe",
-  ];
+  ]);
+
+  useEffect(() => {
+    axiosInstance
+      .get("/product/recently-bought")
+      .then((res) => {
+        if (Array.isArray(res.data)) {
+          // Lưu cả object sản phẩm, không chỉ name
+          setPopularSearches(res.data.map((p) => ({
+            id: p._id,
+            name: p.name
+          })));
+        }
+      })
+      .catch(() => {
+        // Nếu lỗi, giữ lại dữ liệu mẫu
+      });
+  }, []);
 
   return (
     <View style={styles.container}>
@@ -271,23 +295,12 @@ console.log("Navigating to:", `/ctsp?id=${productId}`);
             }}
             placeholderTextColor="#9ca3af"
           />
-          {search ? (
-            <TouchableOpacity
-              onPress={() => setSearch("")}
-              style={styles.clearButton}
-            >
-              <Feather name="x" size={18} color="#6b7280" />
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity style={styles.filterButton}>
-              <Feather name="sliders" size={18} color="#6366f1" />
-            </TouchableOpacity>
-          )}
+          
         </View>
       </View>
 
       {/* Nếu có từ khóa tìm kiếm thì chỉ hiện kết quả, ẩn các phần còn lại */}
-      {search.length > 0 && isSearchFocused ? (
+      {search.length > 0 ? (
         <FlatList
           data={filteredProducts}
           keyExtractor={(item) => String(item.id || item._id)}
@@ -361,7 +374,7 @@ console.log("Navigating to:", `/ctsp?id=${productId}`);
             <Text style={styles.sectionTitle}>Tìm kiếm phổ biến</Text>
             <FlatList
               data={popularSearches}
-              keyExtractor={(item) => item}
+              keyExtractor={(item) => item.id || item.name || item}
               renderItem={renderPopularSearch}
               scrollEnabled={false}
               ItemSeparatorComponent={() => <View style={styles.separator} />}

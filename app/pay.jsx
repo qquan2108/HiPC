@@ -101,6 +101,9 @@ export default function PayScreen() {
   const [orderId, setOrderId] = useState(null);
   const [orderAmount, setOrderAmount] = useState(0);
 
+  const [allDistricts, setAllDistricts] = useState([]);
+  const [allWards, setAllWards] = useState([]);
+
   // Calculations
   const subtotal = products.reduce((sum, p) => sum + p.price * p.quantity, 0);
   const discount = selectedVoucher
@@ -111,12 +114,14 @@ export default function PayScreen() {
         : selectedVoucher.discount_value
       : 0
     : 0;
-  const total = subtotal + shippingFee - discount;
+  const discountedSubtotal = Math.max(0, subtotal - discount);
+  const total = discountedSubtotal + shippingFee;
+
   const totalWeight = products.reduce(
     (sum, p) => sum + (p.weight || 100) * p.quantity,
     0
   );
-
+  console.log('selectedVoucher:', selectedVoucher);
   // GHN API Helper
   const ghnRequest = async (endpoint, data = {}, method = "POST") => {
     try {
@@ -540,15 +545,62 @@ useEffect(() => {
     total,
   ]);
 
-  const addressText = [
-    provinces.find((p) => p.ProvinceID === parseInt(selectedProvince))
-      ?.ProvinceName,
-    districts.find((d) => d.DistrictID === parseInt(selectedDistrict))
-      ?.DistrictName,
-    wards.find((w) => w.WardCode === selectedWard)?.WardName,
-  ]
-    .filter(Boolean)
-    .join(", ");
+  // Thêm useEffect để load toàn bộ quận/huyện và phường/xã khi load tỉnh thành
+useEffect(() => {
+  (async () => {
+    try {
+      // Lấy tất cả tỉnh
+      const provinceRes = await ghnRequest("/master-data/province");
+      setProvinces(provinceRes.data || []);
+
+      // Lấy tất cả quận/huyện của tất cả tỉnh
+      let allDistrictsArr = [];
+      for (const province of provinceRes.data || []) {
+        try {
+          const districtRes = await ghnRequest("/master-data/district", {
+            province_id: province.ProvinceID,
+          });
+          if (Array.isArray(districtRes.data)) {
+            allDistrictsArr = allDistrictsArr.concat(districtRes.data);
+          }
+        } catch {}
+      }
+      setAllDistricts(allDistrictsArr);
+
+      // Lấy tất cả phường/xã của tất cả quận/huyện
+      let allWardsArr = [];
+      for (const district of allDistrictsArr) {
+        try {
+          const wardRes = await ghnRequest("/master-data/ward", {
+            district_id: district.DistrictID,
+          });
+          if (Array.isArray(wardRes.data)) {
+            allWardsArr = allWardsArr.concat(wardRes.data);
+          }
+        } catch {}
+      }
+      setAllWards(allWardsArr);
+    } catch (err) {
+      console.error(err);
+      Toast.show({ type: "error", text1: "Không lấy được danh sách tỉnh." });
+    }
+  })();
+}, []);
+
+  // Lấy tên tỉnh từ danh sách provinces
+  const provinceName = provinces.find(
+    p => String(p.ProvinceID) === String(selectedAddress?.provinceId)
+  )?.ProvinceName || "";
+
+  // Lấy tên quận từ toàn bộ districts (không chỉ districts của selectedProvince)
+  const districtName = allDistricts.find(
+    d => String(d.DistrictID) === String(selectedAddress?.districtId)
+  )?.DistrictName || "";
+
+  // Lấy tên phường từ toàn bộ wards (tương tự như trên)
+  const wardName = allWards.find(
+    w => String(w.WardCode) === String(selectedAddress?.wardCode)
+  )?.WardName || "";
 
   const handleOrder = async () => {
     if (!selectedAddress) {
@@ -582,21 +634,30 @@ useEffect(() => {
         quantity: p.quantity,
       }));
 
+      // Lấy danh sách _id của sản phẩm trong cart nếu có (nếu bạn lưu _id của item trong cart)
+      // Nếu không có _id, bạn có thể truyền danh sách productId và quantity như hiện tại.
+      // Ở đây giả sử bạn không có _id của item trong cart, nên truyền danh sách productId.
+      // Nếu có _id, hãy truyền selectedProducts là mảng các _id của item trong cart.
+
       const orderData = {
         user_id: userId,
         products: productsData,
-        total_price: subtotal,
+        total_price: discountedSubtotal,           // tổng tiền hàng
+        voucherDiscount: discount,       // số tiền giảm giá
+        shippingFee,                     // phí ship
+        total,                           // tổng cuối cùng
         address: selectedAddress?.address || "",
         paymentMethod: selectedPayment,
         shippingMethod: selectedService?.service_id || null,
-        voucher: selectedVoucher?.id || null,
-        total,
-        shippingFee,
+        voucher: selectedVoucher,
+        selectedProducts: products.map(p => p.cartItemId).filter(Boolean),
       };
 
       const res = await axiosInstance.post("/orders/checkout", orderData, {
         headers: { "Content-Type": "application/json" },
       });
+
+      // Chỉ xóa giỏ hàng khi thanh toán thành công!
       await AsyncStorage.removeItem("cart");
       setProducts([]);
 
@@ -651,12 +712,23 @@ useEffect(() => {
         },
       });
     } catch (err) {
-      console.error(err);
-      Toast.show({
-        type: "error",
-        text1: "Đặt hàng thất bại!",
-        text2: err.message || "Vui lòng thử lại.",
-      });
+      // Thêm log chi tiết lỗi
+      console.error("Checkout error:", err);
+      if (err.response) {
+        console.error("Checkout error response:", err.response.data);
+        console.error("Checkout error status:", err.response.status);
+        Toast.show({
+          type: "error",
+          text1: "Đặt hàng thất bại!",
+          text2: err.response.data?.error || err.message || "Vui lòng thử lại.",
+        });
+      } else {
+        Toast.show({
+          type: "error",
+          text1: "Đặt hàng thất bại!",
+          text2: err.message || "Vui lòng thử lại.",
+        });
+      }
       setPayStatus("fail");
     }
   };
@@ -756,21 +828,26 @@ useEffect(() => {
 
           <TouchableOpacity
             style={styles.addressCard}
-
             onPress={() => setShowAddressModal(true)}
-
           >
             {selectedAddress ? (
               <View style={styles.addressContent}>
                 <View style={styles.addressInfo}>
-                  <Text style={styles.addressName}>
-                    {selectedAddress.label || selectedAddress.recipientName}
-                  </Text>
-                  <Text style={styles.addressPhone}>
+                  {/* Số điện thoại in đậm ở dòng đầu */}
+                  <Text style={[styles.addressName, { fontWeight: "bold" }]}>
                     {selectedAddress.phone || selectedAddress.phoneNumber}
                   </Text>
-                  <Text style={styles.addressText} numberOfLines={2}>
+                  {/* Tên địa chỉ (label hoặc recipientName) */}
+                  <Text style={styles.addressText}>
+                    {selectedAddress.label || selectedAddress.recipientName}
+                  </Text>
+                  <Text style={styles.addressText}>
                     {selectedAddress.address}
+                  </Text>
+                  <Text style={styles.addressText}>
+                    {wardName && `${wardName}, `}
+                    {districtName && `${districtName}, `}
+                    {provinceName}
                   </Text>
                 </View>
                 <View style={styles.addressAction}>

@@ -320,8 +320,14 @@ export default function ForYouGrid({
             {/* 🆕 Khoảng giá */}
              <View style={styles.priceSection}>
           <Text style={styles.productPrice}>
-            {formatPriceRange(product)}₫
+            {formatPrice(product.price)}₫
           </Text>
+          {/* Nếu có giá gốc và khác giá bán, hiển thị giá gốc gạch ngang */}
+          {product.originalPrice && product.originalPrice !== product.price && (
+            <Text style={styles.originalPrice}>
+              {formatPrice(product.originalPrice)}₫
+            </Text>
+          )}
         </View>
 
             {/* 🆕 Voucher Badge */}
@@ -357,9 +363,6 @@ export default function ForYouGrid({
       </TouchableOpacity>
     );
   })}
-
-
-
       </View>
 
       {/* 🆕 Dialog chọn option và số lượng */}

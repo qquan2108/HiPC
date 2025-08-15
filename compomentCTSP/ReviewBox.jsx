@@ -1,13 +1,15 @@
+import React from 'react';
 import { Feather } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from "expo-router";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { LinearGradient } from 'expo-linear-gradient';
 
 export default function ReviewBox({ product = {}}) {
   const router = useRouter();
+  
   const handleViewAllReviews = async () => {
     try {
-      // Lấy thông tin user từ AsyncStorage
       const userStr = await AsyncStorage.getItem('user');
       const user = userStr ? JSON.parse(userStr) : null;
       
@@ -17,13 +19,12 @@ export default function ReviewBox({ product = {}}) {
           product_id: product.id,
           product_name: product.name,
           product_image: product.image?.uri || product.images?.[0]?.uri || '',
-          user_id: user ? (user._id || user.id) : '', // Thêm user_id nếu có
-          order_id: '', // Có thể thêm order_id sau nếu cần
+          user_id: user ? (user._id || user.id) : '',
+          order_id: '',
         }
       });
     } catch (error) {
       console.error('Error getting user info:', error);
-      // Nếu không lấy được user_id, vẫn chuyển trang nhưng sẽ yêu cầu đăng nhập khi gửi đánh giá
       router.push({
         pathname: '/danhgia',
         params: {
@@ -36,83 +37,307 @@ export default function ReviewBox({ product = {}}) {
       });
     }
   };
+
+  const rating = product.rating || 0;
+  const fullStars = Math.floor(rating);
+  const hasHalfStar = rating % 1 >= 0.5;
+  const emptyStars = 5 - fullStars - (hasHalfStar ? 1 : 0);
+
   return (
-    <View style={styles.reviewContainer}>
-      <View style={styles.reviewHeader}>
-        <Text style={styles.reviewTitle}>Đánh giá sản phẩm</Text>
-        <TouchableOpacity 
-          style={styles.viewAllButton}
-          onPress={handleViewAllReviews}
+    <View style={styles.container}>
+      {/* Enhanced Header */}
+      <View style={styles.header}>
+        <LinearGradient
+          colors={['#ffeaa7', '#fdcb6e']}
+          start={{x: 0, y: 0}}
+          end={{x: 1, y: 0}}
+          style={styles.headerGradient}
         >
-          <Text style={styles.viewAllText}>Xem tất cả</Text>
-          <Feather name="chevron-right" size={18} color="#2979ff" />
-        </TouchableOpacity>
+          <View style={styles.headerContent}>
+            <View style={styles.iconWrapper}>
+              <Feather name="star" size={20} color="#ffffff" />
+            </View>
+            <Text style={styles.headerTitle}>Đánh giá sản phẩm</Text>
+          </View>
+          <TouchableOpacity 
+            style={styles.viewAllButton}
+            onPress={handleViewAllReviews}
+            activeOpacity={0.8}
+          >
+            <LinearGradient
+              colors={['rgba(255, 255, 255, 0.3)', 'rgba(255, 255, 255, 0.1)']}
+              style={styles.viewAllGradient}
+            >
+              <Text style={styles.viewAllText}>Xem tất cả</Text>
+              <Feather name="chevron-right" size={14} color="#ffffff" />
+            </LinearGradient>
+          </TouchableOpacity>
+        </LinearGradient>
       </View>
       
-      <View style={styles.ratingSummary}>
-        <Text style={styles.ratingValue}>{product.rating?.toFixed(1) || '0.0'}</Text>
-        <View style={styles.starsContainer}>
-          {[1, 2, 3, 4, 5].map((i) => (
-            <Text 
-              key={i} 
-              style={{
-                fontSize: 20,
-                color: i <= Math.round(product.rating || 0) ? '#FFD700' : '#ccc'
-              }}
-            >
-              ★
-            </Text>
-          ))}
+      {/* Rating Display */}
+      <View style={styles.ratingContainer}>
+        <View style={styles.mainRating}>
+          <Text style={styles.ratingValue}>{rating.toFixed(1)}</Text>
+          <View style={styles.ratingMeta}>
+            <Text style={styles.outOf}>/ 5.0</Text>
+            <Text style={styles.reviewCount}>({product.reviewCount || 0} đánh giá)</Text>
+          </View>
         </View>
+
+        <View style={styles.starsSection}>
+          <View style={styles.starsContainer}>
+            {/* Full Stars */}
+            {[...Array(fullStars)].map((_, i) => (
+              <View key={`full-${i}`} style={styles.starWrapper}>
+                <LinearGradient
+                  colors={['#ffd700', '#ffa000']}
+                  style={styles.starGradient}
+                >
+                  <Feather name="star" size={18} color="#ffffff" />
+                </LinearGradient>
+              </View>
+            ))}
+            
+            {/* Half Star */}
+            {hasHalfStar && (
+              <View style={styles.starWrapper}>
+                <LinearGradient
+                  colors={['#ffd700', '#ffa000']}
+                  style={[styles.starGradient, { width: '50%' }]}
+                >
+                  <Feather name="star" size={18} color="#ffffff" />
+                </LinearGradient>
+                <View style={styles.halfStarOverlay}>
+                  <Feather name="star" size={18} color="#e0e0e0" />
+                </View>
+              </View>
+            )}
+            
+            {/* Empty Stars */}
+            {[...Array(emptyStars)].map((_, i) => (
+              <View key={`empty-${i}`} style={styles.starWrapper}>
+                <Feather name="star" size={18} color="#e0e0e0" />
+              </View>
+            ))}
+          </View>
+
+          {/* Rating Distribution Preview */}
+          <View style={styles.ratingDistribution}>
+            {[5, 4, 3, 2, 1].map((star) => (
+              <View key={star} style={styles.distributionRow}>
+                <Text style={styles.distributionStar}>{star}★</Text>
+                <View style={styles.distributionBar}>
+                  <LinearGradient
+                    colors={['#ffd700', '#ffa000']}
+                    style={[
+                      styles.distributionFill,
+                      { width: `${Math.random() * 100}%` } // Demo data
+                    ]}
+                  />
+                </View>
+              </View>
+            ))}
+          </View>
+        </View>
+      </View>
+
+      {/* Quick Actions */}
+      <View style={styles.quickActions}>
+        <TouchableOpacity style={styles.actionButton} activeOpacity={0.8}>
+          <LinearGradient
+            colors={['#74b9ff', '#0984e3']}
+            style={styles.actionGradient}
+          >
+            <Feather name="edit-3" size={14} color="#ffffff" />
+            <Text style={styles.actionText}>Viết đánh giá</Text>
+          </LinearGradient>
+        </TouchableOpacity>
+        
+        <TouchableOpacity style={styles.actionButton} activeOpacity={0.8}>
+          <LinearGradient
+            colors={['#fd79a8', '#e84393']}
+            style={styles.actionGradient}
+          >
+            <Feather name="image" size={14} color="#ffffff" />
+            <Text style={styles.actionText}>Thêm ảnh</Text>
+          </LinearGradient>
+        </TouchableOpacity>
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  reviewContainer: {
-    backgroundColor: "#fff",
-    borderRadius: 16,
-    marginHorizontal: 12,
-    marginBottom: 12,
-    padding: 16,
-    elevation: 2,
-    shadowColor: "#000",
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
+  container: {
+    backgroundColor: "#ffffff",
+    borderRadius: 20,
+    marginHorizontal: 16,
+    marginBottom: 16,
+    overflow: 'hidden',
+    elevation: 6,
+    shadowColor: '#ffeaa7',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
   },
-  reviewHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 12,
+
+  // Header
+  header: {
+    marginBottom: 20,
   },
-  reviewTitle: {
-    fontWeight: "bold",
-    fontSize: 16,
-    color: "#222",
+  headerGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
   },
-  viewAllButton: {
-    flexDirection: "row",
-    alignItems: "center",
+  headerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-  viewAllText: {
-    color: "#2979ff",
-    marginRight: 4,
-    fontSize: 14,
-  },
-  ratingSummary: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  ratingValue: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#FFA000",
+  iconWrapper: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 12,
+    padding: 6,
     marginRight: 12,
   },
+  headerTitle: {
+    fontWeight: "800",
+    fontSize: 16,
+    color: "#ffffff",
+    letterSpacing: 0.5,
+  },
+  viewAllButton: {
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  viewAllGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  viewAllText: {
+    color: "#ffffff",
+    marginRight: 4,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+
+  // Rating Container
+  ratingContainer: {
+    paddingHorizontal: 20,
+  },
+  mainRating: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    marginBottom: 16,
+  },
+  ratingValue: {
+    fontSize: 36,
+    fontWeight: "900",
+    color: "#ffa000",
+    letterSpacing: -1,
+  },
+  ratingMeta: {
+    marginLeft: 8,
+  },
+  outOf: {
+    fontSize: 16,
+    color: "#636e72",
+    fontWeight: '600',
+  },
+  reviewCount: {
+    fontSize: 12,
+    color: "#636e72",
+    marginTop: 2,
+  },
+
+  // Stars Section
+  starsSection: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
   starsContainer: {
-    flexDirection: "row",
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  starWrapper: {
+    marginRight: 4,
+    position: 'relative',
+  },
+  starGradient: {
+    borderRadius: 10,
+    padding: 2,
+  },
+  halfStarOverlay: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    width: '50%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  // Rating Distribution
+  ratingDistribution: {
+    flex: 1,
+    marginLeft: 20,
+  },
+  distributionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 2,
+  },
+  distributionStar: {
+    fontSize: 10,
+    color: '#ffa000',
+    width: 16,
+    marginRight: 8,
+  },
+  distributionBar: {
+    flex: 1,
+    height: 4,
+    backgroundColor: '#f1f3f4',
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  distributionFill: {
+    height: '100%',
+    borderRadius: 2,
+  },
+
+  // Quick Actions
+  quickActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 234, 167, 0.2)',
+    marginTop: 16,
+  },
+  actionButton: {
+    flex: 1,
+    marginHorizontal: 6,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  actionGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+  },
+  actionText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '700',
+    marginLeft: 6,
   },
 });
