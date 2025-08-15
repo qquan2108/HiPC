@@ -12,6 +12,8 @@ import {
   AntDesign,
 } from "@expo/vector-icons";
 import { StripeProvider } from "@stripe/stripe-react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { registerForPushNotificationsAsync } from "../utils/notifications";
 
 export default function RootLayout() {
   useEffect(() => {
@@ -19,6 +21,22 @@ export default function RootLayout() {
     MaterialCommunityIcons.loadFont();
     FontAwesome.loadFont();
     AntDesign.loadFont();
+  }, []);
+
+  useEffect(() => {
+    const setupPush = async () => {
+      try {
+        const stored = await AsyncStorage.getItem('user');
+        const user = stored ? JSON.parse(stored) : null;
+        const userId = user?._id || user?.id;
+        if (userId) {
+          await registerForPushNotificationsAsync(userId);
+        }
+      } catch (e) {
+        console.error('Failed to register push notifications', e);
+      }
+    };
+    setupPush();
   }, []);
 
   return (
