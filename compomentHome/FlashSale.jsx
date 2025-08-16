@@ -876,7 +876,7 @@ const styles = StyleSheet.create({
   buttonText: {
     color: '#FFFFFF',
     fontWeight: '700',
-    fontSize: 10,
+    fontSize: 12,
     marginLeft: 4,
   },
   viewAllCard: {
@@ -1130,7 +1130,7 @@ const styles = StyleSheet.create({
   paymentMethodContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 16,
+    marginBottom: 14,
   },
   paymentMethodButton: {
     flex: 1,

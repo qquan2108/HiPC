@@ -385,7 +385,7 @@ export default function CTSP() {
                 <Feather name="arrow-left" size={24} color="#222" />
               </TouchableOpacity>
               <Text style={styles.headerTitle}>Chi tiết sản phẩm</Text>
-              <Feather name="share-2" size={24} color="#222" />
+              
             </View>
 
             {/* Image & Info */}

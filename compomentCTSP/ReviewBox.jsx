@@ -1,30 +1,47 @@
-import React from 'react';
 import { Feather } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from "expo-router";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { LinearGradient } from 'expo-linear-gradient';
+import Toast from 'react-native-toast-message';
+import axiosInstance from '../utils/AxiosInstance';
 
-export default function ReviewBox({ product = {}}) {
+export default function ReviewBox({ product = {} }) {
   const router = useRouter();
-  
-  const handleViewAllReviews = async () => {
+
+  // Hàm kiểm tra đã mua chưa
+  const checkBought = async () => {
     try {
       const userStr = await AsyncStorage.getItem('user');
       const user = userStr ? JSON.parse(userStr) : null;
-      
-      router.push({
-        pathname: '/danhgia',
-        params: {
-          product_id: product.id,
-          product_name: product.name,
-          product_image: product.image?.uri || product.images?.[0]?.uri || '',
-          user_id: user ? (user._id || user.id) : '',
-          order_id: '',
-        }
+      if (!user) {
+        Toast.show({ type: 'error', text1: 'Vui lòng đăng nhập để đánh giá!' });
+        return false;
+      }
+      const userId = user._id || user.id;
+      const productId = product._id || product.id;
+      console.log('userId:', userId, 'productId:', productId); // Thêm dòng này
+      if (!userId.match(/^[a-f\d]{24}$/i) || !productId.match(/^[a-f\d]{24}$/i)) {
+        Toast.show({ type: 'error', text1: 'Thiếu thông tin người dùng hoặc sản phẩm!' });
+        return false;
+      }
+      const { data } = await axiosInstance.get('/productreviews/check-bought', {
+        params: { user_id: userId, product_id: productId }
       });
-    } catch (error) {
-      console.error('Error getting user info:', error);
+      if (!data.hasBought) {
+        Toast.show({ type: 'error', text1: 'Vui lòng mua sản phẩm để đánh giá!' });
+        return false;
+      }
+      return true;
+    } catch {
+      Toast.show({ type: 'error', text1: 'Vui lòng mua sản phẩm để đánh giá!' });
+      return false;
+    }
+  };
+
+  // Sự kiện cho 2 nút
+  const handleWriteReview = async () => {
+    if (await checkBought()) {
       router.push({
         pathname: '/danhgia',
         params: {
@@ -35,6 +52,13 @@ export default function ReviewBox({ product = {}}) {
           order_id: '',
         }
       });
+    }
+  };
+
+  const handleAddImage = async () => {
+    if (await checkBought()) {
+      // Thực hiện logic thêm ảnh ở đây, hoặc chuyển sang trang thêm ảnh
+      Toast.show({ type: 'info', text1: 'Chức năng thêm ảnh đang phát triển.' });
     }
   };
 
@@ -61,7 +85,7 @@ export default function ReviewBox({ product = {}}) {
           </View>
           <TouchableOpacity 
             style={styles.viewAllButton}
-            onPress={handleViewAllReviews}
+            onPress={handleWriteReview}
             activeOpacity={0.8}
           >
             <LinearGradient
@@ -144,7 +168,7 @@ export default function ReviewBox({ product = {}}) {
 
       {/* Quick Actions */}
       <View style={styles.quickActions}>
-        <TouchableOpacity style={styles.actionButton} activeOpacity={0.8}>
+        <TouchableOpacity style={styles.actionButton} activeOpacity={0.8} onPress={handleWriteReview}>
           <LinearGradient
             colors={['#74b9ff', '#0984e3']}
             style={styles.actionGradient}
@@ -154,7 +178,7 @@ export default function ReviewBox({ product = {}}) {
           </LinearGradient>
         </TouchableOpacity>
         
-        <TouchableOpacity style={styles.actionButton} activeOpacity={0.8}>
+        <TouchableOpacity style={styles.actionButton} activeOpacity={0.8} onPress={handleAddImage}>
           <LinearGradient
             colors={['#fd79a8', '#e84393']}
             style={styles.actionGradient}
