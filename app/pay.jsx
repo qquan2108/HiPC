@@ -18,7 +18,7 @@ import PayProductList from "../compomentPay/PayProductList";
 import PayStatusModal from "../compomentPay/PayStatusModal";
 import PayVoucherModal from "../compomentPay/PayVoucherModal";
 import StripeModal from "../compomentPay/StripeModal";
-import VnPayModal from "../compomentPay/Vnpaymodal";
+
 import axiosInstance from "../utils/AxiosInstance";
 import AddressModal from "./AddressModal";
 
@@ -48,13 +48,7 @@ const paymentMethods = [
     iconLib: "MaterialIcons",
     color: "#34C759"
   },
-  {
-    key: "vnpay",
-    label: "Ví điện tử VNPAY",
-    icon: "account-balance-wallet",
-    iconLib: "MaterialIcons",
-    color: "#007AFF"
-  },
+  
   {
     key: "stripe",
     label: "Thẻ tín dụng/ghi nợ",
@@ -96,8 +90,7 @@ export default function PayScreen() {
   const [shippingFee, setShippingFee] = useState(0);
   const [payStatus, setPayStatus] = useState(null);
   const [isLoadingShipping, setIsLoadingShipping] = useState(false);
-  const [showVnPayModal, setShowVnPayModal] = useState(false);
-  const [vnpayData, setVnpayData] = useState(null);
+ 
   const [orderId, setOrderId] = useState(null);
   const [orderAmount, setOrderAmount] = useState(0);
 
@@ -406,26 +399,23 @@ useEffect(() => {
       const user = JSON.parse(userStr);
       const userId = user.id || user._id;
       const res = await axiosInstance.get(`/cartt/user/${userId}`);
-      const orders = Array.isArray(res.data) ? res.data : [];
-      const pending = orders.find((o) => o.status === "pending") || {
-        products: [],
-      };
-      const items = Array.isArray(pending.products)
-        ? pending.products.map((item) => ({
-            id: item.productId?._id || item.productId,
-            name: item.productId?.name || "Không có tên",
-            price: item.productId?.price ?? 0,
-            image: item.productId?.image
-              ? { uri: item.productId.image }
-              : require("../assets/images/pc1.png"),
-            quantity: item.quantity ?? 1,
-            weight: item.productId?.weight ?? 100,
-            length: item.productId?.length ?? 20,
-            width: item.productId?.width ?? 20,
-            height: item.productId?.height ?? 20,
-          }))
-        : [];
-      setProducts(items);
+      const products = Array.isArray(res.data.products) ? res.data.products : [];
+const items = products.map((item) => ({
+  id: item.productId?._id || item.productId,
+  name: item.productId?.name || "Không có tên",
+  price: item.productId?.price ?? 0,
+  image: item.productId?.image
+    ? { uri: item.productId.image }
+    : require("../assets/images/pc1.png"),
+  quantity: item.quantity ?? 1,
+  weight: item.productId?.weight ?? 100,
+  length: item.productId?.length ?? 20,
+  width: item.productId?.width ?? 20,
+  height: item.productId?.height ?? 20,
+  cartItemId: item._id, // Để truyền lại khi thanh toán
+  variant: item.variant || {},
+}));
+setProducts(items);
     } catch (err) {
       console.error(err);
     }
@@ -602,187 +592,149 @@ useEffect(() => {
     w => String(w.WardCode) === String(selectedAddress?.wardCode)
   )?.WardName || "";
 
-  const handleOrder = async () => {
-    if (!selectedAddress) {
-      Toast.show({
-        type: "error",
-        text1: "Vui lòng chọn địa chỉ giao hàng",
-      });
+ const handleOrder = async () => {
+  if (!selectedAddress) {
+    Toast.show({
+      type: "error",
+      text1: "Vui lòng chọn địa chỉ giao hàng",
+    });
+    return;
+  }
+
+  if (products.length === 0) {
+    Toast.show({
+      type: "error",
+      text1: "Giỏ hàng trống",
+    });
+    return;
+  }
+
+  try {
+    const userStr = await AsyncStorage.getItem("user");
+    if (!userStr) throw new Error("Chưa xác định được user");
+    const user = JSON.parse(userStr);
+    const userId = (user._id || user.id || "").toString();
+    if (!userId || userId === "undefined" || userId === "") {
+      console.log("user object:", user);
+      throw new Error("Không xác định được user_id");
+    }
+
+    const productsData = products.map((p) => ({
+      productId: p.id || p._id,
+      quantity: p.quantity,
+      variant: p.variant || undefined,
+    }));
+
+    const orderData = {
+      user_id: userId,
+      products: productsData,
+      total_price: discountedSubtotal,
+      voucherDiscount: discount,
+      shippingFee,
+      total,
+      address: selectedAddress?.address || "",
+      paymentMethod: selectedPayment,
+      shippingMethod: selectedService?.service_id || null,
+      voucher: selectedVoucher,
+    };
+
+    // If có cartItemId thì truyền selectedProducts (mua từ cart)
+    const selectedCartIds = products.map(p => p.cartItemId).filter(Boolean);
+    if (selectedCartIds.length > 0) {
+      orderData.selectedProducts = selectedCartIds;
+    }
+
+    const res = await axiosInstance.post("/orders/checkout", orderData, {
+      headers: { "Content-Type": "application/json" },
+    });
+
+    // ✅ IMPORTANT: Clean up cart and AsyncStorage immediately after successful order
+    await AsyncStorage.removeItem("cart");
+setProducts([]);
+
+// ✅ Force reload cart từ server để đồng bộ với backend
+try {
+  const userStr = await AsyncStorage.getItem("user");
+  if (userStr) {
+    const user = JSON.parse(userStr);
+    const userId = user.id || user._id;
+    
+    // Gọi API để đảm bảo cart được refresh
+    await axiosInstance.get(`/cartt/user/${userId}`);
+    
+    // Set multiple flags để trigger reload ở tất cả screens
+    await AsyncStorage.setItem("shouldReloadCart", Date.now().toString());
+    await AsyncStorage.setItem("cartUpdated", "1");
+  }
+} catch (err) {
+  console.log("Cart refresh error (non-critical):", err);
+}
+    // Handle different payment methods
+    
+
+    if (selectedPayment === "stripe") {
+      setOrderId(res.data.orderId);
+      setOrderAmount(total);
+      setShowStripe(true);
       return;
     }
 
-    if (products.length === 0) {
-      Toast.show({
-        type: "error",
-        text1: "Giỏ hàng trống",
-      });
-      return;
-    }
-
-    try {
-      const userStr = await AsyncStorage.getItem("user");
-      if (!userStr) throw new Error("Chưa xác định được user");
-      const user = JSON.parse(userStr);
-      const userId = (user._id || user.id || "").toString();
-      if (!userId || userId === "undefined" || userId === "") {
-        console.log("user object:", user);
-        throw new Error("Không xác định được user_id");
-      }
-
-      const productsData = products.map((p) => ({
-        productId: p.id || p._id,
-        quantity: p.quantity,
-      }));
-
-      // Lấy danh sách _id của sản phẩm trong cart nếu có (nếu bạn lưu _id của item trong cart)
-      // Nếu không có _id, bạn có thể truyền danh sách productId và quantity như hiện tại.
-      // Ở đây giả sử bạn không có _id của item trong cart, nên truyền danh sách productId.
-      // Nếu có _id, hãy truyền selectedProducts là mảng các _id của item trong cart.
-
-      const orderData = {
-        user_id: userId,
-        products: productsData,
-        total_price: discountedSubtotal,           // tổng tiền hàng
-        voucherDiscount: discount,       // số tiền giảm giá
-        shippingFee,                     // phí ship
-        total,                           // tổng cuối cùng
-        address: selectedAddress?.address || "",
-        paymentMethod: selectedPayment,
-        shippingMethod: selectedService?.service_id || null,
-        voucher: selectedVoucher,
-        selectedProducts: products.map(p => p.cartItemId).filter(Boolean),
-      };
-
-      const res = await axiosInstance.post("/orders/checkout", orderData, {
-        headers: { "Content-Type": "application/json" },
-      });
-
-      // Chỉ xóa giỏ hàng khi thanh toán thành công!
-      await AsyncStorage.removeItem("cart");
-      setProducts([]);
-
-      if (selectedPayment === "vnpay") {
-        setVnpayData({
-          orderId: res.data.orderId,
-          amount: total,
-          orderInfo: `Thanh toán đơn hàng ${res.data.orderId}`,
-        });
-        setShowVnPayModal(true);
-        return;
-      }
-
-      if (selectedPayment === "stripe") {
-        setOrderId(res.data.orderId);
-        setOrderAmount(total);
-        setShowStripe(true);
-        return;
-      }
-      if (selectedPayment === "sepay") {
-        router.push({
-          pathname: "/VietQRScreen",
-          params: {
-            acc: VIETQR_ACCOUNT,
-            bank: VIETQR_BANK,
-            amount: total.toString(),
-            des: `${res.data.orderId}`,
-            orderId: res.data.orderId,
-            total,
-            products: JSON.stringify(products),
-            address: selectedAddress?.address || addressText,
-            paymentMethod: selectedPayment,
-          },
-        });
-        return;
-      }
-
-      Toast.show({
-        type: "success",
-        text1: "Đặt hàng thành công!",
-        text2: "Cảm ơn bạn.",
-      });
-      setPayStatus("success");
+    if (selectedPayment === "sepay") {
       router.push({
-        pathname: "/CheckoutSuccess",
+        pathname: "/VietQRScreen",
         params: {
+          acc: VIETQR_ACCOUNT,
+          bank: VIETQR_BANK,
+          amount: total.toString(),
+          des: `${res.data.orderId}`,
           orderId: res.data.orderId,
           total,
           products: JSON.stringify(products),
-          address: selectedAddress?.address || addressText,
+          address: selectedAddress?.address || "",
           paymentMethod: selectedPayment,
         },
       });
-    } catch (err) {
-      // Thêm log chi tiết lỗi
-      console.error("Checkout error:", err);
-      if (err.response) {
-        console.error("Checkout error response:", err.response.data);
-        console.error("Checkout error status:", err.response.status);
-        Toast.show({
-          type: "error",
-          text1: "Đặt hàng thất bại!",
-          text2: err.response.data?.error || err.message || "Vui lòng thử lại.",
-        });
-      } else {
-        Toast.show({
-          type: "error",
-          text1: "Đặt hàng thất bại!",
-          text2: err.message || "Vui lòng thử lại.",
-        });
-      }
-      setPayStatus("fail");
-    }
-  };
-  useEffect(() => {
-    console.log('▶ showAddressModal changed:', showAddressModal);
-  }, [showAddressModal]);
-
-  const handleVnPayClose = async (result) => {
-    setShowVnPayModal(false);
-
-    if (!vnpayData?.orderId) {
-      Toast.show({
-        type: "error",
-        text1: result?.message || "Thanh toán thất bại",
-      });
-      setPayStatus("fail");
       return;
     }
 
-    try {
-      const verifyRes = await axiosInstance.post("/vnpay/verify_payment", {
-        orderId: vnpayData.orderId,
-        code: result?.code,
-      });
+    // COD payment - immediate success
+    Toast.show({
+      type: "success",
+      text1: "Đặt hàng thành công!",
+      text2: "Cảm ơn bạn.",
+    });
+    setPayStatus("success");
+    router.push({
+      pathname: "/CheckoutSuccess",
+      params: {
+        orderId: res.data.orderId,
+        total,
+        products: JSON.stringify(products),
+        address: selectedAddress?.address || "",
+        paymentMethod: selectedPayment,
+      },
+    });
 
-      if (verifyRes.data?.success) {
-        Toast.show({ type: "success", text1: "Đặt hàng thành công!" });
-        setPayStatus("success");
-        router.push({
-          pathname: "/CheckoutSuccess",
-          params: {
-            orderId: vnpayData.orderId,
-            total,
-            products: JSON.stringify(products),
-            address: selectedAddress?.address || addressText,
-            paymentMethod: selectedPayment,
-          },
-        });
-      } else {
-        Toast.show({
-          type: "error",
-          text1: verifyRes.data?.message || "Thanh toán thất bại",
-        });
-        setPayStatus("fail");
-      }
-    } catch (err) {
-      console.error(err);
+  } catch (err) {
+    console.error("Checkout error:", err);
+    if (err.response) {
+      console.error("Checkout error response:", err.response.data);
+      console.error("Checkout error status:", err.response.status);
       Toast.show({
         type: "error",
-        text1: result?.message || "Thanh toán thất bại",
+        text1: "Đặt hàng thất bại!",
+        text2: err.response.data?.error || err.message || "Vui lòng thử lại.",
       });
-      setPayStatus("fail");
+    } else {
+      Toast.show({
+        type: "error",
+        text1: "Đặt hàng thất bại!",
+        text2: err.message || "Vui lòng thử lại.",
+      });
     }
-  };
+    setPayStatus("fail");
+  }
+};
 
   const renderIcon = (iconName, iconLib, color, size = 24) => {
     switch (iconLib) {
@@ -1075,13 +1027,7 @@ useEffect(() => {
         onSelectCard={setSelectedCard}
       />
 
-      <VnPayModal
-        visible={showVnPayModal}
-        orderId={vnpayData?.orderId}
-        amount={vnpayData?.amount}
-        orderInfo={vnpayData?.orderInfo}
-        onClose={handleVnPayClose}
-      />
+      
 
       <StripeModal
         visible={showStripe}

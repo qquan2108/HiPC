@@ -8,7 +8,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View
 } from "react-native";
@@ -68,6 +67,35 @@ export default function CartScreen() {
       }
     });
   }, []);
+
+  // ✅ Thêm useEffect để listen cart changes
+useEffect(() => {
+  const checkCartUpdate = async () => {
+    try {
+      const shouldReload = await AsyncStorage.getItem("shouldReloadCart");
+      const cartUpdated = await AsyncStorage.getItem("cartUpdated");
+      
+      if (shouldReload || cartUpdated) {
+        console.log("🔄 Detected cart update, refreshing...");
+        if (userId) {
+          await fetchCart();
+        }
+        // Clear flags
+        await AsyncStorage.removeItem("shouldReloadCart");
+        await AsyncStorage.removeItem("cartUpdated");
+      }
+    } catch (err) {
+      console.log("Cart update check error:", err);
+    }
+  };
+
+  checkCartUpdate();
+  
+  // Check mỗi 2 giây nếu có update
+  const interval = setInterval(checkCartUpdate, 2000);
+  
+  return () => clearInterval(interval);
+}, [userId, fetchCart]);
 
   // Kiểm tra đăng nhập
   useEffect(() => {
@@ -258,7 +286,9 @@ export default function CartScreen() {
   // Reload on focus
   useFocusEffect(
     useCallback(() => {
-      if (userId) fetchCart();
+      if (userId) {
+        fetchCart();
+      }
     }, [fetchCart, userId])
   );
 
