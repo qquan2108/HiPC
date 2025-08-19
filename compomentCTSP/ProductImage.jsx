@@ -1,16 +1,27 @@
-import React, { useState } from "react";
-import { Image, StyleSheet, View, ScrollView, TouchableOpacity, Dimensions, Text } from "react-native";
+import React, { useState, useRef } from "react";
+import { Image, StyleSheet, View, ScrollView, TouchableOpacity, Dimensions, Text, Animated } from "react-native";
 import { LinearGradient } from 'expo-linear-gradient';
 
 const { width } = Dimensions.get('window');
 
 export default function ProductImage({ images }) {
   const [currentIndex, setCurrentIndex] = useState(0);
-  console.log("ProductImage nhận images:", images);
+  const slideAnim = useRef(new Animated.Value(0)).current;
 
   const imageData = images && images.length > 0 
     ? images 
     : [require("../assets/images/pc1.png")];
+
+  // Slide animation when change image
+  const handleThumbnailPress = (index) => {
+    Animated.timing(slideAnim, {
+      toValue: index,
+      duration: 250,
+      useNativeDriver: true,
+    }).start(() => {
+      setCurrentIndex(index);
+    });
+  };
 
   return (
     <View style={styles.container}>
@@ -20,11 +31,30 @@ export default function ProductImage({ images }) {
           colors={['#f8f9ff', '#ffffff', '#f8f9ff']}
           style={styles.gradientBackground}
         >
-          <Image
-            source={imageData[currentIndex]}
-            style={styles.mainImage}
-            resizeMode="contain"
-          />
+          <View style={{ width: '100%', height: '100%', overflow: 'hidden' }}>
+            <Animated.View
+              style={{
+                flexDirection: 'row',
+                width: width * imageData.length,
+                transform: [{
+                  translateX: slideAnim.interpolate({
+                    inputRange: [0, imageData.length - 1],
+                    outputRange: [0, -width * (imageData.length - 1)],
+                  })
+                }]
+              }}
+            >
+              {imageData.map((img, idx) => (
+                <View key={idx} style={{ width, alignItems: 'center', justifyContent: 'center' }}>
+                  <Image
+                    source={img}
+                    style={styles.mainImage}
+                    resizeMode="contain"
+                  />
+                </View>
+              ))}
+            </Animated.View>
+          </View>
           
           {/* Premium Badge */}
           <View style={styles.premiumBadge}>
@@ -64,7 +94,7 @@ export default function ProductImage({ images }) {
                 styles.thumbnail,
                 currentIndex === index && styles.activeThumbnail
               ]}
-              onPress={() => setCurrentIndex(index)}
+              onPress={() => handleThumbnailPress(index)}
               activeOpacity={0.8}
             >
               <Image

@@ -245,7 +245,7 @@ export default function PaymentRetryScreen() {
             <View style={styles.priceContainer}>
               <Text style={styles.currencySymbol}>₫</Text>
               <Text style={styles.priceValue}>
-                {item.total?.toLocaleString("vi-VN")}
+                {getFinalTotal(item).toLocaleString("vi-VN")}
               </Text>
             </View>
           </View>
@@ -314,6 +314,15 @@ export default function PaymentRetryScreen() {
       </View>
     </View>
   );
+
+  const getFinalTotal = (order) => {
+  // Ưu tiên dùng total hoặc amount từ backend
+  if (typeof order.total === "number") return order.total;
+  if (typeof order.amount === "number") return order.amount;
+
+  // Nếu không có, fallback tự tính lại (ít dùng)
+  return 0;
+}
 
   if (loading) {
     return (

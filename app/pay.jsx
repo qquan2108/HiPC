@@ -99,16 +99,38 @@ export default function PayScreen() {
 
   // Calculations
   const subtotal = products.reduce((sum, p) => sum + p.price * p.quantity, 0);
+  const totalBeforeDiscount = subtotal + shippingFee;
   const discount = selectedVoucher
     ? selectedVoucher.discount_value != null
       ? selectedVoucher.discount_value > 0 &&
         selectedVoucher.discount_value < 100
-        ? Math.round((subtotal * selectedVoucher.discount_value) / 100)
-        : selectedVoucher.discount_value
-      : 0
+        ? Math.round((totalBeforeDiscount * selectedVoucher.discount_value) / 100)
+        : Math.min(selectedVoucher.discount_value, totalBeforeDiscount)
+    : 0
     : 0;
-  const discountedSubtotal = Math.max(0, subtotal - discount);
-  const total = discountedSubtotal + shippingFee;
+
+  const [selectedOrderVoucher, setSelectedOrderVoucher] = useState(null);
+  const [selectedShippingVoucher, setSelectedShippingVoucher] = useState(null);
+
+  // Tính discount cho đơn hàng
+  const orderDiscount = selectedOrderVoucher
+    ? selectedOrderVoucher.discount_type === 'percentage'
+      ? Math.round((subtotal * selectedOrderVoucher.discount_value) / 100)
+      : Math.min(selectedOrderVoucher.discount_value, subtotal)
+    : 0;
+
+  // Tính discount cho phí vận chuyển
+  const shippingDiscount = selectedShippingVoucher
+    ? selectedShippingVoucher.discount_type === 'percentage'
+      ? Math.round((shippingFee * selectedShippingVoucher.discount_value) / 100)
+      : Math.min(selectedShippingVoucher.discount_value, shippingFee)
+    : 0;
+
+  // Tổng phí vận chuyển sau giảm
+  const finalShippingFee = Math.max(0, shippingFee - shippingDiscount);
+
+  // Tổng cuối cùng
+  const total = Math.max(0, subtotal - orderDiscount + finalShippingFee);
 
   const totalWeight = products.reduce(
     (sum, p) => sum + (p.weight || 100) * p.quantity,
@@ -628,17 +650,17 @@ useEffect(() => {
     const orderData = {
       user_id: userId,
       products: productsData,
-      total_price: discountedSubtotal,
-      voucherDiscount: discount,
+      total_price: totalBeforeDiscount,
       shippingFee,
       total,
       address: selectedAddress?.address || "",
       paymentMethod: selectedPayment,
       shippingMethod: selectedService?.service_id || null,
-      voucher: selectedVoucher,
+      selectedOrderVoucher,      // gửi đúng trường cho voucher đơn hàng
+  selectedShippingVoucher,   // gửi đúng trường cho voucher phí vận chuyển
     };
 
-    // If có cartItemId thì truyền selectedProducts (mua từ cart)
+    // Nếu có cartItemId thì truyền selectedProducts (mua từ cart)
     const selectedCartIds = products.map(p => p.cartItemId).filter(Boolean);
     if (selectedCartIds.length > 0) {
       orderData.selectedProducts = selectedCartIds;
@@ -868,29 +890,56 @@ try {
           </View>
         )}
 
-        {/* Voucher Section */}
+        {/* Voucher Section - Đơn hàng */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <View style={styles.sectionTitleContainer}>
               <Ionicons name="ticket" size={20} color="#FF3B30" />
-              <Text style={styles.sectionTitle}>Mã giảm giá</Text>
+              <Text style={styles.sectionTitle}>Mã giảm giá đơn hàng</Text>
             </View>
           </View>
-
           <TouchableOpacity
             style={styles.voucherCard}
-            onPress={() => setShowVoucher(true)}
+            onPress={() => setShowVoucher('order')}
           >
             <View style={styles.voucherIcon}>
               <Ionicons name="pricetag" size={16} color="#FF3B30" />
             </View>
             <View style={styles.voucherInfo}>
               <Text style={styles.voucherText}>
-                {selectedVoucher
-                  ? selectedVoucher.discount_value < 100
-                    ? `Giảm ${selectedVoucher.discount_value}%`
-                    : `Giảm ${selectedVoucher.discount_value.toLocaleString("vi-VN")} ₫`
-                  : "Chọn mã giảm giá"}
+                {selectedOrderVoucher
+                  ? selectedOrderVoucher.discount_type === 'percentage'
+                    ? `Giảm ${selectedOrderVoucher.discount_value}%`
+                    : `Giảm ${selectedOrderVoucher.discount_value.toLocaleString("vi-VN")} ₫`
+                  : "Chọn mã giảm giá đơn hàng"}
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="#C7C7CC" />
+          </TouchableOpacity>
+        </View>
+
+        {/* Voucher Section - Phí vận chuyển */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <View style={styles.sectionTitleContainer}>
+              <Ionicons name="ticket" size={20} color="#34C759" />
+              <Text style={styles.sectionTitle}>Mã giảm giá phí vận chuyển</Text>
+            </View>
+          </View>
+          <TouchableOpacity
+            style={styles.voucherCard}
+            onPress={() => setShowVoucher('shipping')}
+          >
+            <View style={styles.voucherIcon}>
+              <Ionicons name="pricetag" size={16} color="#34C759" />
+            </View>
+            <View style={styles.voucherInfo}>
+              <Text style={styles.voucherText}>
+                {selectedShippingVoucher
+                  ? selectedShippingVoucher.discount_type === 'percentage'
+                    ? `Giảm ${selectedShippingVoucher.discount_value}%`
+                    : `Giảm ${selectedShippingVoucher.discount_value.toLocaleString("vi-VN")} ₫`
+                  : "Chọn mã giảm giá phí vận chuyển"}
               </Text>
             </View>
             <Ionicons name="chevron-forward" size={20} color="#C7C7CC" />
@@ -1061,16 +1110,19 @@ try {
       />
 
       <PayVoucherModal
-        visible={showVoucher}
-        selectedVoucher={selectedVoucher}
-        setSelectedVoucher={(voucher) => {
-          setSelectedVoucher(voucher);
+        visible={!!showVoucher}
+        selectedVoucher={showVoucher === 'order' ? selectedOrderVoucher : selectedShippingVoucher}
+        setSelectedVoucher={voucher => {
+          if (showVoucher === 'order') setSelectedOrderVoucher(voucher);
+          else setSelectedShippingVoucher(voucher);
           setShowVoucher(false);
         }}
         setShowVoucher={setShowVoucher}
-        orderAmount={subtotal}
-        onVoucherApplied={(voucher) => {
-          setSelectedVoucher(voucher);
+        orderAmount={showVoucher === 'order' ? subtotal : shippingFee}
+        voucherType={showVoucher} // truyền loại để modal lọc voucher phù hợp
+        onVoucherApplied={voucher => {
+          if (showVoucher === 'order') setSelectedOrderVoucher(voucher);
+          else setSelectedShippingVoucher(voucher);
           setShowVoucher(false);
         }}
       />

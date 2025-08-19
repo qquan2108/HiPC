@@ -31,6 +31,7 @@ export default function NewProducts({
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [selectedOption, setSelectedOption] = useState(null);
   const [quantity, setQuantity] = useState(1);
+  const [variantSelections, setVariantSelections] = useState({});
 
   // Enhanced default badge components
   const defaultNewBadge = () => (
@@ -70,13 +71,20 @@ export default function NewProducts({
   );
 
   const handleAddToCart = async (product) => {
-    if (product.variants && product.variants.length > 0) {
-      setSelectedProduct(product);
-      setSelectedOption(null);
-      setQuantity(1);
-      setShowOptionDialog(true);
-      return;
-    }
+  if (product.variants && product.variants.length > 0) {
+    setSelectedProduct(product);
+    // Khởi tạo lựa chọn mặc định cho từng nhóm
+    const defaults = {};
+    product.variants.forEach(group => {
+      if (group.options && group.options.length > 0) {
+        defaults[group.key] = group.options[0];
+      }
+    });
+    setVariantSelections(defaults);
+    setQuantity(1);
+    setShowOptionDialog(true);
+    return;
+  }
 
     if (!isLoggedIn) return onRequireLogin();
     try {
@@ -99,9 +107,34 @@ export default function NewProducts({
     }
   };
   const handleConfirmOption = async () => {
-    if (!selectedOption) {
-      Toast.show({ type: 'info', text1: 'Vui lòng chọn phiên bản/cấu hình!' });
-      return;
+    // Kiểm tra đã chọn đủ biến thể
+    const groups = selectedProduct.variants || [];
+    for (const group of groups) {
+      if (!variantSelections[group.key]) {
+        Toast.show({ type: 'info', text1: `Vui lòng chọn ${group.key}!` });
+        return;
+      }
+    }
+
+    let variantPayload;
+    if (groups.length === 1) {
+      const group = groups[0];
+      const selected = variantSelections[group.key];
+      variantPayload = {
+        key: group.key,
+        label: selected.label,
+        priceDiff: selected.priceDiff || 0
+      };
+    } else {
+      const keys = Object.keys(variantSelections);
+      const labels = keys.map(k => variantSelections[k]?.label).filter(Boolean);
+      const priceDiffSum = keys.reduce((sum, k) => sum + (variantSelections[k]?.priceDiff || 0), 0);
+
+      variantPayload = {
+        key: keys.join(' + '),
+        label: labels.join(' + '),
+        priceDiff: priceDiffSum
+      };
     }
 
     if (!isLoggedIn) return onRequireLogin();
@@ -118,11 +151,7 @@ export default function NewProducts({
         user_id: userId,
         productId: selectedProduct.id || selectedProduct._id,
         quantity,
-        variant: {
-          key: selectedOption.key || selectedOption.value || selectedOption.label,
-          label: selectedOption.label || selectedOption.value || selectedOption.key,
-          priceDiff: selectedOption.priceDiff || 0
-        }
+        variant: variantPayload
       });
       setShowOptionDialog(false);
       Toast.show({ type: 'success', text1: 'Đã thêm vào giỏ hàng!', position: 'bottom' });
@@ -383,6 +412,48 @@ export default function NewProducts({
                     </TouchableOpacity>
                   ))}
                 </ScrollView>
+
+                {selectedProduct?.variants?.map(group => (
+                  <View key={group.key} style={{ marginBottom: 12 }}>
+                    <Text style={styles.sectionLabel}>Chọn {group.key}:</Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.optionsContainer}>
+                      {group.options.map((option, idx) => (
+                        <TouchableOpacity
+                          key={idx}
+                          onPress={() => setVariantSelections(prev => ({
+                            ...prev,
+                            [group.key]: option
+                          }))}
+                          style={[
+                            styles.optionButton,
+                            variantSelections[group.key] === option && styles.optionButtonSelected
+                          ]}
+                          activeOpacity={0.8}
+                        >
+                          <Text style={[
+                            styles.optionText,
+                            variantSelections[group.key] === option && styles.optionTextSelected
+                          ]}>
+                            {option.label || option}
+                          </Text>
+                          {option.priceDiff ? (
+                            <Text style={[
+                              styles.priceDiffText,
+                              variantSelections[group.key] === option && styles.priceDiffTextSelected
+                            ]}>
+                              +{option.priceDiff.toLocaleString('vi-VN')}₫
+                            </Text>
+                          ) : null}
+                          {variantSelections[group.key] === option && (
+                            <View style={styles.selectedIndicator}>
+                              <Ionicons name="checkmark" size={16} color="#fff" />
+                            </View>
+                          )}
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  </View>
+                ))}
 
                 <Text style={styles.sectionLabel}>Số lượng:</Text>
                 <View style={styles.quantityContainer}>

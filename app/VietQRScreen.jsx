@@ -1,24 +1,27 @@
-import React, { useEffect, useState } from 'react';
-import { 
-  View, 
-  Text, 
-  Image, 
-  StyleSheet, 
-  Alert, 
-  ScrollView, 
-  Animated,
-  TouchableOpacity,
-  Dimensions,
-  StatusBar
-} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import * as Clipboard from 'expo-clipboard';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
+import {
+  Alert,
+  Animated,
+  Dimensions,
+  Image,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
+} from 'react-native';
+import Toast from "react-native-toast-message";
 import { io } from 'socket.io-client';
 import axiosInstance from '../utils/AxiosInstance';
-import Toast from "react-native-toast-message";
-import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
 
 const { width, height } = Dimensions.get('window');
+
+const socket = io(axiosInstance.defaults.baseURL);
 
 export default function VietQRScreen() {
   const router = useRouter();
@@ -86,38 +89,23 @@ export default function VietQRScreen() {
   }, []);
 
   useEffect(() => {
-    const socket = io(axiosInstance.defaults.baseURL);
-    
-    socket.on('connect', () => console.log('🔌 Socket connected (client)', socket.id));
-    socket.on('connect_error', (err) => console.error('❌ Connection error:', err.message));
-    socket.on('disconnect', (reason) => console.log('⚡️ Socket disconnected:', reason));
-    
-    socket.on('payment_success', payload => {
-      console.log('📲 [Client] payment_success payload:', payload, 'orderId:', orderId);
-      if (String(payload.orderId || payload.id) === String(payload.id)) {
-        Toast.show({
-          type: 'success',
-          text1: 'Đặt hàng thành công!',
-          text2: 'Cảm ơn bạn đã mua hàng.',
-        });
-        
-        setTimeout(() => {
-          router.push({
-            pathname: '/CheckoutSuccess',
-            params: {
-              orderId,
-              total,
-              products: JSON.stringify(products),
-              address,
-              paymentMethod,
-            },
-          });
-        }, 2000);
-      }
+    socket.on('payment_success', (data) => {
+      // Kiểm tra orderId nếu cần
+      Toast.show({
+        type: 'success',
+        text1: 'Thanh toán thành công!',
+        text2: `Đơn hàng ${data.orderId} đã được xác nhận.`,
+      });
+      // Chuyển trang sau khi toast
+      setTimeout(() => {
+        router.replace('/CheckoutSuccess');
+      }, 1500);
     });
 
-    return () => socket.disconnect();
-  }, [orderId]);
+    return () => {
+      socket.off('payment_success');
+    };
+  }, []);
 
   if (!acc || !bank) {
     return (
@@ -151,6 +139,24 @@ export default function VietQRScreen() {
       style: 'currency',
       currency: 'VND'
     }).format(amount);
+  };
+
+  // Thêm hàm lấy tên ngân hàng từ mã
+  const BANK_NAMES = {
+    'VCB': 'Vietcombank',
+    'MBBank': 'MBBANK',
+    'TCB': 'Techcombank',
+    // Thêm các mã khác nếu cần
+  };
+  const getBankName = (code) => BANK_NAMES[code] || code;
+
+  const handleCopy = async (text, label = '') => {
+    await Clipboard.setStringAsync(text);
+    Toast.show({
+      type: 'success',
+      text1: 'Đã sao chép',
+      text2: label ? `${label} đã được sao chép` : 'Đã sao chép vào clipboard',
+    });
   };
 
   return (
@@ -224,7 +230,12 @@ export default function VietQRScreen() {
                       <Ionicons name="business-outline" size={20} color="#666" />
                       <Text style={styles.infoLabel}>Ngân hàng</Text>
                     </View>
-                    <Text style={styles.infoValue}>{bank}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, justifyContent: 'flex-end' }}>
+                      <Text style={styles.infoValue}>{getBankName(bank)}</Text>
+                      <TouchableOpacity onPress={() => handleCopy(bank, 'Mã ngân hàng')}>
+                        <Ionicons name="copy-outline" size={18} color="#4A90E2" style={{ marginLeft: 8 }} />
+                      </TouchableOpacity>
+                    </View>
                   </View>
 
                   <View style={styles.infoRow}>
@@ -232,7 +243,12 @@ export default function VietQRScreen() {
                       <Ionicons name="person-outline" size={20} color="#666" />
                       <Text style={styles.infoLabel}>Tài khoản</Text>
                     </View>
-                    <Text style={styles.infoValue}>{acc}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, justifyContent: 'flex-end' }}>
+                      <Text style={styles.infoValue}>{acc}</Text>
+                      <TouchableOpacity onPress={() => handleCopy(acc, 'Số tài khoản')}>
+                        <Ionicons name="copy-outline" size={18} color="#4A90E2" style={{ marginLeft: 8 }} />
+                      </TouchableOpacity>
+                    </View>
                   </View>
 
                   {des && (
@@ -241,9 +257,14 @@ export default function VietQRScreen() {
                         <Ionicons name="document-text-outline" size={20} color="#666" />
                         <Text style={styles.infoLabel}>Nội dung</Text>
                       </View>
-                      <Text style={styles.infoValue}>
-                        {decodeURIComponent(des)}
-                      </Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, justifyContent: 'flex-end' }}>
+                        <Text style={styles.infoValue}>
+                          {decodeURIComponent(des)}
+                        </Text>
+                        <TouchableOpacity onPress={() => handleCopy(decodeURIComponent(des), 'Nội dung chuyển khoản')}>
+                          <Ionicons name="copy-outline" size={18} color="#4A90E2" style={{ marginLeft: 8 }} />
+                        </TouchableOpacity>
+                      </View>
                     </View>
                   )}
                 </View>
