@@ -48,24 +48,6 @@ export default function ProductPriceRow({
           </View>
         )}
       </View>
-
-      <TouchableOpacity
-        style={styles.likeButton}
-        onPress={onLike}
-        activeOpacity={0.8}
-      >
-        <LinearGradient
-          colors={liked ? ['#ff6b6b', '#ee5a24'] : ['#f1f3f4', '#e8eaed']}
-          style={styles.likeButtonGradient}
-        >
-          <Feather 
-            name="heart" 
-            size={20} 
-            color={liked ? '#ffffff' : '#5f6368'} 
-            style={liked ? styles.likedIcon : null}
-          />
-        </LinearGradient>
-      </TouchableOpacity>
     </LinearGradient>
   );
 }

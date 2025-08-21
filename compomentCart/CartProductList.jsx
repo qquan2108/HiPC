@@ -112,17 +112,24 @@ export default function CartProductList({
               >
                 {item.name}
               </Text>
-              {/* 🟠 Số lượng sản phẩm trong combo */}
-              {item.type === 'combo' && item.productCount && (
-                <Text style={styles.productCountText}>
-                  {item.productCount} sản phẩm trong combo
-                </Text>
+              {/* Hiển thị mỗi biến thể một dòng, chỉ hiện giá trị đã chọn */}
+              {item.variant && typeof item.variant === 'object' && Object.keys(item.variant).length > 0 && (
+                <View style={{ marginBottom: 2 }}>
+                  {Object.entries(item.variant)
+                    .filter(([_, v]) =>
+                      (typeof v === 'object' && v !== null && v.label) ||
+                      (typeof v === 'string' && v)
+                    )
+                    .map(([_, v], idx) => (
+                      <Text style={styles.variantInfo} key={idx}>
+                        {typeof v === 'object' && v !== null && v.label ? v.label : v}
+                      </Text>
+                    ))}
+                </View>
               )}
-              {item.variant && (
-            <Text style={styles.variantText} numberOfLines={1}>
-              Phiên bản: {item.variant.label}
-            </Text>
-          )}
+              {item.variant && typeof item.variant === 'string' && (
+                <Text style={styles.variantInfo}>{item.variant}</Text>
+              )}
               {/* Price section với styling giống Shopee/Tiki */}
               <View style={styles.priceSection}>
                 <Text style={styles.currentPrice}>
@@ -271,6 +278,13 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     marginBottom: 4,
   },
+  variantInfo: {
+    color: "#e53935",
+    fontSize: 13,
+    fontStyle: "italic",
+    marginTop: 2,
+    marginBottom: 2,
+  },
   priceSection: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -350,12 +364,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: 8,
-  },
-  variantText: {
-    fontSize: 12,
-    color: 'red',
-    marginBottom: 4,
-    fontStyle: 'italic',
   },
   comboBadge: {
     position: 'absolute',

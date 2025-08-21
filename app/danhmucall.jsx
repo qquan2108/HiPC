@@ -1,3 +1,4 @@
+import { Feather } from '@expo/vector-icons'; // Thêm dòng này ở đầu file nếu chưa có
 import MultiSlider from '@ptomasroos/react-native-multi-slider';
 import Constants from 'expo-constants';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -507,7 +508,6 @@ export default function DanhMucAll(props) {
   // Enhanced product rendering with better error handling
   const renderItem = ({ item }) => {
     if (!item) return null;
-      console.log('🖼️ item.image:', item.image);
     return (
       <TouchableOpacity
         style={styles.card}
@@ -515,8 +515,8 @@ export default function DanhMucAll(props) {
         activeOpacity={0.9}
       >
         <View style={styles.cardHeader}>
-          <TouchableOpacity style={styles.favoriteBtn}>
-            <Text style={styles.favoriteIcon}>♡</Text>
+          <TouchableOpacity style={styles.heartCircle}>
+            <Feather name="heart" size={20} color="#ee4d2d" />
           </TouchableOpacity>
         </View>
 
@@ -787,17 +787,13 @@ const styles = StyleSheet.create({
     right: 8,
     zIndex: 1
   },
-  favoriteBtn: {
+  heartCircle: {
     width: 32,
     height: 32,
     borderRadius: 16,
     backgroundColor: 'rgba(255,255,255,0.9)',
     justifyContent: 'center',
     alignItems: 'center'
-  },
-  favoriteIcon: {
-    fontSize: 16,
-    color: '#ee4d2d'
   },
   imageContainer: {
     height: width * 0.4,

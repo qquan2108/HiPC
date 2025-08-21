@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, SafeAreaView, ActivityIndicator } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Image, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import axiosInstance from '../utils/AxiosInstance';
 
 function formatCurrency(num) {
@@ -424,9 +424,13 @@ export default function SoSanhSanPham() {
             {compareProducts.map((product, index) => (
               <View key={product.id || index} style={styles.specValueCol}>
                 <View style={styles.priceContainer}>
-                  <Text style={styles.currentPrice}>{formatCurrency(product.price)}</Text>
+                  <Text style={styles.currentPrice} numberOfLines={1} ellipsizeMode="tail">
+                    {formatCurrency(product.price)}
+                  </Text>
                   {product.oldPrice && product.oldPrice !== product.price && (
-                    <Text style={styles.oldPrice}>{formatCurrency(product.oldPrice)}</Text>
+                    <Text style={styles.oldPrice} numberOfLines={1} ellipsizeMode="tail">
+                      {formatCurrency(product.oldPrice)}
+                    </Text>
                   )}
                 </View>
               </View>
@@ -502,14 +506,6 @@ export default function SoSanhSanPham() {
         {/* Padding bottom */}
         <View style={{ height: 40 }} />
       </ScrollView>
-
-      {/* Floating Action Button */}
-      <TouchableOpacity 
-        style={styles.fab}
-        onPress={() => router.back()}
-      >
-        <Feather name="plus" size={24} color="#fff" />
-      </TouchableOpacity>
     </SafeAreaView>
   );
 }
@@ -587,7 +583,9 @@ const styles = StyleSheet.create({
   },
   
   labelColumn: {
-    flex: 1.2,
+    flex: 1.5, // tăng flex để rộng hơn
+    minWidth: 110, // thêm minWidth
+    maxWidth: 140, // thêm maxWidth nếu muốn
     paddingHorizontal: 12,
     justifyContent: 'center',
   },
@@ -653,14 +651,17 @@ const styles = StyleSheet.create({
   },
   
   specLabelCol: {
-    flex: 1.2,
+    flex: 1.5, // tăng flex để rộng hơn
+    minWidth: 110,
+    maxWidth: 140,
     paddingHorizontal: 12,
     paddingVertical: 12,
     justifyContent: 'center',
+    alignItems: 'flex-start', // căn trái cho label
   },
   
   specLabel: {
-    fontSize: 14,
+    fontSize: 13, // giảm font nếu cần
     fontWeight: 'bold',
     color: '#333',
     letterSpacing: 0.2,
@@ -668,10 +669,12 @@ const styles = StyleSheet.create({
   
   specValueCol: {
     flex: 1,
-    paddingHorizontal: 8,
+    paddingHorizontal: 4, // giảm padding để không bị tràn
     paddingVertical: 12,
     justifyContent: 'center',
     alignItems: 'center',
+    minWidth: 90, // đảm bảo đủ rộng cho giá
+    maxWidth: 110,
   },
   
   specValue: {
@@ -699,19 +702,27 @@ const styles = StyleSheet.create({
   
   priceContainer: {
     alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'column',
+    width: 90, // tăng chiều rộng cho giá, có thể điều chỉnh
+    minHeight: 36,
   },
   
   currentPrice: {
-    fontSize: 16,
+    fontSize: 15, // giảm font nếu cần
     fontWeight: 'bold',
     color: '#e53935',
-    marginBottom: 4,
+    marginBottom: 2,
+    textAlign: 'center',
+    maxWidth: 90,
   },
   
   oldPrice: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#aaa',
     textDecorationLine: 'line-through',
+    textAlign: 'center',
+    maxWidth: 90,
   },
   
   ratingContainer: {
