@@ -136,7 +136,7 @@ export default function Header({
   };
 
   return (
-    <View style={[styles.headerContainer, { paddingTop: insets.top }]}>
+    <View style={[styles.headerContainer, { paddingTop: 0 }]}>
       <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
       
       {/* Background Gradient */}

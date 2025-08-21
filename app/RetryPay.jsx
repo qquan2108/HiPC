@@ -40,6 +40,7 @@ export default function PaymentRetryScreen() {
   const [orderId, setOrderId] = useState(null);
   const [orderAmount, setOrderAmount] = useState(0);
   const router = useRouter();
+  const shippingDiscount = 0;
 
   const fetchUnpaidOrders = async () => {
     try {
@@ -315,14 +316,31 @@ export default function PaymentRetryScreen() {
     </View>
   );
 
-  const getFinalTotal = (order) => {
-  // Ưu tiên dùng total hoặc amount từ backend
-  if (typeof order.total === "number") return order.total;
-  if (typeof order.amount === "number") return order.amount;
-
-  // Nếu không có, fallback tự tính lại (ít dùng)
-  return 0;
-}
+const getFinalTotal = (order) => {
+  // Ưu tiên sử dụng field 'total' (đã tính toán đúng từ backend)
+  if (typeof order.total === "number") {
+    return order.total;
+  }
+  
+  // Nếu không có 'total', sử dụng 'amount' 
+  if (typeof order.amount === "number") {
+    return order.amount;
+  }
+  
+  // Fallback: tự tính từ các trường cơ bản (nhưng cần tính đúng)
+  const subtotal = order.total_price || 0;
+  
+  // Sử dụng shippingFee (đã là phí cuối cùng) thay vì tính lại
+  const finalShippingFee = order.shippingFee || 0;
+  
+  // Sử dụng voucherDiscount (voucher đơn hàng)
+  const orderDiscount = order.voucherDiscount || 0;
+  
+  // Tính tổng: (Subtotal - Order Voucher) + Final Shipping Fee
+  const finalTotal = Math.max(0, (subtotal - orderDiscount) + finalShippingFee);
+  
+  return finalTotal;
+};
 
   if (loading) {
     return (

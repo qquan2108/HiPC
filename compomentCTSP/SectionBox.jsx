@@ -1,4 +1,5 @@
-import React from "react";
+import { Feather } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from "expo-router";
 import {
   FlatList,
@@ -8,8 +9,11 @@ import {
   TouchableOpacity,
   View
 } from "react-native";
-import { LinearGradient } from 'expo-linear-gradient';
-import { Feather } from '@expo/vector-icons';
+
+function formatCurrency(num) {
+  if (!num) return "0 ₫";
+  return num.toLocaleString('vi-VN') + " ₫";
+}
 
 export function SectionPopular({ data, onPressItem }) {
   const router = useRouter();
@@ -53,10 +57,16 @@ export function SectionPopular({ data, onPressItem }) {
           horizontal
           showsHorizontalScrollIndicator={false}
           keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={{ paddingRight: 28, paddingLeft: 20, paddingBottom: 8 }}
           renderItem={({ item, index }) => (
             <TouchableOpacity
-              style={[styles.popularCard, { marginLeft: index === 0 ? 20 : 0 }]}
+              style={[
+                styles.popularCard,
+                {
+                  marginLeft: index === 0 ? 0 : 12,
+                  marginRight: index === data.length - 1 ? 8 : 0,
+                }
+              ]}
               activeOpacity={0.85}
               onPress={() => onPressItem(item)}
             >
@@ -82,7 +92,7 @@ export function SectionPopular({ data, onPressItem }) {
                   <Text numberOfLines={2} style={styles.popularName}>
                     {item.name}
                   </Text>
-                  <Text style={styles.popularPrice}>{item.price}</Text>
+                  <Text style={styles.popularPrice}>{formatCurrency(item.price)}</Text>
                   <Text style={styles.popularSold}>{item.sold} đã bán</Text>
                 </View>
 
@@ -170,7 +180,7 @@ export function SectionLiked({ data, onPressItem }) {
                   <Text numberOfLines={2} style={styles.likedName}>
                     {item.name}
                   </Text>
-                  <Text style={styles.likedPrice}>{item.price}</Text>
+                  <Text style={styles.likedPrice}>{formatCurrency(item.price)}</Text>
                   
                   
                 </View>
@@ -189,12 +199,13 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     marginHorizontal: 16,
     marginBottom: 20,
-    overflow: 'hidden',
+    overflow: 'visible', // Để shadow không bị cắt
     elevation: 6,
     shadowColor: '#fd79a8',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.15,
     shadowRadius: 20,
+    paddingBottom: 12, // Thêm dòng này
   },
 
   // Header Styles
@@ -207,6 +218,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingVertical: 16,
+    borderTopLeftRadius: 20,    // Thêm dòng này
+    borderTopRightRadius: 20,   // Thêm dòng này
   },
   headerContent: {
     flexDirection: 'row',
@@ -250,8 +263,7 @@ const styles = StyleSheet.create({
   },
   popularCard: {
     width: 160,
-    marginRight: 16,
-    borderRadius: 16,
+    borderRadius: 16, // Bo tròn cả 4 góc
     overflow: 'hidden',
     elevation: 4,
     shadowColor: '#000',
@@ -262,6 +274,7 @@ const styles = StyleSheet.create({
   cardGradient: {
     flex: 1,
     position: 'relative',
+    borderRadius: 16, // Bo tròn cả 4 góc
   },
   imageContainer: {
     position: 'relative',
@@ -344,6 +357,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 12,
+    marginHorizontal: 4,
   },
   likedCardGradient: {
     flex: 1,
@@ -404,5 +418,44 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     marginLeft: 4,
+  },
+  productCard: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 12,
+    marginHorizontal: 8,
+    marginVertical: 8,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 2,
+    width: 170, // hoặc phù hợp với FlatList
+  },
+  productImage: {
+    width: 90,
+    height: 90,
+    resizeMode: 'contain',
+    marginBottom: 8,
+  },
+  productName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#222',
+    textAlign: 'center',
+    marginBottom: 2,
+  },
+  productPrice: {
+    color: '#e53935',
+    fontWeight: 'bold',
+    fontSize: 16,
+    marginTop: 4,
+    textAlign: 'center',
+  },
+  productSold: {
+    fontSize: 12,
+    color: '#888',
+    marginTop: 2,
   },
 });

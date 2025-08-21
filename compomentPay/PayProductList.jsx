@@ -1,5 +1,4 @@
-import React from "react";
-import { View, Text, Image, StyleSheet } from "react-native";
+import { Image, StyleSheet, Text, View } from "react-native";
 
 export default function PayProductList({ products, formatCurrency }) {
   return (
@@ -11,6 +10,25 @@ export default function PayProductList({ products, formatCurrency }) {
             <Text style={styles.productName} numberOfLines={2}>
               {item.name}
             </Text>
+            {/* Hiển thị nhiều biến thể nếu có */}
+            {Array.isArray(item.variants) && item.variants.length > 0 ? (
+              item.variants.map((variant, idx) => (
+                <Text style={styles.variantText} key={idx}>
+                  Biến thể: {variant.label}
+                  {variant.priceDiff
+                    ? ` ( +${formatCurrency(variant.priceDiff)} )`
+                    : ""}
+                </Text>
+              ))
+            ) : item.variant && item.variant.label ? (
+              <Text style={styles.variantText}>
+                Biến thể: {item.variant.label}
+                {item.variant.priceDiff
+                  ? ` ( +${formatCurrency(item.variant.priceDiff)} )`
+                  : ""}
+              </Text>
+            ) : null}
+            {/* Hiển thị giá đã bao gồm biến thể */}
             <Text style={styles.productPrice}>
               {formatCurrency(item.price)}
             </Text>
@@ -44,6 +62,11 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     fontSize: 14,
     color: "#222",
+    marginBottom: 2,
+  },
+  variantText: {
+    fontSize: 13,
+    color: "#2979ff",
     marginBottom: 2,
   },
   productPrice: {

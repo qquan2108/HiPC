@@ -99,7 +99,7 @@ const fetchAllProducts = async () => {
 
 
 function formatCurrency(num) {
-  return num.toLocaleString('vi-VN') + 'đ';
+  return num?.toLocaleString('vi-VN') + ' ₫';
 }
 
 export default function CTSP() {
@@ -124,6 +124,9 @@ export default function CTSP() {
 
   // Thêm state lưu lựa chọn từng nhóm biến thể
   const [variantSelections, setVariantSelections] = useState({});
+
+  // Thêm state cho liked
+  const [liked, setLiked] = useState(false); // Thêm state này
 
   // Load product & all products
   useEffect(() => {
@@ -173,6 +176,16 @@ export default function CTSP() {
       setDisplayPrice(basePrice + (selectedVariant.priceDiff || 0));
     }
   }, [selectedVariant, basePrice]);
+
+  useEffect(() => {
+    if (!product) return;
+    // Tính tổng chênh lệch giá từ các biến thể đã chọn
+    let priceDiff = 0;
+    Object.values(variantSelections).forEach(opt => {
+      if (opt && typeof opt.priceDiff === 'number') priceDiff += opt.priceDiff;
+    });
+    setDisplayPrice(product.price + priceDiff);
+  }, [variantSelections, product]);
 
   // Filter for compare modal
   const filteredProducts = allProducts.filter(
@@ -418,7 +431,6 @@ export default function CTSP() {
                 <Feather name="arrow-left" size={24} color="#222" />
               </TouchableOpacity>
               <Text style={styles.headerTitle}>Chi tiết sản phẩm</Text>
-              
             </View>
 
             {/* Image & Info */}
@@ -433,10 +445,9 @@ export default function CTSP() {
             <ProductPriceRow
               price={formatCurrency(displayPrice)}
               oldPrice={formatCurrency(basePrice)}
-              onLike={() => alert('Đã thêm vào yêu thích')}
+              onLike={() => setLiked(l => !l)} // Đổi thành setLiked
+              liked={liked} // Truyền prop liked
             />
-
-            
 
             {/* Mô tả sản phẩm (HTML) */}
             {product.description ? (
@@ -507,6 +518,14 @@ export default function CTSP() {
         )}
       />
 
+      {/* Hiển thị giá cuối cùng theo biến thể đã chọn */}
+      <View style={styles.finalPriceBox}>
+        <Text style={styles.finalPriceLabel}>Giá cấu hình đã chọn:</Text>
+        <Text style={styles.finalPriceValue}>
+          {formatCurrency(displayPrice)}
+        </Text>
+      </View>
+
       {/* Bottom Bar */}
       <View style={styles.bottomBar}>
         <TouchableOpacity
@@ -516,6 +535,12 @@ export default function CTSP() {
           <Feather name="shopping-cart" size={20} color="#1a73e8" />
           <Text style={styles.bottomCartText}>Giỏ hàng</Text>
         </TouchableOpacity>
+
+        <View style={styles.bottomBarPriceBox}>
+          <Text style={styles.bottomBarPriceLabel}>Tổng:</Text>
+          <Text style={styles.bottomBarPriceValue}>{formatCurrency(displayPrice)}</Text>
+        </View>
+
         <TouchableOpacity
           style={styles.bottomBuyBtn}
           onPress={handleBuyNow}
@@ -804,6 +829,29 @@ const styles = StyleSheet.create({
   },
   bottomBuyText: { color: '#fff', fontSize: 16, fontWeight: '700' },
 
+  bottomBarPriceBox: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    marginHorizontal: 4,
+    backgroundColor: '#fffbe7',
+    borderRadius: 10,
+    minWidth: 90,
+    height: 48,
+    alignSelf: 'center',
+  },
+  bottomBarPriceLabel: {
+    fontSize: 12,
+    color: '#888',
+    fontWeight: '500',
+  },
+  bottomBarPriceValue: {
+    fontSize: 17,
+    color: '#e53935',
+    fontWeight: 'bold',
+    marginTop: 2,
+  },
+
   // Compare modal
   modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' },
   bottomSheet: {
@@ -995,5 +1043,27 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 4,
   },
-
+  finalPriceBox: {
+    backgroundColor: '#e3f2fd',
+    borderRadius: 12,
+    marginHorizontal: 16,
+    marginBottom: 8,
+    paddingVertical: 14,
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 10,
+  },
+  finalPriceLabel: {
+    fontSize: 16,
+    color: '#1976d2',
+    fontWeight: '600',
+    marginRight: 8,
+  },
+  finalPriceValue: {
+    fontSize: 22,
+    color: '#e53935',
+    fontWeight: 'bold',
+    letterSpacing: 0.5,
+  },
 });
