@@ -80,7 +80,7 @@ export default function UngDungLapPC() {
       'Storage': '💿',
       'PSU': '⚡',
       'Case': '📦',
-      'Cooling': '❄️',
+      'Fan': '❄️',
       'Monitor': '🖥️',
       'Keyboard': '⌨️',
       'Mouse': '🖱️',

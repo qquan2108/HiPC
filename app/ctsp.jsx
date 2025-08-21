@@ -1,23 +1,33 @@
-import { Feather } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { FlatList, Image, Modal, SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Feather } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { useEffect, useState } from "react";
+import {
+  FlatList,
+  Image,
+  Modal,
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
-import Toast from 'react-native-toast-message';
-import axiosInstance from '../utils/AxiosInstance';
+import Toast from "react-native-toast-message";
+import axiosInstance from "../utils/AxiosInstance";
 import SkeletonCTSP from "./SkeletonCTSP";
 
-import ProductDescription from '../compomentCTSP/Description';
-import OptionGroup from '../compomentCTSP/OptionGroup';
-import ProductImage from '../compomentCTSP/ProductImage';
-import ProductPriceRow from '../compomentCTSP/ProductPriceRow';
-import ReviewBox from '../compomentCTSP/ReviewBox';
-import { SectionLiked, SectionPopular } from '../compomentCTSP/SectionBox';
-import SpecsBox from '../compomentCTSP/SpecsBox';
+import ProductDescription from "../compomentCTSP/Description";
+import OptionGroup from "../compomentCTSP/OptionGroup";
+import ProductImage from "../compomentCTSP/ProductImage";
+import ProductPriceRow from "../compomentCTSP/ProductPriceRow";
+import ReviewBox from "../compomentCTSP/ReviewBox";
+import { SectionLiked, SectionPopular } from "../compomentCTSP/SectionBox";
+import SpecsBox from "../compomentCTSP/SpecsBox";
 
 // right after importing axiosInstance
-const base = axiosInstance.defaults.baseURL;  // e.g. "http://192.168.0.5:3000"
+const base = axiosInstance.defaults.baseURL; // e.g. "http://192.168.0.5:3000"
 
 // Fetch product detail
 const fetchProductById = async (productId) => {
@@ -36,15 +46,15 @@ const fetchProductById = async (productId) => {
         const joined = idxKeys
           .sort((a, b) => a - b)
           .map((i) => spec[i])
-          .join('');
-        return { label: '', value: joined };
+          .join("");
+        return { label: "", value: joined };
       }
-      return { label: '', value: '' };
+      return { label: "", value: "" };
     });
   }
 
   const resolveImageUri = (url) =>
-    url?.startsWith('http') ? url : `${base}${url}`;
+    url?.startsWith("http") ? url : `${base}${url}`;
 
   return {
     id: product._id,
@@ -55,39 +65,37 @@ const fetchProductById = async (productId) => {
     images:
       Array.isArray(product.images) && product.images.length
         ? product.images.map((url) =>
-            typeof url === 'string'
-              ? { uri: resolveImageUri(url) }
-              : url
+            typeof url === "string" ? { uri: resolveImageUri(url) } : url
           )
-        : [require('../assets/images/pc1.png')],
+        : [require("../assets/images/pc1.png")],
     image: product.image
       ? { uri: resolveImageUri(product.image) }
-      : require('../assets/images/pc1.png'),
+      : require("../assets/images/pc1.png"),
     rating: product.rating || 4.5,
     sold: product.sold || 0,
-    origin: product.origin || 'Unknown',
+    origin: product.origin || "Unknown",
     specs: specsArr,
     buyWith: product.relatedProducts || product.buyWith || [],
     variants: product.variants || [], // <-- Sửa dòng này
-    brand: product.brand_id?.name || 'Unknown',
-    category: product.category_id?.name || 'Unknown',
+    brand: product.brand_id?.name || "Unknown",
+    category: product.category_id?.name || "Unknown",
   };
 };
 
 // Fetch all products
 const fetchAllProducts = async () => {
   try {
-    const { data } = await axiosInstance.get('/product');
-    const list = (data.products || []).map(p => ({
+    const { data } = await axiosInstance.get("/product");
+    const list = (data.products || []).map((p) => ({
       id: p._id,
       name: p.name,
       price: p.price,
       image: p.image
-        ? { uri: p.image.startsWith('http') ? p.image : `${base}${p.image}` }
-        : require('../assets/images/pc1.png'),
+        ? { uri: p.image.startsWith("http") ? p.image : `${base}${p.image}` }
+        : require("../assets/images/pc1.png"),
       sold: p.sold || 0,
       // Thêm dòng này để có category cho filter
-      category: p.category || '', // hoặc p.category_id?.name || ''
+      category: p.category || "", // hoặc p.category_id?.name || ''
     }));
     return list;
   } catch {
@@ -97,9 +105,8 @@ const fetchAllProducts = async () => {
 
 // Tạm thời giữ lại các options cố định cho demo
 
-
 function formatCurrency(num) {
-  return num?.toLocaleString('vi-VN') + ' ₫';
+  return num.toLocaleString("vi-VN") + "đ";
 }
 
 export default function CTSP() {
@@ -115,7 +122,7 @@ export default function CTSP() {
   // Thêm state cho variant
   const [compareProducts, setCompareProducts] = useState([]);
   const [addModalVisible, setAddModalVisible] = useState(false);
-  const [searchText, setSearchText] = useState('');
+  const [searchText, setSearchText] = useState("");
   const [product, setProduct] = useState(null);
   const [allProducts, setAllProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -133,7 +140,7 @@ export default function CTSP() {
     (async () => {
       try {
         setLoading(true);
-        if (!productId) throw new Error('Thiếu ID sản phẩm');
+        if (!productId) throw new Error("Thiếu ID sản phẩm");
         const fetched = await fetchProductById(productId);
         setProduct(fetched);
         setVariants(fetched.variants || []);
@@ -143,7 +150,7 @@ export default function CTSP() {
         // Khởi tạo lựa chọn mặc định cho từng nhóm biến thể
         if (fetched.variants && fetched.variants.length > 0) {
           const defaults = {};
-          fetched.variants.forEach(group => {
+          fetched.variants.forEach((group) => {
             if (group.options && group.options.length > 0) {
               defaults[group.key] = group.options[0];
             }
@@ -159,7 +166,7 @@ export default function CTSP() {
   }, [productId]);
   const handleProductPress = (product) => {
     router.push({
-      pathname: '/ctsp',
+      pathname: "/ctsp",
       params: { id: product.id || product._id },
     });
   };
@@ -189,61 +196,66 @@ export default function CTSP() {
 
   // Filter for compare modal
   const filteredProducts = allProducts.filter(
-    p =>
+    (p) =>
       p.name.toLowerCase().includes(searchText.toLowerCase()) &&
-      !compareProducts.find(item => item.id === p.id) &&
+      !compareProducts.find((item) => item.id === p.id) &&
       // Lọc cùng danh mục với sản phẩm hiện tại
-      (product && p.category === product.category)
+      product &&
+      p.category === product.category
   );
 
-  const handleAddCompare = p => {
-    console.log('Adding to compare:', p);
+  const handleAddCompare = (p) => {
+    console.log("Adding to compare:", p);
     if (compareProducts.length < 3) {
-      setCompareProducts(cp => [...cp, p]);
+      setCompareProducts((cp) => [...cp, p]);
       setAddModalVisible(false);
-      setSearchText('');
+      setSearchText("");
     }
   };
-  const handleRemoveCompare = id =>
-    setCompareProducts(cp => cp.filter(p => p.id !== id));
+  const handleRemoveCompare = (id) =>
+    setCompareProducts((cp) => cp.filter((p) => p.id !== id));
   const handleClearCompare = () => {
     setCompareProducts([]);
     setAddModalVisible(false);
   };
 
   const handleGoCompare = () => {
-    console.log('handleGoCompare - compareProducts:', compareProducts);
+    console.log("handleGoCompare - compareProducts:", compareProducts);
     if (compareProducts.length < 2) {
       Toast.show({
-        type: 'error',
-        text1: 'Vui lòng chọn ít nhất 2 sản phẩm để so sánh!',
-        position: 'top',
+        type: "error",
+        text1: "Vui lòng chọn ít nhất 2 sản phẩm để so sánh!",
+        position: "top",
       });
       return;
     }
     setCompareVisible(false);
     try {
       router.push({
-        pathname: '/sosanhsanpham',
+        pathname: "/sosanhsanpham",
         params: { compare: JSON.stringify(compareProducts) },
       });
     } catch (err) {
-      console.error('Error in router.push:', err);
+      console.error("Error in router.push:", err);
       Toast.show({
-        type: 'error',
-        text1: 'Lỗi khi chuyển hướng đến trang so sánh!',
-        position: 'top',
+        type: "error",
+        text1: "Lỗi khi chuyển hướng đến trang so sánh!",
+        position: "top",
       });
     }
   };
 
   // Hàm thêm vào giỏ hàng với variant đã chọn
-  const AddToCart = async prod => {
+  const AddToCart = async (prod) => {
     try {
-      const userStr = await AsyncStorage.getItem('user');
+      const userStr = await AsyncStorage.getItem("user");
       if (!userStr) {
-        Toast.show({ type: 'error', text1: 'Vui lòng đăng nhập để mua hàng!', position: 'top' });
-        return router.replace('/LoginScreen');
+        Toast.show({
+          type: "error",
+          text1: "Vui lòng đăng nhập để mua hàng!",
+          position: "top",
+        });
+        return router.replace("/LoginScreen");
       }
       const userObj = JSON.parse(userStr);
       const userId = userObj._id || userObj.id;
@@ -259,79 +271,102 @@ export default function CTSP() {
             variantPayload = {
               key: group.key,
               label: selected.label,
-              priceDiff: selected.priceDiff || 0
+              priceDiff: selected.priceDiff || 0,
             };
           }
         } else {
           // Nếu có nhiều nhóm, gộp lại thành một object
           const keys = Object.keys(variantSelections);
-          const labels = keys.map(k => variantSelections[k]?.label).filter(Boolean);
-          const priceDiffSum = keys.reduce((sum, k) => sum + (variantSelections[k]?.priceDiff || 0), 0);
+          const labels = keys
+            .map((k) => variantSelections[k]?.label)
+            .filter(Boolean);
+          const priceDiffSum = keys.reduce(
+            (sum, k) => sum + (variantSelections[k]?.priceDiff || 0),
+            0
+          );
 
           variantPayload = {
-            key: keys.join(' + '), // ví dụ: "Chipset + Form Factor"
-            label: labels.join(' + '), // ví dụ: "B550 + ATX"
-            priceDiff: priceDiffSum
+            key: keys.join(" + "), // ví dụ: "Chipset + Form Factor"
+            label: labels.join(" + "), // ví dụ: "B550 + ATX"
+            priceDiff: priceDiffSum,
           };
         }
       }
 
       // Gửi request với thông tin cấu hình
-      await axiosInstance.post('/cartt/add-to-cart', {
+      await axiosInstance.post("/cartt/add-to-cart", {
         user_id: userId, // phải là ObjectId, không phải undefined
         productId: prod._id || prod.id, // phải là ObjectId, không phải undefined
         quantity: 1, // phải là số, không phải undefined
-        variant: variantPayload // chỉ gửi nếu có
+        variant: variantPayload, // chỉ gửi nếu có
       });
 
       Toast.show({
-        type: 'success',
-        text1: 'Đã thêm vào giỏ hàng!',
+        type: "success",
+        text1: "Đã thêm vào giỏ hàng!",
         text2: variantPayload
           ? `Cấu hình: ${variantPayload.label}`
-          : 'Mặc định',
-        position: 'bottom'
+          : "Mặc định",
+        position: "bottom",
       });
-      setTimeout(() => router.push({ pathname: './cart', params: { refresh: 1 } }), 1200);
+      setTimeout(
+        () => router.push({ pathname: "./cart", params: { refresh: 1 } }),
+        1200
+      );
     } catch (err) {
-      console.error('add-to-cart error:', err?.response?.data || err.message, err);
-      Toast.show({ type: 'error', text1: 'Thêm giỏ hàng thất bại!', text2: err?.response?.data?.error || err.message, position: 'top' });
+      console.error(
+        "add-to-cart error:",
+        err?.response?.data || err.message,
+        err
+      );
+      Toast.show({
+        type: "error",
+        text1: "Thêm giỏ hàng thất bại!",
+        text2: err?.response?.data?.error || err.message,
+        position: "top",
+      });
     }
   };
 
   const handleGoReview = async () => {
     let userId = null;
     try {
-      const userStr = await AsyncStorage.getItem('user');
+      const userStr = await AsyncStorage.getItem("user");
       if (userStr) {
         userId = JSON.parse(userStr).id || JSON.parse(userStr)._id;
       }
-    } catch { }
+    } catch {}
     if (!product?.id) {
-      Toast.show({ type: 'error', text1: 'Không xác định được sản phẩm!' });
+      Toast.show({ type: "error", text1: "Không xác định được sản phẩm!" });
       return;
     }
     // Kiểm tra đã mua chưa
     try {
-      const { data } = await axiosInstance.get('/orders/user', { params: { user_id: userId } });
-      const hasBought = data.orders?.some(order =>
-        order.status === 'delivered' &&
-        order.products?.some(p => p.productId === product.id)
+      const { data } = await axiosInstance.get("/orders/user", {
+        params: { user_id: userId },
+      });
+      const hasBought = data.orders?.some(
+        (order) =>
+          order.status === "delivered" &&
+          order.products?.some((p) => p.productId === product.id)
       );
       if (!hasBought) {
-        Toast.show({ type: 'error', text1: 'Bạn cần mua sản phẩm này mới được đánh giá!' });
+        Toast.show({
+          type: "error",
+          text1: "Bạn cần mua sản phẩm này mới được đánh giá!",
+        });
         return;
       }
     } catch {
-      Toast.show({ type: 'error', text1: 'Không kiểm tra được đơn hàng!' });
+      Toast.show({ type: "error", text1: "Không kiểm tra được đơn hàng!" });
       return;
     }
     router.push({
-      pathname: '/danhgia',
+      pathname: "/danhgia",
       params: {
         product_id: product.id,
         product_name: product.name,
-        product_image: product.image?.uri || product.images[0]?.uri || '',
+        product_image: product.image?.uri || product.images[0]?.uri || "",
         user_id: userId,
       },
     });
@@ -341,11 +376,15 @@ export default function CTSP() {
     // Kiểm tra đăng nhập
     let userStr;
     try {
-      userStr = await AsyncStorage.getItem('user');
+      userStr = await AsyncStorage.getItem("user");
     } catch {}
     if (!userStr) {
-      Toast.show({ type: 'error', text1: 'Vui lòng đăng nhập để mua hàng!', position: 'top' });
-      return router.replace('/LoginScreen');
+      Toast.show({
+        type: "error",
+        text1: "Vui lòng đăng nhập để mua hàng!",
+        position: "top",
+      });
+      return router.replace("/LoginScreen");
     }
 
     // Lấy biến thể đã chọn (nếu có)
@@ -358,42 +397,50 @@ export default function CTSP() {
           variant = {
             key: group.key,
             label: selected.label,
-            priceDiff: selected.priceDiff || 0
+            priceDiff: selected.priceDiff || 0,
           };
         }
       } else {
         // Nếu có nhiều nhóm, gộp lại thành một object
         const keys = Object.keys(variantSelections);
-        const labels = keys.map(k => variantSelections[k]?.label).filter(Boolean);
-        const priceDiffSum = keys.reduce((sum, k) => sum + (variantSelections[k]?.priceDiff || 0), 0);
+        const labels = keys
+          .map((k) => variantSelections[k]?.label)
+          .filter(Boolean);
+        const priceDiffSum = keys.reduce(
+          (sum, k) => sum + (variantSelections[k]?.priceDiff || 0),
+          0
+        );
 
         variant = {
-          key: keys.join(' + '),
-          label: labels.join(' + '),
-          priceDiff: priceDiffSum
+          key: keys.join(" + "),
+          label: labels.join(" + "),
+          priceDiff: priceDiffSum,
         };
       }
     }
 
     // Tính giá tổng
-    const basePrice = typeof product.price === 'number'
-      ? product.price
-      : Number(String(product.price).replace(/[^\d]/g, ''));
+    const basePrice =
+      typeof product.price === "number"
+        ? product.price
+        : Number(String(product.price).replace(/[^\d]/g, ""));
     const variantTotalPrice = variant ? variant.priceDiff : 0;
     const totalPrice = basePrice + variantTotalPrice;
 
     router.push({
       pathname: "/pay",
       params: {
-        selectedProducts: JSON.stringify([{
-          id: product._id || product.id,
-          name: product.name,
-          price: totalPrice,
-          image: product.image,
-          quantity: 1,
-          variant // LUÔN TRUYỀN ĐỦ key, label, priceDiff
-        }])
-      }
+        selectedProducts: JSON.stringify([
+          {
+            id: product._id || product.id,
+            name: product.name,
+            price: totalPrice,
+            image: product.image,
+            quantity: 1,
+            variant, // LUÔN TRUYỀN ĐỦ key, label, priceDiff
+          },
+        ]),
+      },
     });
   };
 
@@ -404,7 +451,9 @@ export default function CTSP() {
     return (
       <View style={styles.errorContainer}>
         <Text style={styles.errorText}>Lỗi: {error}</Text>
-        <TouchableOpacity onPress={() => router.replace(`/ctsp?id=${productId}`)}>
+        <TouchableOpacity
+          onPress={() => router.replace(`/ctsp?id=${productId}`)}
+        >
           <Text style={styles.retryButton}>Thử lại</Text>
         </TouchableOpacity>
       </View>
@@ -438,8 +487,12 @@ export default function CTSP() {
             <View style={styles.infoCard}>
               <Text style={styles.productName}>{product.name}</Text>
               <View style={styles.productMeta}>
-                <Text style={styles.brandText}>Thương hiệu: {product.brand}</Text>
-                <Text style={styles.categoryText}>Danh mục: {product.category}</Text>
+                <Text style={styles.brandText}>
+                  Thương hiệu: {product.brand}
+                </Text>
+                <Text style={styles.categoryText}>
+                  Danh mục: {product.category}
+                </Text>
               </View>
             </View>
             <ProductPriceRow
@@ -454,9 +507,11 @@ export default function CTSP() {
               <ProductDescription htmlContent={product.description} />
             ) : null}
 
-
             {/* Specs & Compare */}
-            <SpecsBox specs={product.specs} onCompare={() => setCompareVisible(true)} />
+            <SpecsBox
+              specs={product.specs}
+              onCompare={() => setCompareVisible(true)}
+            />
 
             {/* Configuration Options */}
             <View style={styles.configContainer}>
@@ -469,30 +524,34 @@ export default function CTSP() {
 
               {/* Hiển thị variants từ API nếu có */}
               {/* Hiển thị variants từ API */}
-              {product.variants && product.variants.length > 0 && product.variants.map(group => (
-  <OptionGroup
-    key={group.key}
-    label={group.key}
-    options={group.options}
-    selected={variantSelections[group.key]}
-    onSelect={opt => setVariantSelections(prev => ({
-      ...prev,
-      [group.key]: opt
-    }))}
-    type="variant"
-  />
-))}
-
-
-              {/* Các options cố định khác */}
-
+              {product.variants &&
+                product.variants.length > 0 &&
+                product.variants.map((group) => (
+                  <OptionGroup
+                    key={group.key}
+                    label={group.key}
+                    options={group.options}
+                    selected={variantSelections[group.key]}
+                    onSelect={(opt) =>
+                      setVariantSelections((prev) => ({
+                        ...prev,
+                        [group.key]: opt,
+                      }))
+                    }
+                    type="variant"
+                  />
+                ))}
 
               {/* Hiển thị cấu hình đã chọn */}
               <View style={styles.selectedConfigContainer}>
-                <Text style={styles.selectedConfigTitle}>Cấu hình đã chọn:</Text>
+                <Text style={styles.selectedConfigTitle}>
+                  Cấu hình đã chọn:
+                </Text>
                 <View style={styles.selectedConfigList}>
                   {Object.entries(variantSelections).map(([key, opt]) => (
-                    <Text key={key}>• {key}: {opt.label}</Text>
+                    <Text key={key}>
+                      • {key}: {opt.label}
+                    </Text>
                   ))}
                 </View>
               </View>
@@ -571,13 +630,22 @@ export default function CTSP() {
                 return p ? (
                   <View style={styles.compareItem} key={p.id}>
                     <Image source={p.image} style={styles.compareImage} />
-                    <TouchableOpacity style={styles.compareRemove} onPress={() => handleRemoveCompare(p.id)}>
+                    <TouchableOpacity
+                      style={styles.compareRemove}
+                      onPress={() => handleRemoveCompare(p.id)}
+                    >
                       <Feather name="x" size={16} color="#888" />
                     </TouchableOpacity>
-                    <Text style={styles.compareName} numberOfLines={2}>{p.name}</Text>
+                    <Text style={styles.compareName} numberOfLines={2}>
+                      {p.name}
+                    </Text>
                   </View>
                 ) : (
-                  <TouchableOpacity style={styles.compareEmpty} key={`empty-${idx}`} onPress={() => setAddModalVisible(true)}>
+                  <TouchableOpacity
+                    style={styles.compareEmpty}
+                    key={`empty-${idx}`}
+                    onPress={() => setAddModalVisible(true)}
+                  >
                     <Feather name="plus" size={32} color="#bbb" />
                     <Text style={styles.compareAddText}>Thêm sản phẩm</Text>
                   </TouchableOpacity>
@@ -589,7 +657,10 @@ export default function CTSP() {
                 <Text style={styles.clearAll}>Xóa tất cả</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.compareNowBtn, compareProducts.length > 1 && styles.compareNowActive]}
+                style={[
+                  styles.compareNowBtn,
+                  compareProducts.length > 1 && styles.compareNowActive,
+                ]}
                 disabled={compareProducts.length < 2}
                 onPress={handleGoCompare}
               >
@@ -601,7 +672,12 @@ export default function CTSP() {
       </Modal>
 
       {/* Add Compare Modal */}
-      <Modal visible={addModalVisible} animationType="fade" transparent onRequestClose={() => setAddModalVisible(false)}>
+      <Modal
+        visible={addModalVisible}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setAddModalVisible(false)}
+      >
         <View style={styles.addOverlay}>
           <View style={styles.addBox}>
             <Text style={styles.addTitle}>Tìm kiếm sản phẩm</Text>
@@ -614,10 +690,10 @@ export default function CTSP() {
                 onChangeText={setSearchText}
               />
             </View>
-            <View style={{ maxHeight: 250, width: '100%' }}>
+            <View style={{ maxHeight: 250, width: "100%" }}>
               <FlatList
                 data={filteredProducts}
-                keyExtractor={item => item.id}
+                keyExtractor={(item) => item.id}
                 ListEmptyComponent={() => (
                   <Text style={styles.noResults}>Không tìm thấy sản phẩm</Text>
                 )}
@@ -634,7 +710,10 @@ export default function CTSP() {
                 )}
               />
             </View>
-            <TouchableOpacity style={styles.closeSearch} onPress={() => setAddModalVisible(false)}>
+            <TouchableOpacity
+              style={styles.closeSearch}
+              onPress={() => setAddModalVisible(false)}
+            >
               <Text style={styles.closeText}>Đóng</Text>
             </TouchableOpacity>
           </View>
@@ -642,7 +721,12 @@ export default function CTSP() {
       </Modal>
 
       {/* Login Prompt Modal */}
-      <Modal visible={showLoginDialog} transparent animationType="fade" onRequestClose={() => setShowLoginDialog(false)}>
+      <Modal
+        visible={showLoginDialog}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowLoginDialog(false)}
+      >
         <View style={styles.loginOverlay}>
           <View style={styles.loginBox}>
             <Text style={styles.loginIcon}>😺</Text>
@@ -653,12 +737,15 @@ export default function CTSP() {
                 style={styles.loginBtn}
                 onPress={() => {
                   setShowLoginDialog(false);
-                  router.replace('./LoginScreen');
+                  router.replace("./LoginScreen");
                 }}
               >
                 <Text style={styles.loginBtnText}>Đăng nhập</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.loginLater} onPress={() => setShowLoginDialog(false)}>
+              <TouchableOpacity
+                style={styles.loginLater}
+                onPress={() => setShowLoginDialog(false)}
+              >
                 <Text style={styles.loginLaterText}>Để sau</Text>
               </TouchableOpacity>
             </View>
@@ -670,54 +757,59 @@ export default function CTSP() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
+  container: { flex: 1, backgroundColor: "#fff" },
   contentContainer: { paddingBottom: 100 },
 
-  loader: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  errorContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  errorText: { color: 'red', fontSize: 16, marginBottom: 8 },
-  retryButton: { color: '#2979ff', fontSize: 16 },
+  loader: { flex: 1, justifyContent: "center", alignItems: "center" },
+  errorContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
+  errorText: { color: "red", fontSize: 16, marginBottom: 8 },
+  retryButton: { color: "#2979ff", fontSize: 16 },
 
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderBottomColor: "#eee",
   },
-  headerTitle: { flex: 1, textAlign: 'center', fontSize: 18, fontWeight: 'bold' },
+  headerTitle: {
+    flex: 1,
+    textAlign: "center",
+    fontSize: 18,
+    fontWeight: "bold",
+  },
 
   productName: {
     fontSize: 20,
-    fontWeight: 'bold',
-    textAlign: 'center',
+    fontWeight: "bold",
+    textAlign: "center",
     marginVertical: 12,
-    color: '#333',
+    color: "#333",
   },
   productMeta: {
-    flexDirection: 'row',
-    justifyContent: 'center',
+    flexDirection: "row",
+    justifyContent: "center",
     marginBottom: 8,
     paddingHorizontal: 16,
   },
   brandText: {
     fontSize: 14,
-    color: '#666',
+    color: "#666",
     marginRight: 16,
   },
   categoryText: {
     fontSize: 14,
-    color: '#666',
+    color: "#666",
   },
 
   configContainer: {
     margin: 16,
     padding: 20,
-    backgroundColor: '#ffffff',
+    backgroundColor: "#ffffff",
     borderRadius: 16,
     elevation: 4,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: {
       width: 0,
       height: 2,
@@ -725,71 +817,71 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 8,
     borderWidth: 1,
-    borderColor: '#f0f2f5',
+    borderColor: "#f0f2f5",
   },
   configHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     marginBottom: 20,
   },
   configTitle: {
     fontSize: 18,
-    fontWeight: '700',
-    color: '#1a1a1a',
+    fontWeight: "700",
+    color: "#1a1a1a",
   },
   configBadge: {
-    backgroundColor: '#e8f5e8',
+    backgroundColor: "#e8f5e8",
     paddingHorizontal: 12,
     paddingVertical: 4,
     borderRadius: 12,
   },
   configBadgeText: {
     fontSize: 12,
-    fontWeight: '600',
-    color: '#2e7d32',
+    fontWeight: "600",
+    color: "#2e7d32",
   },
   selectedConfigContainer: {
     marginTop: 20,
     padding: 16,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: "#f8f9fa",
     borderRadius: 12,
     borderLeftWidth: 4,
-    borderLeftColor: '#4285f4',
+    borderLeftColor: "#4285f4",
   },
   selectedConfigTitle: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#1a1a1a',
+    fontWeight: "600",
+    color: "#1a1a1a",
     marginBottom: 12,
   },
   selectedConfigList: {
     gap: 6,
   },
   configItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   configItemText: {
     fontSize: 14,
-    color: '#3c4043',
+    color: "#3c4043",
     lineHeight: 20,
   },
 
   sectionContainer: { marginVertical: 12, paddingHorizontal: 16 },
-  sectionTitle: { fontSize: 16, fontWeight: '600', marginBottom: 8 },
+  sectionTitle: { fontSize: 16, fontWeight: "600", marginBottom: 8 },
 
   bottomBar: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
-    flexDirection: 'row',
+    flexDirection: "row",
     padding: 16,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderTopWidth: 1,
-    borderTopColor: '#eee',
-    shadowColor: '#000',
+    borderTopColor: "#eee",
+    shadowColor: "#000",
     shadowOffset: {
       width: 0,
       height: -2,
@@ -800,25 +892,30 @@ const styles = StyleSheet.create({
   },
   bottomCartBtn: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     padding: 14,
     borderRadius: 12,
-    backgroundColor: '#f0f7ff',
+    backgroundColor: "#f0f7ff",
     marginRight: 8,
     borderWidth: 1,
-    borderColor: '#1a73e8',
+    borderColor: "#1a73e8",
   },
-  bottomCartText: { marginLeft: 6, fontSize: 16, color: '#1a73e8', fontWeight: '600' },
+  bottomCartText: {
+    marginLeft: 6,
+    fontSize: 16,
+    color: "#1a73e8",
+    fontWeight: "600",
+  },
   bottomBuyBtn: {
     flex: 1,
     padding: 14,
     borderRadius: 12,
-    backgroundColor: '#2979ff',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#2979ff',
+    backgroundColor: "#2979ff",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#2979ff",
     shadowOffset: {
       width: 0,
       height: 4,
@@ -827,7 +924,7 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 6,
   },
-  bottomBuyText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  bottomBuyText: { color: "#fff", fontSize: 16, fontWeight: "700" },
 
   bottomBarPriceBox: {
     justifyContent: 'center',
@@ -853,43 +950,56 @@ const styles = StyleSheet.create({
   },
 
   // Compare modal
-  modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: "flex-end",
+    backgroundColor: "rgba(0,0,0,0.4)",
+  },
   bottomSheet: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     paddingTop: 12,
-    maxHeight: '80%',
+    maxHeight: "80%",
   },
   sheetHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingHorizontal: 16,
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderBottomColor: "#eee",
   },
-  sheetTitle: { fontSize: 18, fontWeight: '700', color: '#1a1a1a' },
-  compareRow: { flexDirection: 'row', padding: 16, justifyContent: 'space-around' },
+  sheetTitle: { fontSize: 18, fontWeight: "700", color: "#1a1a1a" },
+  compareRow: {
+    flexDirection: "row",
+    padding: 16,
+    justifyContent: "space-around",
+  },
   compareItem: {
     width: 100,
-    alignItems: 'center',
-    backgroundColor: '#fafafa',
+    alignItems: "center",
+    backgroundColor: "#fafafa",
     borderRadius: 12,
     padding: 12,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderColor: "#e0e0e0",
   },
-  compareImage: { width: 60, height: 60, resizeMode: 'contain', marginBottom: 8 },
+  compareImage: {
+    width: 60,
+    height: 60,
+    resizeMode: "contain",
+    marginBottom: 8,
+  },
   compareRemove: {
-    position: 'absolute',
+    position: "absolute",
     top: 6,
     right: 6,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderRadius: 12,
     padding: 4,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: {
       width: 0,
       height: 1,
@@ -898,37 +1008,48 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 3,
   },
-  compareName: { textAlign: 'center', fontSize: 12, color: '#333', fontWeight: '500' },
+  compareName: {
+    textAlign: "center",
+    fontSize: 12,
+    color: "#333",
+    fontWeight: "500",
+  },
   compareEmpty: {
     width: 100,
     height: 120,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#f9f9f9',
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#f9f9f9",
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: '#e0e0e0',
-    borderStyle: 'dashed',
+    borderColor: "#e0e0e0",
+    borderStyle: "dashed",
   },
-  compareAddText: { marginTop: 8, fontSize: 12, color: '#888', textAlign: 'center', fontWeight: '500' },
+  compareAddText: {
+    marginTop: 8,
+    fontSize: 12,
+    color: "#888",
+    textAlign: "center",
+    fontWeight: "500",
+  },
   sheetFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     padding: 16,
     borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
+    borderTopColor: "#f0f0f0",
   },
-  clearAll: { color: '#2979ff', fontWeight: '600', fontSize: 16 },
+  clearAll: { color: "#2979ff", fontWeight: "600", fontSize: 16 },
   compareNowBtn: {
     paddingVertical: 12,
     paddingHorizontal: 24,
     borderRadius: 12,
-    backgroundColor: '#ccc',
+    backgroundColor: "#ccc",
   },
   compareNowActive: {
-    backgroundColor: '#2979ff',
-    shadowColor: '#2979ff',
+    backgroundColor: "#2979ff",
+    shadowColor: "#2979ff",
     shadowOffset: {
       width: 0,
       height: 4,
@@ -937,17 +1058,22 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 6,
   },
-  compareNowText: { color: '#fff', fontWeight: '700', fontSize: 16 },
+  compareNowText: { color: "#fff", fontWeight: "700", fontSize: 16 },
 
   // Add compare modal
-  addOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.4)' },
+  addOverlay: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.4)",
+  },
   addBox: {
-    width: '90%',
-    maxHeight: '80%',
-    backgroundColor: '#fff',
+    width: "90%",
+    maxHeight: "80%",
+    backgroundColor: "#fff",
     borderRadius: 16,
     padding: 20,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: {
       width: 0,
       height: 10,
@@ -956,42 +1082,57 @@ const styles = StyleSheet.create({
     shadowRadius: 20,
     elevation: 20,
   },
-  addTitle: { fontSize: 18, fontWeight: '700', marginBottom: 16, color: '#1a1a1a' },
+  addTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    marginBottom: 16,
+    color: "#1a1a1a",
+  },
   searchBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: "#ddd",
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 8,
     marginBottom: 16,
-    backgroundColor: '#fafafa',
+    backgroundColor: "#fafafa",
   },
   searchInput: { flex: 1, marginLeft: 12, height: 40, fontSize: 16 },
   searchItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: 12,
     padding: 12,
     borderRadius: 8,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: "#f8f9fa",
   },
   searchImage: { width: 50, height: 50, borderRadius: 8, marginRight: 12 },
-  searchName: { flex: 1, fontSize: 14, fontWeight: '500', color: '#333' },
-  noResults: { textAlign: 'center', color: '#888', marginTop: 20, fontSize: 16 },
-  closeSearch: { alignSelf: 'flex-end', padding: 12 },
-  closeText: { color: '#2979ff', fontWeight: '700', fontSize: 16 },
+  searchName: { flex: 1, fontSize: 14, fontWeight: "500", color: "#333" },
+  noResults: {
+    textAlign: "center",
+    color: "#888",
+    marginTop: 20,
+    fontSize: 16,
+  },
+  closeSearch: { alignSelf: "flex-end", padding: 12 },
+  closeText: { color: "#2979ff", fontWeight: "700", fontSize: 16 },
 
   // Login modal
-  loginOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.4)' },
+  loginOverlay: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.4)",
+  },
   loginBox: {
     width: 320,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderRadius: 20,
     padding: 28,
-    alignItems: 'center',
-    shadowColor: '#000',
+    alignItems: "center",
+    shadowColor: "#000",
     shadowOffset: {
       width: 0,
       height: 10,
@@ -1001,17 +1142,32 @@ const styles = StyleSheet.create({
     elevation: 20,
   },
   loginIcon: { fontSize: 56, marginBottom: 16 },
-  loginTitle: { fontSize: 20, fontWeight: '700', color: '#1976ff', marginBottom: 8 },
-  loginMsg: { fontSize: 16, color: '#444', textAlign: 'center', marginBottom: 20, lineHeight: 22 },
-  loginActions: { flexDirection: 'row', width: '100%', justifyContent: 'space-between' },
+  loginTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#1976ff",
+    marginBottom: 8,
+  },
+  loginMsg: {
+    fontSize: 16,
+    color: "#444",
+    textAlign: "center",
+    marginBottom: 20,
+    lineHeight: 22,
+  },
+  loginActions: {
+    flexDirection: "row",
+    width: "100%",
+    justifyContent: "space-between",
+  },
   loginBtn: {
     flex: 1,
-    backgroundColor: '#1976ff',
+    backgroundColor: "#1976ff",
     paddingVertical: 14,
     borderRadius: 12,
-    alignItems: 'center',
+    alignItems: "center",
     marginRight: 8,
-    shadowColor: '#1976ff',
+    shadowColor: "#1976ff",
     shadowOffset: {
       width: 0,
       height: 4,
@@ -1020,17 +1176,17 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 6,
   },
-  loginBtnText: { color: '#fff', fontWeight: '700', fontSize: 16 },
+  loginBtnText: { color: "#fff", fontWeight: "700", fontSize: 16 },
   loginLater: {
     flex: 1,
-    backgroundColor: '#f0f4fa',
+    backgroundColor: "#f0f4fa",
     paddingVertical: 14,
     borderRadius: 12,
-    alignItems: 'center',
+    alignItems: "center",
     borderWidth: 1,
-    borderColor: '#e0e6f0',
+    borderColor: "#e0e6f0",
   },
-  loginLaterText: { color: '#1976ff', fontWeight: '600', fontSize: 16 },
+  loginLaterText: { color: "#1976ff", fontWeight: "600", fontSize: 16 },
   infoCard: {
     backgroundColor: "#fff",
     padding: 16,
@@ -1067,3 +1223,4 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
 });
+
