@@ -2,6 +2,8 @@ import { Feather } from "@expo/vector-icons";
 import { useState } from "react";
 import {
   Image,
+  Modal,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -16,11 +18,15 @@ export default function CartProductList({
   formatCurrency, 
   onToggleSelect, 
   selectedIds,
-  onQuantityInput, // Thêm prop mới để xử lý input số lượng
-  onProductPress // Thêm prop cho sự kiện nhấn vào sản phẩm
+  onQuantityInput,
+  onProductPress,
+  onVariantChange, // Thêm prop để xử lý thay đổi biến thể
+  availableVariants // Thêm prop chứa các biến thể có sẵn cho từng sản phẩm
 }) {
   const [editingQuantity, setEditingQuantity] = useState({});
   const [tempQuantity, setTempQuantity] = useState({});
+  const [variantModalVisible, setVariantModalVisible] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState(null);
 
   const handleQuantityInputFocus = (itemId, currentQuantity) => {
     setEditingQuantity(prev => ({ ...prev, [itemId]: true }));
@@ -31,7 +37,6 @@ export default function CartProductList({
     const inputValue = tempQuantity[itemId];
     const newQuantity = parseInt(inputValue) || 1;
     
-    // Gọi callback để xử lý validation và cập nhật
     if (onQuantityInput) {
       await onQuantityInput(itemId, newQuantity);
     }
@@ -41,9 +46,169 @@ export default function CartProductList({
   };
 
   const handleQuantityTextChange = (itemId, text) => {
-    // Chỉ cho phép nhập số
     const numericText = text.replace(/[^0-9]/g, '');
     setTempQuantity(prev => ({ ...prev, [itemId]: numericText }));
+  };
+
+  const handleVariantPress = (item) => {
+    if (item.type === 'combo') return; // Không cho phép thay đổi biến thể combo
+    setSelectedProduct(item);
+    setVariantModalVisible(true);
+  };
+
+  const handleVariantSelect = (variantType, variantOption) => {
+    if (onVariantChange && selectedProduct) {
+      onVariantChange(selectedProduct.id, variantType, variantOption);
+    }
+    setVariantModalVisible(false);
+    setSelectedProduct(null);
+  };
+
+  // Render từng dòng biến thể riêng biệt
+  const renderVariantInfo = (item) => {
+    if (!item.variant) return null;
+
+    if (typeof item.variant === 'string') {
+      return (
+        <TouchableOpacity 
+          style={styles.variantRow}
+          onPress={() => handleVariantPress(item)}
+          disabled={item.type === 'combo'}
+        >
+          <Text style={styles.variantLabel}>Phân loại:</Text>
+          <Text style={styles.variantValue}>{item.variant}</Text>
+          {item.type !== 'combo' && (
+            <Feather name="chevron-down" size={14} color="#999" />
+          )}
+        </TouchableOpacity>
+      );
+    }
+
+    if (typeof item.variant === 'object' && Object.keys(item.variant).length > 0) {
+      return (
+        <View style={styles.variantContainer}>
+          {Object.entries(item.variant).map(([variantType, v], idx) => {
+            // Nếu key và label đều có dấu "+" thì tách ra từng dòng
+            if (
+              variantType.includes('+') &&
+              typeof v === 'object' &&
+              v.label &&
+              v.label.includes(' + ')
+            ) {
+              const keys = variantType.split('+').map(k => k.trim());
+              const labels = v.label.split(' + ').map(l => l.trim());
+              return keys.map((key, i) => (
+                <TouchableOpacity
+                  key={`${key}_${i}_${idx}`}
+                  style={styles.variantRow}
+                  onPress={() => handleVariantPress(item)}
+                  disabled={item.type === 'combo'}
+                >
+                  <Text style={styles.variantLabel}>{key}:</Text>
+                  <Text style={styles.variantValue}>{labels[i] || ''}</Text>
+                  {item.type !== 'combo' && (
+                    <Feather name="chevron-down" size={14} color="#999" />
+                  )}
+                </TouchableOpacity>
+              ));
+            }
+            // Trường hợp thông thường
+            const displayValue =
+              typeof v === 'object' && v !== null
+                ? (v.label || v.value || v)
+                : v;
+            return (
+              <TouchableOpacity
+                key={`${variantType}_${idx}`}
+                style={styles.variantRow}
+                onPress={() => handleVariantPress(item)}
+                disabled={item.type === 'combo'}
+              >
+                <Text style={styles.variantLabel}>{variantType}:</Text>
+                <Text style={styles.variantValue}>{displayValue}</Text>
+                {item.type !== 'combo' && (
+                  <Feather name="chevron-down" size={14} color="#999" />
+                )}
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      );
+    }
+
+    return null;
+  };
+
+  // Modal chọn biến thể
+  const renderVariantModal = () => {
+    if (!selectedProduct || !availableVariants || !availableVariants[selectedProduct.id]) {
+      return null;
+    }
+
+    const productVariants = availableVariants[selectedProduct.id];
+
+    return (
+      <Modal
+        visible={variantModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setVariantModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Chọn phân loại</Text>
+              <TouchableOpacity 
+                onPress={() => setVariantModalVisible(false)}
+                style={styles.closeButton}
+              >
+                <Feather name="x" size={20} color="#666" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.modalBody}>
+              {Object.entries(productVariants).map(([variantType, options]) => (
+                <View key={variantType} style={styles.variantSection}>
+                  <Text style={styles.variantSectionTitle}>{variantType}</Text>
+                  <View style={styles.variantOptions}>
+                    {options.map((option, index) => {
+                      const isSelected = selectedProduct.variant && 
+                        selectedProduct.variant[variantType] === option.value;
+                      
+                      return (
+                        <TouchableOpacity
+                          key={index}
+                          style={[
+                            styles.variantOption,
+                            isSelected && styles.variantOptionSelected
+                          ]}
+                          onPress={() => handleVariantSelect(variantType, option)}
+                        >
+                          <Text style={[
+                            styles.variantOptionText,
+                            isSelected && styles.variantOptionTextSelected
+                          ]}>
+                            {option.label}
+                          </Text>
+                          {option.priceChange && option.priceChange !== 0 && (
+                            <Text style={[
+                              styles.variantPriceChange,
+                              isSelected && styles.variantPriceChangeSelected
+                            ]}>
+                              {option.priceChange > 0 ? '+' : ''}{formatCurrency(option.priceChange)}
+                            </Text>
+                          )}
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </View>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+    );
   };
 
   return (
@@ -53,7 +218,7 @@ export default function CartProductList({
           key={item.id}
           activeOpacity={0.85}
           onPress={() => onProductPress && onProductPress(item)}
-          disabled={item.type === 'combo'} // Không cho click combo
+          disabled={item.type === 'combo'}
         >
           <View
             style={[
@@ -62,7 +227,7 @@ export default function CartProductList({
               item.type === 'build' && { backgroundColor: '#e3f2fd' }
             ]}
           >
-            {/* Checkbox với animation */}
+            {/* Checkbox */}
             <TouchableOpacity
               style={[
                 styles.checkbox,
@@ -78,22 +243,19 @@ export default function CartProductList({
               />
             </TouchableOpacity>
 
-            {/* Product Image với shadow */}
+            {/* Product Image */}
             <View style={styles.imageContainer}>
               <Image source={item.image} style={styles.productImage} />
-              {/* Badge discount nếu có */}
               {item.discount && (
                 <View style={styles.discountBadge}>
                   <Text style={styles.discountText}>-{item.discount}%</Text>
                 </View>
               )}
-              {/* 🟠 Combo badge */}
               {item.type === 'combo' && (
                 <View style={styles.comboBadge}>
                   <Text style={styles.comboBadgeText}>COMBO</Text>
                 </View>
               )}
-              {/* 🟦 Build badge */}
               {item.type === 'build' && (
                 <View style={styles.buildBadge}>
                   <Text style={styles.buildBadgeText}>BUILD</Text>
@@ -112,18 +274,11 @@ export default function CartProductList({
               >
                 {item.name}
               </Text>
-              {/* 🟠 Số lượng sản phẩm trong combo */}
-              {item.type === 'combo' && item.productCount && (
-                <Text style={styles.productCountText}>
-                  {item.productCount} sản phẩm trong combo
-                </Text>
-              )}
-              {item.variant && (
-            <Text style={styles.variantText} numberOfLines={1}>
-              Phiên bản: {item.variant.label}
-            </Text>
-          )}
-              {/* Price section với styling giống Shopee/Tiki */}
+              
+              {/* Enhanced Variant Display */}
+              {renderVariantInfo(item)}
+
+              {/* Price section */}
               <View style={styles.priceSection}>
                 <Text style={styles.currentPrice}>
                   {formatCurrency(item.price)}
@@ -135,7 +290,7 @@ export default function CartProductList({
                 )}
               </View>
 
-              {/* Quantity controls với input */}
+              {/* Quantity controls */}
               <View style={styles.quantityContainer}>
                 <TouchableOpacity 
                   onPress={() => onQuantity(item.id, -1)} 
@@ -149,7 +304,6 @@ export default function CartProductList({
                   />
                 </TouchableOpacity>
 
-                {/* Input số lượng có thể chỉnh sửa */}
                 <View style={styles.quantityInputContainer}>
                   {editingQuantity[item.id] ? (
                     <TextInput
@@ -180,7 +334,7 @@ export default function CartProductList({
                 </TouchableOpacity>
               </View>
 
-              {/* Stock info nếu có */}
+              {/* Stock warning */}
               {item.stock && item.stock < 10 && (
                 <Text style={styles.stockWarning}>
                   Chỉ còn {item.stock} sản phẩm
@@ -188,7 +342,7 @@ export default function CartProductList({
               )}
             </View>
 
-            {/* Remove button với animation */}
+            {/* Remove button */}
             <TouchableOpacity
               onPress={() => onRemove(item.id)}
               style={styles.removeButton}
@@ -199,6 +353,9 @@ export default function CartProductList({
           </View>
         </TouchableOpacity>
       ))}
+
+      {/* Variant Selection Modal */}
+      {renderVariantModal()}
     </View>
   );
 }
@@ -260,6 +417,34 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: 'bold',
   },
+  comboBadge: {
+    position: 'absolute',
+    left: 0,
+    bottom: 0,
+    backgroundColor: '#ff6b35',
+    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  comboBadgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
+  buildBadge: {
+    position: 'absolute',
+    left: 0,
+    bottom: 0,
+    backgroundColor: '#2979ff',
+    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  buildBadgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
   productInfo: {
     flex: 1,
     justifyContent: 'space-between',
@@ -269,7 +454,35 @@ const styles = StyleSheet.create({
     color: '#333',
     fontWeight: '500',
     lineHeight: 18,
+    marginBottom: 8,
+  },
+  // Enhanced Variant Styles
+  variantContainer: {
+    marginBottom: 8,
+  },
+  variantRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f8f9fa',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
     marginBottom: 4,
+    borderWidth: 1,
+    borderColor: '#e9ecef',
+  },
+  variantLabel: {
+    fontSize: 12,
+    color: '#666',
+    fontWeight: '500',
+    minWidth: 60,
+  },
+  variantValue: {
+    fontSize: 12,
+    color: '#e53935',
+    fontWeight: '600',
+    flex: 1,
+    marginLeft: 4,
   },
   priceSection: {
     flexDirection: 'row',
@@ -351,43 +564,82 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginLeft: 8,
   },
-  variantText: {
-    fontSize: 12,
-    color: 'red',
-    marginBottom: 4,
-    fontStyle: 'italic',
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
   },
-  comboBadge: {
-    position: 'absolute',
-    left: 0,
-    bottom: 0,
-    backgroundColor: '#ff6b35',
-    borderRadius: 6,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+  modalContent: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '80%',
   },
-  comboBadgeText: {
-    color: '#fff',
-    fontSize: 10,
-    fontWeight: 'bold',
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
   },
-  buildBadge: {
-    position: 'absolute',
-    left: 0,
-    bottom: 0,
-    backgroundColor: '#2979ff',
-    borderRadius: 6,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333',
   },
-  buildBadgeText: {
-    color: '#fff',
-    fontSize: 10,
-    fontWeight: 'bold',
+  closeButton: {
+    padding: 4,
   },
-  productCountText: {
+  modalBody: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+  },
+  variantSection: {
+    marginBottom: 24,
+  },
+  variantSectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 12,
+  },
+  variantOptions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  variantOption: {
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: '#fff',
+    minWidth: 80,
+    alignItems: 'center',
+  },
+  variantOptionSelected: {
+    borderColor: '#ee4d2d',
+    backgroundColor: '#fff5f5',
+  },
+  variantOptionText: {
+    fontSize: 14,
+    color: '#333',
+    fontWeight: '500',
+  },
+  variantOptionTextSelected: {
+    color: '#ee4d2d',
+    fontWeight: '600',
+  },
+  variantPriceChange: {
     fontSize: 12,
     color: '#666',
-    marginTop: 4,
+    marginTop: 2,
+  },
+  variantPriceChangeSelected: {
+    color: '#ee4d2d',
   },
 });

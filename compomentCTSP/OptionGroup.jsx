@@ -1,7 +1,6 @@
-import React from "react";
-import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 export default function OptionGroup({ label, options = [], selected, onSelect, type = "default" }) {
   return (
@@ -65,7 +64,7 @@ export default function OptionGroup({ label, options = [], selected, onSelect, t
                     styles.priceDiff,
                     isSelected && styles.priceDiffSelected
                   ]}>
-                    +{option.priceDiff.toLocaleString('vi-VN')}₫
+                    {option.priceDiff > 0 ? `+${option.priceDiff.toLocaleString('vi-VN')}đ` : option.priceDiff < 0 ? `-${Math.abs(option.priceDiff).toLocaleString('vi-VN')}đ` : '0đ'}
                   </Text>
                 )}
 

@@ -54,7 +54,8 @@ export default function UngDungLapPC() {
   const [showVariantDialog, setShowVariantDialog] = useState(false);
   const [variantProduct, setVariantProduct] = useState(null);
   const [selectedVariant, setSelectedVariant] = useState(null);
-
+  const [showPresetComboModal, setShowPresetComboModal] = useState(false);
+  const [selectedPreset, setSelectedPreset] = useState(null);
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
 
@@ -241,12 +242,10 @@ export default function UngDungLapPC() {
   }, [selectedCategory, products]);
 
   const onSelectBuild = (build) => {
-    const key = build.type || build.id;
-    setLoaiCauHinh(key);
-    setPresetComponents(build.components || []);
-    setSelectedComponents({});
-    setIsCustomizing(false);
+    setSelectedPreset(build);
+    setShowPresetComboModal(true);
   };
+
 
   // Enhanced product selection with animation
   const openProductSelection = (category) => {
@@ -328,14 +327,23 @@ export default function UngDungLapPC() {
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}>
             <View style={styles.buildIconContainer}>
-              <Text style={styles.buildIcon}>{build.icon}</Text>
+              {build.image ? (
+                <Image
+                  source={
+                    build.image.startsWith('http')
+                      ? { uri: build.image }
+                      : { uri: resolveImageUri(build.image) }
+                  }
+                  style={{ width: 50, height: 50, borderRadius: 25 }}
+                  resizeMode="cover"
+                />
+              ) : (
+                <Text style={styles.buildIcon}>{build.icon}</Text>
+              )}
             </View>
             <Text style={styles.buildTitle}>{build.name}</Text>
             <Text style={styles.buildSubtitle}>{build.description}</Text>
-            <View style={styles.buildPriceContainer}>
-              <Text style={styles.buildPrice}>{formatCurrency(build.price)}</Text>
-              
-            </View>
+            
           </LinearGradient>
         </TouchableOpacity>
       </Animated.View>
@@ -527,6 +535,141 @@ export default function UngDungLapPC() {
     );
   };
 
+  const PresetComboModal = () => {
+    if (!selectedPreset) return null;
+    return (
+      <Modal
+        visible={showPresetComboModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowPresetComboModal(false)}
+      >
+        <View style={{
+          flex: 1,
+          backgroundColor: 'rgba(0,0,0,0.25)',
+          justifyContent: 'center',
+          alignItems: 'center'
+        }}>
+          <View style={{
+            backgroundColor: '#fff',
+            borderRadius: 20,
+            padding: 22,
+            width: '92%',
+            maxWidth: 420,
+            elevation: 12,
+          }}>
+            <Text style={{ fontWeight: 'bold', fontSize: 20, marginBottom: 12, color: '#222' }}>
+              {selectedPreset.name}
+            </Text>
+            <Text style={{ color: '#666', marginBottom: 10 }}>{selectedPreset.description}</Text>
+            {selectedPreset.comboNames && selectedPreset.comboNames.length > 0 && (
+              <ScrollView style={{ maxHeight: 400 }}>
+                {selectedPreset.comboNames.map((comboName, idx) => {
+                  const comboId = selectedPreset.comboIds?.[idx];
+                  // Lấy combo object từ preset nếu có
+                  const comboObj = selectedPreset.combos?.find?.(c => c._id === comboId) || {};
+                  // Nếu comboObj có productIds là mảng sản phẩm đã populate
+                  const comboProducts = Array.isArray(comboObj.productIds)
+                    ? comboObj.productIds
+                    : selectedPreset.components?.filter?.(c => c.comboId === comboId) || [];
+                  return (
+                    <View key={comboId || comboName || idx} style={{ marginBottom: 18 }}>
+                      <Text style={{ fontWeight: 'bold', color: '#2979ff', marginBottom: 6, fontSize: 16 }}>
+                        {comboName}
+                      </Text>
+                      {comboProducts.length === 0 && (
+                        <Text style={{ color: '#888', fontStyle: 'italic', marginBottom: 8 }}>Không có sản phẩm</Text>
+                      )}
+                      {comboProducts.map((product, i) => (
+                        <View
+                          key={product._id || product.productId || product.name || i}
+                          style={{
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            marginBottom: 8,
+                            backgroundColor: '#f7f9fb',
+                            borderRadius: 10,
+                            padding: 8,
+                          }}
+                        >
+                          <Image
+                            source={
+                              product.image
+                                ? typeof product.image === 'string'
+                                  ? { uri: product.image }
+                                  : product.image
+                                : require('../assets/images/pc.png')
+                            }
+                            style={{ width: 40, height: 40, borderRadius: 8, marginRight: 10, backgroundColor: '#eee' }}
+                            resizeMode="cover"
+                          />
+                          <View style={{ flex: 1 }}>
+                            <Text style={{ fontWeight: '600', fontSize: 14 }} numberOfLines={1}>
+                              {product.name}
+                            </Text>
+                            <Text style={{ color: '#28a745', fontWeight: 'bold', fontSize: 13 }}>
+                              {formatCurrency(product.price)}
+                            </Text>
+                            {/* Hiển thị biến thể nếu có */}
+                            {product.variant && (
+                              <Text style={{ color: '#667eea', fontSize: 12 }}>
+                                Biến thể: {product.variant.label} {product.variant.priceDiff ? `( +${formatCurrency(product.variant.priceDiff)} )` : ''}
+                              </Text>
+                            )}
+                          </View>
+                        </View>
+                      ))}
+                    </View>
+                  );
+                })}
+              </ScrollView>
+            )}
+            {(!selectedPreset.comboNames || selectedPreset.comboNames.length === 0) && (
+              <ScrollView style={{ maxHeight: 300 }}>
+                {selectedPreset.components.map((comp) => {
+                  const product = products.find(p => p.id === comp.productId);
+                  return (
+                    <View key={comp.productId || comp.name} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                      <Image source={product?.image} style={{ width: 32, height: 32, borderRadius: 8, marginRight: 8 }} />
+                      <Text style={{ flex: 1 }}>{product?.name || comp.name}</Text>
+                      <Text style={{ color: '#28a745', fontWeight: 'bold' }}>{formatCurrency(product?.price || comp.price)}</Text>
+                    </View>
+                  );
+                })}
+              </ScrollView>
+            )}
+            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 16 }}>
+              <TouchableOpacity
+                onPress={() => {
+                  setLoaiCauHinh(selectedPreset.type || selectedPreset.id);
+                  setPresetComponents(selectedPreset.components || []);
+                  setSelectedComponents({});
+                  setIsCustomizing(false);
+                  setShowPresetComboModal(false);
+                }}
+                style={{
+                  paddingVertical: 10, paddingHorizontal: 22,
+                  borderRadius: 10, backgroundColor: '#667eea', marginRight: 10
+                }}
+              >
+                <Text style={{ color: '#fff', fontWeight: '700', fontSize: 15 }}>Chọn cấu hình này</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setShowPresetComboModal(false)}
+                style={{
+                  paddingVertical: 10, paddingHorizontal: 22,
+                  borderRadius: 10, backgroundColor: '#e0e7ef'
+                }}
+              >
+                <Text style={{ color: '#333', fontWeight: '700', fontSize: 15 }}>Đóng</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    );
+  };
+
   // Performance modal
   const PerformanceModal = () => {
     const scores = calculatePerformanceScores();
@@ -651,12 +794,12 @@ export default function UngDungLapPC() {
           quantity: comp.quantity || 1,
           ...(comp.variant && comp.variant.key && comp.variant.label
             ? {
-                variant: {
-                  key: comp.variant.key,
-                  label: comp.variant.label,
-                  priceDiff: comp.variant.priceDiff || 0
-                }
+              variant: {
+                key: comp.variant.key,
+                label: comp.variant.label,
+                priceDiff: comp.variant.priceDiff || 0
               }
+            }
             : {})
         })),
         ...Object.values(selectedComponents).map(comp => ({
@@ -664,12 +807,12 @@ export default function UngDungLapPC() {
           quantity: 1,
           ...(comp.variant && comp.variant.key && comp.variant.label
             ? {
-                variant: {
-                  key: comp.variant.key,
-                  label: comp.variant.label,
-                  priceDiff: comp.variant.priceDiff || 0
-                }
+              variant: {
+                key: comp.variant.key,
+                label: comp.variant.label,
+                priceDiff: comp.variant.priceDiff || 0
               }
+            }
             : {})
         }))
       ];
@@ -756,7 +899,9 @@ export default function UngDungLapPC() {
             {cacLoaiCauHinh.map((build) => (
               <TheLoaiCauHinh key={build.type || build.id} build={build} />
             ))}
+            
           </ScrollView>
+
         </View>
 
         {/* Price Summary */}
@@ -801,12 +946,11 @@ export default function UngDungLapPC() {
             {presetComponents.length > 0 && (
               <View style={styles.presetComponentsContainer}>
                 <Text style={styles.presetTitle}>Linh kiện cơ bản:</Text>
-                {presetComponents.map((component, index) => {
+                {presetComponents.map((component) => {
                   const product = products.find(p => p.id === component.productId);
                   if (!product) return null;
-
                   return (
-                    <View key={`preset-${index}`} style={styles.presetComponentCard}>
+                    <View key={component.productId || component.name} style={styles.presetComponentCard}>
                       <Image source={product.image} style={styles.presetComponentImage} />
                       <View style={styles.presetComponentInfo}>
                         <Text style={styles.presetComponentName}>{product.name}</Text>
@@ -1050,6 +1194,7 @@ export default function UngDungLapPC() {
           </View>
         </View>
       </Modal>
+      <PresetComboModal />
     </SafeAreaView>
   );
 }
@@ -1393,12 +1538,15 @@ const styles = StyleSheet.create({
     alignItems: 'center'
   },
   buildIconContainer: {
-    width: 50,
-    height: 50,
+    width: 60,
+    height: 60,
     backgroundColor: 'rgba(255,255,255,0.2)',
-    borderRadius: 25,
+    borderRadius: 16,
     justifyContent: 'center',
-    alignItems: 'center'
+    alignItems: 'center',
+    marginRight: 16,
+    borderWidth: 2,
+    borderColor: '#e9ecef'
   },
   buildIcon: { fontSize: 24, color: '#FFFFFF' },
   buildTitle: {

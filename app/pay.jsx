@@ -1103,11 +1103,22 @@ export default function PayScreen() {
               </Text>
             </View>
 
-            {discount > 0 && (
+            {/* Hiển thị giảm giá đơn hàng nếu có */}
+            {orderDiscount > 0 && (
               <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Giảm giá</Text>
+                <Text style={styles.summaryLabel}>Giảm giá đơn hàng</Text>
                 <Text style={[styles.summaryValue, styles.discountText]}>
-                  -{formatCurrency(discount)}
+                  -{formatCurrency(orderDiscount)}
+                </Text>
+              </View>
+            )}
+
+            {/* Hiển thị giảm giá phí vận chuyển nếu có */}
+            {shippingDiscount > 0 && (
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryLabel}>Giảm giá phí vận chuyển</Text>
+                <Text style={[styles.summaryValue, styles.discountText]}>
+                  -{formatCurrency(shippingDiscount)}
                 </Text>
               </View>
             )}

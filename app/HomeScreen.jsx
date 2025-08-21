@@ -358,9 +358,7 @@ export default function HomeScreen() {
               userName={userName}
             />
 
-            <View
-              style={{ paddingHorizontal: 18, marginTop: 14, marginBottom: 14 }}
-            >
+<View style={{ paddingHorizontal: 18, marginTop: 0, marginBottom: 14 }}>
               <LinearGradient
                 colors={["#2979ff", "#00c6ff"]}
                 start={{ x: 0, y: 0 }}

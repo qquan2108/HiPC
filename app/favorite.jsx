@@ -236,7 +236,7 @@ export default function FavoriteScreen() {
           </TouchableOpacity>
           
           <View style={styles.titleContainer}>
-            <Text style={styles.modernTitle}>Yêu thích</Text>
+            <Text style={styles.modernTitle}>Yêu Thích Của Tôi</Text>
             <View style={styles.titleUnderline} />
             <Text style={styles.subtitle}>{wishlist.length} items saved</Text>
           </View>
