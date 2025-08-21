@@ -778,7 +778,7 @@ export default function PayScreen() {
     }
   };
 
-    const handleVnPayClose = async (result) => {
+  const handleVnPayClose = async (result) => {
     setShowVnPayModal(false);
 
     if (!vnpayData?.orderId) {
@@ -825,7 +825,7 @@ export default function PayScreen() {
       setPayStatus("fail");
     }
   };
-  
+
   const renderIcon = (iconName, iconLib, color, size = 24) => {
     switch (iconLib) {
       case "MaterialIcons":
