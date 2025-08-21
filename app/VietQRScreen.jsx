@@ -98,7 +98,16 @@ export default function VietQRScreen() {
       });
       // Chuyển trang sau khi toast
       setTimeout(() => {
-        router.replace('/CheckoutSuccess');
+        router.push({
+        pathname: "/CheckoutSuccess",
+        params: {
+          orderId: orderId,
+          total,
+          products: JSON.stringify(products),
+          address: address,
+          paymentMethod: paymentMethod,
+        },
+      });
       }, 1500);
     });
 
