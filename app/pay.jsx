@@ -18,7 +18,7 @@ import PayProductList from "../compomentPay/PayProductList";
 import PayStatusModal from "../compomentPay/PayStatusModal";
 import PayVoucherModal from "../compomentPay/PayVoucherModal";
 import StripeModal from "../compomentPay/StripeModal";
-import VnPayModal from "../compomentPay/Vnpaymodal";
+
 import axiosInstance from "../utils/AxiosInstance";
 import AddressModal from "./AddressModal";
 
@@ -48,13 +48,7 @@ const paymentMethods = [
     iconLib: "MaterialIcons",
     color: "#34C759"
   },
-  {
-    key: "vnpay",
-    label: "Ví điện tử VNPAY",
-    icon: "account-balance-wallet",
-    iconLib: "MaterialIcons",
-    color: "#007AFF"
-  },
+  
   {
     key: "stripe",
     label: "Thẻ tín dụng/ghi nợ",
@@ -96,27 +90,53 @@ export default function PayScreen() {
   const [shippingFee, setShippingFee] = useState(0);
   const [payStatus, setPayStatus] = useState(null);
   const [isLoadingShipping, setIsLoadingShipping] = useState(false);
-  const [showVnPayModal, setShowVnPayModal] = useState(false);
-  const [vnpayData, setVnpayData] = useState(null);
+ 
   const [orderId, setOrderId] = useState(null);
   const [orderAmount, setOrderAmount] = useState(0);
 
+  const [allDistricts, setAllDistricts] = useState([]);
+  const [allWards, setAllWards] = useState([]);
+
   // Calculations
   const subtotal = products.reduce((sum, p) => sum + p.price * p.quantity, 0);
+  const totalBeforeDiscount = subtotal + shippingFee;
   const discount = selectedVoucher
     ? selectedVoucher.discount_value != null
       ? selectedVoucher.discount_value > 0 &&
         selectedVoucher.discount_value < 100
-        ? Math.round((subtotal * selectedVoucher.discount_value) / 100)
-        : selectedVoucher.discount_value
-      : 0
+        ? Math.round((totalBeforeDiscount * selectedVoucher.discount_value) / 100)
+        : Math.min(selectedVoucher.discount_value, totalBeforeDiscount)
+    : 0
     : 0;
-  const total = subtotal + shippingFee - discount;
+
+  const [selectedOrderVoucher, setSelectedOrderVoucher] = useState(null);
+  const [selectedShippingVoucher, setSelectedShippingVoucher] = useState(null);
+
+  // Tính discount cho đơn hàng
+  const orderDiscount = selectedOrderVoucher
+    ? selectedOrderVoucher.discount_type === 'percentage'
+      ? Math.round((subtotal * selectedOrderVoucher.discount_value) / 100)
+      : Math.min(selectedOrderVoucher.discount_value, subtotal)
+    : 0;
+
+  // Tính discount cho phí vận chuyển
+  const shippingDiscount = selectedShippingVoucher
+    ? selectedShippingVoucher.discount_type === 'percentage'
+      ? Math.round((shippingFee * selectedShippingVoucher.discount_value) / 100)
+      : Math.min(selectedShippingVoucher.discount_value, shippingFee)
+    : 0;
+
+  // Tổng phí vận chuyển sau giảm
+  const finalShippingFee = Math.max(0, shippingFee - shippingDiscount);
+
+  // Tổng cuối cùng
+  const total = Math.max(0, subtotal - orderDiscount + finalShippingFee);
+
   const totalWeight = products.reduce(
     (sum, p) => sum + (p.weight || 100) * p.quantity,
     0
   );
-
+  console.log('selectedVoucher:', selectedVoucher);
   // GHN API Helper
   const ghnRequest = async (endpoint, data = {}, method = "POST") => {
     try {
@@ -401,26 +421,23 @@ useEffect(() => {
       const user = JSON.parse(userStr);
       const userId = user.id || user._id;
       const res = await axiosInstance.get(`/cartt/user/${userId}`);
-      const orders = Array.isArray(res.data) ? res.data : [];
-      const pending = orders.find((o) => o.status === "pending") || {
-        products: [],
-      };
-      const items = Array.isArray(pending.products)
-        ? pending.products.map((item) => ({
-            id: item.productId?._id || item.productId,
-            name: item.productId?.name || "Không có tên",
-            price: item.productId?.price ?? 0,
-            image: item.productId?.image
-              ? { uri: item.productId.image }
-              : require("../assets/images/pc1.png"),
-            quantity: item.quantity ?? 1,
-            weight: item.productId?.weight ?? 100,
-            length: item.productId?.length ?? 20,
-            width: item.productId?.width ?? 20,
-            height: item.productId?.height ?? 20,
-          }))
-        : [];
-      setProducts(items);
+      const products = Array.isArray(res.data.products) ? res.data.products : [];
+const items = products.map((item) => ({
+  id: item.productId?._id || item.productId,
+  name: item.productId?.name || "Không có tên",
+  price: item.productId?.price ?? 0,
+  image: item.productId?.image
+    ? { uri: item.productId.image }
+    : require("../assets/images/pc1.png"),
+  quantity: item.quantity ?? 1,
+  weight: item.productId?.weight ?? 100,
+  length: item.productId?.length ?? 20,
+  width: item.productId?.width ?? 20,
+  height: item.productId?.height ?? 20,
+  cartItemId: item._id, // Để truyền lại khi thanh toán
+  variant: item.variant || {},
+}));
+setProducts(items);
     } catch (err) {
       console.error(err);
     }
@@ -540,177 +557,206 @@ useEffect(() => {
     total,
   ]);
 
-  const addressText = [
-    provinces.find((p) => p.ProvinceID === parseInt(selectedProvince))
-      ?.ProvinceName,
-    districts.find((d) => d.DistrictID === parseInt(selectedDistrict))
-      ?.DistrictName,
-    wards.find((w) => w.WardCode === selectedWard)?.WardName,
-  ]
-    .filter(Boolean)
-    .join(", ");
-
-  const handleOrder = async () => {
-    if (!selectedAddress) {
-      Toast.show({
-        type: "error",
-        text1: "Vui lòng chọn địa chỉ giao hàng",
-      });
-      return;
-    }
-
-    if (products.length === 0) {
-      Toast.show({
-        type: "error",
-        text1: "Giỏ hàng trống",
-      });
-      return;
-    }
-
+  // Thêm useEffect để load toàn bộ quận/huyện và phường/xã khi load tỉnh thành
+useEffect(() => {
+  (async () => {
     try {
-      const userStr = await AsyncStorage.getItem("user");
-      if (!userStr) throw new Error("Chưa xác định được user");
-      const user = JSON.parse(userStr);
-      const userId = (user._id || user.id || "").toString();
-      if (!userId || userId === "undefined" || userId === "") {
-        console.log("user object:", user);
-        throw new Error("Không xác định được user_id");
+      // Lấy tất cả tỉnh
+      const provinceRes = await ghnRequest("/master-data/province");
+      setProvinces(provinceRes.data || []);
+
+      // Lấy tất cả quận/huyện của tất cả tỉnh
+      let allDistrictsArr = [];
+      for (const province of provinceRes.data || []) {
+        try {
+          const districtRes = await ghnRequest("/master-data/district", {
+            province_id: province.ProvinceID,
+          });
+          if (Array.isArray(districtRes.data)) {
+            allDistrictsArr = allDistrictsArr.concat(districtRes.data);
+          }
+        } catch {}
       }
+      setAllDistricts(allDistrictsArr);
 
-      const productsData = products.map((p) => ({
-        productId: p.id || p._id,
-        quantity: p.quantity,
-      }));
-
-      const orderData = {
-        user_id: userId,
-        products: productsData,
-        total_price: subtotal,
-        address: selectedAddress?.address || "",
-        paymentMethod: selectedPayment,
-        shippingMethod: selectedService?.service_id || null,
-        voucher: selectedVoucher?.id || null,
-        total,
-        shippingFee,
-      };
-
-      const res = await axiosInstance.post("/orders/checkout", orderData, {
-        headers: { "Content-Type": "application/json" },
-      });
-      await AsyncStorage.removeItem("cart");
-      setProducts([]);
-
-      if (selectedPayment === "vnpay") {
-        setVnpayData({
-          orderId: res.data.orderId,
-          amount: total,
-          orderInfo: `Thanh toán đơn hàng ${res.data.orderId}`,
-        });
-        setShowVnPayModal(true);
-        return;
+      // Lấy tất cả phường/xã của tất cả quận/huyện
+      let allWardsArr = [];
+      for (const district of allDistrictsArr) {
+        try {
+          const wardRes = await ghnRequest("/master-data/ward", {
+            district_id: district.DistrictID,
+          });
+          if (Array.isArray(wardRes.data)) {
+            allWardsArr = allWardsArr.concat(wardRes.data);
+          }
+        } catch {}
       }
+      setAllWards(allWardsArr);
+    } catch (err) {
+      console.error(err);
+      Toast.show({ type: "error", text1: "Không lấy được danh sách tỉnh." });
+    }
+  })();
+}, []);
 
-      if (selectedPayment === "stripe") {
-        setOrderId(res.data.orderId);
-        setOrderAmount(total);
-        setShowStripe(true);
-        return;
-      }
-      if (selectedPayment === "sepay") {
-        router.push({
-          pathname: "/VietQRScreen",
-          params: {
-            acc: VIETQR_ACCOUNT,
-            bank: VIETQR_BANK,
-            amount: total.toString(),
-            des: `${res.data.orderId}`,
-            orderId: res.data.orderId,
-            total,
-            products: JSON.stringify(products),
-            address: selectedAddress?.address || addressText,
-            paymentMethod: selectedPayment,
-          },
-        });
-        return;
-      }
+  // Lấy tên tỉnh từ danh sách provinces
+  const provinceName = provinces.find(
+    p => String(p.ProvinceID) === String(selectedAddress?.provinceId)
+  )?.ProvinceName || "";
 
-      Toast.show({
-        type: "success",
-        text1: "Đặt hàng thành công!",
-        text2: "Cảm ơn bạn.",
-      });
-      setPayStatus("success");
+  // Lấy tên quận từ toàn bộ districts (không chỉ districts của selectedProvince)
+  const districtName = allDistricts.find(
+    d => String(d.DistrictID) === String(selectedAddress?.districtId)
+  )?.DistrictName || "";
+
+  // Lấy tên phường từ toàn bộ wards (tương tự như trên)
+  const wardName = allWards.find(
+    w => String(w.WardCode) === String(selectedAddress?.wardCode)
+  )?.WardName || "";
+
+ const handleOrder = async () => {
+  if (!selectedAddress) {
+    Toast.show({
+      type: "error",
+      text1: "Vui lòng chọn địa chỉ giao hàng",
+    });
+    return;
+  }
+
+  if (products.length === 0) {
+    Toast.show({
+      type: "error",
+      text1: "Giỏ hàng trống",
+    });
+    return;
+  }
+
+  try {
+    const userStr = await AsyncStorage.getItem("user");
+    if (!userStr) throw new Error("Chưa xác định được user");
+    const user = JSON.parse(userStr);
+    const userId = (user._id || user.id || "").toString();
+    if (!userId || userId === "undefined" || userId === "") {
+      console.log("user object:", user);
+      throw new Error("Không xác định được user_id");
+    }
+
+    const productsData = products.map((p) => ({
+      productId: p.id || p._id,
+      quantity: p.quantity,
+      variant: p.variant || undefined,
+    }));
+
+    const orderData = {
+      user_id: userId,
+      products: productsData,
+      total_price: totalBeforeDiscount,
+      shippingFee,
+      total,
+      address: selectedAddress?.address || "",
+      paymentMethod: selectedPayment,
+      shippingMethod: selectedService?.service_id || null,
+      selectedOrderVoucher,      // gửi đúng trường cho voucher đơn hàng
+  selectedShippingVoucher,   // gửi đúng trường cho voucher phí vận chuyển
+    };
+
+    // Nếu có cartItemId thì truyền selectedProducts (mua từ cart)
+    const selectedCartIds = products.map(p => p.cartItemId).filter(Boolean);
+    if (selectedCartIds.length > 0) {
+      orderData.selectedProducts = selectedCartIds;
+    }
+
+    const res = await axiosInstance.post("/orders/checkout", orderData, {
+      headers: { "Content-Type": "application/json" },
+    });
+
+    // ✅ IMPORTANT: Clean up cart and AsyncStorage immediately after successful order
+    await AsyncStorage.removeItem("cart");
+setProducts([]);
+
+// ✅ Force reload cart từ server để đồng bộ với backend
+try {
+  const userStr = await AsyncStorage.getItem("user");
+  if (userStr) {
+    const user = JSON.parse(userStr);
+    const userId = user.id || user._id;
+    
+    // Gọi API để đảm bảo cart được refresh
+    await axiosInstance.get(`/cartt/user/${userId}`);
+    
+    // Set multiple flags để trigger reload ở tất cả screens
+    await AsyncStorage.setItem("shouldReloadCart", Date.now().toString());
+    await AsyncStorage.setItem("cartUpdated", "1");
+  }
+} catch (err) {
+  console.log("Cart refresh error (non-critical):", err);
+}
+    // Handle different payment methods
+    
+
+    if (selectedPayment === "stripe") {
+      setOrderId(res.data.orderId);
+      setOrderAmount(total);
+      setShowStripe(true);
+      return;
+    }
+
+    if (selectedPayment === "sepay") {
       router.push({
-        pathname: "/CheckoutSuccess",
+        pathname: "/VietQRScreen",
         params: {
+          acc: VIETQR_ACCOUNT,
+          bank: VIETQR_BANK,
+          amount: total.toString(),
+          des: `${res.data.orderId}`,
           orderId: res.data.orderId,
           total,
           products: JSON.stringify(products),
-          address: selectedAddress?.address || addressText,
+          address: selectedAddress?.address || "",
           paymentMethod: selectedPayment,
         },
       });
-    } catch (err) {
-      console.error(err);
+      return;
+    }
+
+    // COD payment - immediate success
+    Toast.show({
+      type: "success",
+      text1: "Đặt hàng thành công!",
+      text2: "Cảm ơn bạn.",
+    });
+    setPayStatus("success");
+    router.push({
+      pathname: "/CheckoutSuccess",
+      params: {
+        orderId: res.data.orderId,
+        total,
+        products: JSON.stringify(products),
+        address: selectedAddress?.address || "",
+        paymentMethod: selectedPayment,
+      },
+    });
+
+  } catch (err) {
+    console.error("Checkout error:", err);
+    if (err.response) {
+      console.error("Checkout error response:", err.response.data);
+      console.error("Checkout error status:", err.response.status);
+      Toast.show({
+        type: "error",
+        text1: "Đặt hàng thất bại!",
+        text2: err.response.data?.error || err.message || "Vui lòng thử lại.",
+      });
+    } else {
       Toast.show({
         type: "error",
         text1: "Đặt hàng thất bại!",
         text2: err.message || "Vui lòng thử lại.",
       });
-      setPayStatus("fail");
     }
-  };
-  useEffect(() => {
-    console.log('▶ showAddressModal changed:', showAddressModal);
-  }, [showAddressModal]);
-
-  const handleVnPayClose = async (result) => {
-    setShowVnPayModal(false);
-
-    if (!vnpayData?.orderId) {
-      Toast.show({
-        type: "error",
-        text1: result?.message || "Thanh toán thất bại",
-      });
-      setPayStatus("fail");
-      return;
-    }
-
-    try {
-      const verifyRes = await axiosInstance.post("/vnpay/verify_payment", {
-        orderId: vnpayData.orderId,
-        code: result?.code,
-      });
-
-      if (verifyRes.data?.success) {
-        Toast.show({ type: "success", text1: "Đặt hàng thành công!" });
-        setPayStatus("success");
-        router.push({
-          pathname: "/CheckoutSuccess",
-          params: {
-            orderId: vnpayData.orderId,
-            total,
-            products: JSON.stringify(products),
-            address: selectedAddress?.address || addressText,
-            paymentMethod: selectedPayment,
-          },
-        });
-      } else {
-        Toast.show({
-          type: "error",
-          text1: verifyRes.data?.message || "Thanh toán thất bại",
-        });
-        setPayStatus("fail");
-      }
-    } catch (err) {
-      console.error(err);
-      Toast.show({
-        type: "error",
-        text1: result?.message || "Thanh toán thất bại",
-      });
-      setPayStatus("fail");
-    }
-  };
+    setPayStatus("fail");
+  }
+};
 
   const renderIcon = (iconName, iconLib, color, size = 24) => {
     switch (iconLib) {
@@ -756,21 +802,26 @@ useEffect(() => {
 
           <TouchableOpacity
             style={styles.addressCard}
-
             onPress={() => setShowAddressModal(true)}
-
           >
             {selectedAddress ? (
               <View style={styles.addressContent}>
                 <View style={styles.addressInfo}>
-                  <Text style={styles.addressName}>
-                    {selectedAddress.label || selectedAddress.recipientName}
-                  </Text>
-                  <Text style={styles.addressPhone}>
+                  {/* Số điện thoại in đậm ở dòng đầu */}
+                  <Text style={[styles.addressName, { fontWeight: "bold" }]}>
                     {selectedAddress.phone || selectedAddress.phoneNumber}
                   </Text>
-                  <Text style={styles.addressText} numberOfLines={2}>
+                  {/* Tên địa chỉ (label hoặc recipientName) */}
+                  <Text style={styles.addressText}>
+                    {selectedAddress.label || selectedAddress.recipientName}
+                  </Text>
+                  <Text style={styles.addressText}>
                     {selectedAddress.address}
+                  </Text>
+                  <Text style={styles.addressText}>
+                    {wardName && `${wardName}, `}
+                    {districtName && `${districtName}, `}
+                    {provinceName}
                   </Text>
                 </View>
                 <View style={styles.addressAction}>
@@ -839,29 +890,56 @@ useEffect(() => {
           </View>
         )}
 
-        {/* Voucher Section */}
+        {/* Voucher Section - Đơn hàng */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <View style={styles.sectionTitleContainer}>
               <Ionicons name="ticket" size={20} color="#FF3B30" />
-              <Text style={styles.sectionTitle}>Mã giảm giá</Text>
+              <Text style={styles.sectionTitle}>Mã giảm giá đơn hàng</Text>
             </View>
           </View>
-
           <TouchableOpacity
             style={styles.voucherCard}
-            onPress={() => setShowVoucher(true)}
+            onPress={() => setShowVoucher('order')}
           >
             <View style={styles.voucherIcon}>
               <Ionicons name="pricetag" size={16} color="#FF3B30" />
             </View>
             <View style={styles.voucherInfo}>
               <Text style={styles.voucherText}>
-                {selectedVoucher
-                  ? selectedVoucher.discount_value < 100
-                    ? `Giảm ${selectedVoucher.discount_value}%`
-                    : `Giảm ${selectedVoucher.discount_value.toLocaleString("vi-VN")} ₫`
-                  : "Chọn mã giảm giá"}
+                {selectedOrderVoucher
+                  ? selectedOrderVoucher.discount_type === 'percentage'
+                    ? `Giảm ${selectedOrderVoucher.discount_value}%`
+                    : `Giảm ${selectedOrderVoucher.discount_value.toLocaleString("vi-VN")} ₫`
+                  : "Chọn mã giảm giá đơn hàng"}
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="#C7C7CC" />
+          </TouchableOpacity>
+        </View>
+
+        {/* Voucher Section - Phí vận chuyển */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <View style={styles.sectionTitleContainer}>
+              <Ionicons name="ticket" size={20} color="#34C759" />
+              <Text style={styles.sectionTitle}>Mã giảm giá phí vận chuyển</Text>
+            </View>
+          </View>
+          <TouchableOpacity
+            style={styles.voucherCard}
+            onPress={() => setShowVoucher('shipping')}
+          >
+            <View style={styles.voucherIcon}>
+              <Ionicons name="pricetag" size={16} color="#34C759" />
+            </View>
+            <View style={styles.voucherInfo}>
+              <Text style={styles.voucherText}>
+                {selectedShippingVoucher
+                  ? selectedShippingVoucher.discount_type === 'percentage'
+                    ? `Giảm ${selectedShippingVoucher.discount_value}%`
+                    : `Giảm ${selectedShippingVoucher.discount_value.toLocaleString("vi-VN")} ₫`
+                  : "Chọn mã giảm giá phí vận chuyển"}
               </Text>
             </View>
             <Ionicons name="chevron-forward" size={20} color="#C7C7CC" />
@@ -928,11 +1006,22 @@ useEffect(() => {
               </Text>
             </View>
 
-            {discount > 0 && (
+            {/* Hiển thị giảm giá đơn hàng nếu có */}
+            {orderDiscount > 0 && (
               <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Giảm giá</Text>
+                <Text style={styles.summaryLabel}>Giảm giá đơn hàng</Text>
                 <Text style={[styles.summaryValue, styles.discountText]}>
-                  -{formatCurrency(discount)}
+                  -{formatCurrency(orderDiscount)}
+                </Text>
+              </View>
+            )}
+
+            {/* Hiển thị giảm giá phí vận chuyển nếu có */}
+            {shippingDiscount > 0 && (
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryLabel}>Giảm giá phí vận chuyển</Text>
+                <Text style={[styles.summaryValue, styles.discountText]}>
+                  -{formatCurrency(shippingDiscount)}
                 </Text>
               </View>
             )}
@@ -998,13 +1087,7 @@ useEffect(() => {
         onSelectCard={setSelectedCard}
       />
 
-      <VnPayModal
-        visible={showVnPayModal}
-        orderId={vnpayData?.orderId}
-        amount={vnpayData?.amount}
-        orderInfo={vnpayData?.orderInfo}
-        onClose={handleVnPayClose}
-      />
+      
 
       <StripeModal
         visible={showStripe}
@@ -1038,16 +1121,19 @@ useEffect(() => {
       />
 
       <PayVoucherModal
-        visible={showVoucher}
-        selectedVoucher={selectedVoucher}
-        setSelectedVoucher={(voucher) => {
-          setSelectedVoucher(voucher);
+        visible={!!showVoucher}
+        selectedVoucher={showVoucher === 'order' ? selectedOrderVoucher : selectedShippingVoucher}
+        setSelectedVoucher={voucher => {
+          if (showVoucher === 'order') setSelectedOrderVoucher(voucher);
+          else setSelectedShippingVoucher(voucher);
           setShowVoucher(false);
         }}
         setShowVoucher={setShowVoucher}
-        orderAmount={subtotal}
-        onVoucherApplied={(voucher) => {
-          setSelectedVoucher(voucher);
+        orderAmount={showVoucher === 'order' ? subtotal : shippingFee}
+        voucherType={showVoucher} // truyền loại để modal lọc voucher phù hợp
+        onVoucherApplied={voucher => {
+          if (showVoucher === 'order') setSelectedOrderVoucher(voucher);
+          else setSelectedShippingVoucher(voucher);
           setShowVoucher(false);
         }}
       />

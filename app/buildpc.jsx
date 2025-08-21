@@ -1,8 +1,8 @@
+import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Ionicons } from "@expo/vector-icons";
 import {
   ActivityIndicator,
   Alert,
@@ -17,6 +17,7 @@ import {
   StatusBar,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View
 } from 'react-native';
@@ -417,7 +418,14 @@ export default function UngDungLapPC() {
 
   // Enhanced product modal with better UX
   const ProductSelectionModal = () => {
-    // Trong ProductSelectionModal, thay đổi phần renderProductItem như sau:
+    const [searchText, setSearchText] = useState("");
+
+    // Lọc sản phẩm theo searchText
+    const filteredProducts = productsForSelection.filter(
+      (item) =>
+        item.name.toLowerCase().includes(searchText.toLowerCase()) ||
+        getBrandName(item.brand_id).toLowerCase().includes(searchText.toLowerCase())
+    );
 
     const renderProductItem = ({ item, index }) => (
       <Animated.View
@@ -476,7 +484,7 @@ export default function UngDungLapPC() {
                   Chọn {currentCategoryForSelection?.name}
                 </Text>
                 <Text style={styles.modalSubtitle}>
-                  {productsForSelection.length} sản phẩm có sẵn
+                  {filteredProducts.length} sản phẩm có sẵn
                 </Text>
               </View>
               <TouchableOpacity
@@ -486,10 +494,28 @@ export default function UngDungLapPC() {
                 <Text style={styles.closeButtonText}>×</Text>
               </TouchableOpacity>
             </View>
+            {/* Thêm ô tìm kiếm ở đây */}
+            <View style={{ marginTop: 12, marginBottom: 4 }}>
+              <TextInput
+                placeholder="Tìm kiếm sản phẩm..."
+                value={searchText}
+                onChangeText={setSearchText}
+                style={{
+                  backgroundColor: '#fff',
+                  borderRadius: 10,
+                  paddingHorizontal: 16,
+                  paddingVertical: 10,
+                  fontSize: 16,
+                  borderWidth: 1,
+                  borderColor: '#e0e7ef'
+                }}
+                placeholderTextColor="#888"
+              />
+            </View>
           </LinearGradient>
 
           <FlatList
-            data={productsForSelection}
+            data={filteredProducts}
             renderItem={renderProductItem}
             keyExtractor={(item) => item.id}
             style={styles.productList}

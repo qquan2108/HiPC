@@ -1,5 +1,6 @@
-// compomentCTSP/SectionBox.jsx
-import { useRouter } from "expo-router"; // ← import router hook
+import { Feather } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from "expo-router";
 import {
   FlatList,
   Image,
@@ -9,177 +10,452 @@ import {
   View
 } from "react-native";
 
+function formatCurrency(num) {
+  if (!num) return "0 ₫";
+  return num.toLocaleString('vi-VN') + " ₫";
+}
+
 export function SectionPopular({ data, onPressItem }) {
-  const router = useRouter();  // ← khởi tạo router
+  const router = useRouter();
 
   return (
-    <View style={styles.sectionBox}>
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Sản phẩm phổ biến</Text>
-        <TouchableOpacity
-          onPress={() => router.push("/danhmucall")}  // ← dùng router đúng
+    <View style={styles.sectionContainer}>
+      {/* Enhanced Header */}
+      <View style={styles.header}>
+        <LinearGradient
+          colors={['#fd79a8', '#e84393']}
+          start={{x: 0, y: 0}}
+          end={{x: 1, y: 0}}
+          style={styles.headerGradient}
         >
-          <Text style={styles.sectionSeeAll}>Xem tất cả</Text>
-        </TouchableOpacity>
-      </View>
-      <FlatList
-        data={data}
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
+          <View style={styles.headerContent}>
+            <View style={styles.iconWrapper}>
+              <Feather name="trending-up" size={20} color="#ffffff" />
+            </View>
+            <Text style={styles.sectionTitle}>Sản phẩm phổ biến</Text>
+          </View>
           <TouchableOpacity
-            style={styles.popularCard}
+            style={styles.seeAllButton}
+            onPress={() => router.push("/danhmucall")}
             activeOpacity={0.8}
-            onPress={() => onPressItem(item)}
           >
-            <Image source={item.image} style={styles.popularImage} />
-            <Text numberOfLines={2} style={styles.popularName}>
-              {item.name}
-            </Text>
-            <Text style={styles.popularPrice}>{item.price}</Text>
-            <Text style={styles.popularSold}>{item.sold} đã bán</Text>
+            <LinearGradient
+              colors={['rgba(255, 255, 255, 0.3)', 'rgba(255, 255, 255, 0.1)']}
+              style={styles.seeAllGradient}
+            >
+              <Text style={styles.seeAllText}>Xem tất cả</Text>
+              <Feather name="arrow-right" size={14} color="#ffffff" />
+            </LinearGradient>
           </TouchableOpacity>
-        )}
-      />
+        </LinearGradient>
+      </View>
+
+      {/* Enhanced Product List */}
+      <View style={styles.listContainer}>
+        <FlatList
+          data={data}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={{ paddingRight: 28, paddingLeft: 20, paddingBottom: 8 }}
+          renderItem={({ item, index }) => (
+            <TouchableOpacity
+              style={[
+                styles.popularCard,
+                {
+                  marginLeft: index === 0 ? 0 : 12,
+                  marginRight: index === data.length - 1 ? 8 : 0,
+                }
+              ]}
+              activeOpacity={0.85}
+              onPress={() => onPressItem(item)}
+            >
+              <LinearGradient
+                colors={['#ffffff', '#f8f9ff']}
+                style={styles.cardGradient}
+              >
+                {/* Image Container */}
+                <View style={styles.imageContainer}>
+                  <Image source={item.image} style={styles.popularImage} />
+                  <View style={styles.trendingBadge}>
+                    <LinearGradient
+                      colors={['#fd79a8', '#e84393']}
+                      style={styles.trendingBadgeGradient}
+                    >
+                      <Feather name="zap" size={10} color="#ffffff" />
+                    </LinearGradient>
+                  </View>
+                </View>
+
+                {/* Content */}
+                <View style={styles.cardContent}>
+                  <Text numberOfLines={2} style={styles.popularName}>
+                    {item.name}
+                  </Text>
+                  <Text style={styles.popularPrice}>{formatCurrency(item.price)}</Text>
+                  <Text style={styles.popularSold}>{item.sold} đã bán</Text>
+                </View>
+
+                {/* Rating */}
+                <View style={styles.ratingContainer}>
+                  <Feather name="star" size={12} color="#ffd700" />
+                  <Text style={styles.ratingText}>4.8</Text>
+                </View>
+              </LinearGradient>
+            </TouchableOpacity>
+          )}
+        />
+      </View>
     </View>
   );
 }
 
 export function SectionLiked({ data, onPressItem }) {
-  const router = useRouter();  // nếu muốn dùng router ở đây cũng được
+  const router = useRouter();
 
   return (
-    <View style={styles.sectionBox}>
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Sản phẩm bạn thích</Text>
-        <TouchableOpacity
-          onPress={() => router.push("/danhmucall")}
+    <View style={styles.sectionContainer}>
+      {/* Enhanced Header */}
+      <View style={styles.header}>
+        <LinearGradient
+          colors={['#a29bfe', '#6c5ce7']}
+          start={{x: 0, y: 0}}
+          end={{x: 1, y: 0}}
+          style={styles.headerGradient}
         >
-          <Text style={styles.sectionSeeAll}>Xem tất cả</Text>
-        </TouchableOpacity>
-      </View>
-      <FlatList
-        data={data}
-        numColumns={2}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
+          <View style={styles.headerContent}>
+            <View style={styles.iconWrapper}>
+              <Feather name="heart" size={20} color="#ffffff" />
+            </View>
+            <Text style={styles.sectionTitle}>Sản phẩm bạn thích</Text>
+          </View>
           <TouchableOpacity
-            style={styles.likedCard}
+            style={styles.seeAllButton}
+            onPress={() => router.push("/danhmucall")}
             activeOpacity={0.8}
-            onPress={() => onPressItem(item)}
           >
-            <Image source={item.image} style={styles.likedImage} />
-            <Text numberOfLines={2} style={styles.likedName}>
-              {item.name}
-            </Text>
-            <Text style={styles.likedPrice}>{item.price}</Text>
+            <LinearGradient
+              colors={['rgba(255, 255, 255, 0.3)', 'rgba(255, 255, 255, 0.1)']}
+              style={styles.seeAllGradient}
+            >
+              <Text style={styles.seeAllText}>Xem tất cả</Text>
+              <Feather name="arrow-right" size={14} color="#ffffff" />
+            </LinearGradient>
           </TouchableOpacity>
-        )}
-      />
+        </LinearGradient>
+      </View>
+
+      {/* Enhanced Product Grid */}
+      <View style={styles.gridContainer}>
+        <FlatList
+          data={data}
+          numColumns={2}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.gridContent}
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              style={styles.likedCard}
+              activeOpacity={0.85}
+              onPress={() => onPressItem(item)}
+            >
+              <LinearGradient
+                colors={['#ffffff', '#f8f9ff']}
+                style={styles.likedCardGradient}
+              >
+                {/* Image Container */}
+                <View style={styles.likedImageContainer}>
+                  <Image source={item.image} style={styles.likedImage} />
+                  <TouchableOpacity style={styles.likeButton}>
+                    <LinearGradient
+                      colors={['#fd79a8', '#e84393']}
+                      style={styles.likeButtonGradient}
+                    >
+                      <Feather name="heart" size={12} color="#ffffff" />
+                    </LinearGradient>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Content */}
+                <View style={styles.likedContent}>
+                  <Text numberOfLines={2} style={styles.likedName}>
+                    {item.name}
+                  </Text>
+                  <Text style={styles.likedPrice}>{formatCurrency(item.price)}</Text>
+                  
+                  
+                </View>
+              </LinearGradient>
+            </TouchableOpacity>
+          )}
+        />
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  sectionBox: {
-    backgroundColor: "#fff",
-    borderRadius: 16,
-    marginHorizontal: 12,
-    marginBottom: 16,
-    padding: 12,
-    elevation: 2,
-    shadowColor: "#000",
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 }
+  sectionContainer: {
+    backgroundColor: "#ffffff",
+    borderRadius: 20,
+    marginHorizontal: 16,
+    marginBottom: 20,
+    overflow: 'visible', // Để shadow không bị cắt
+    elevation: 6,
+    shadowColor: '#fd79a8',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
+    paddingBottom: 12, // Thêm dòng này
   },
-  sectionHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 10
+
+  // Header Styles
+  header: {
+    marginBottom: 16,
+  },
+  headerGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderTopLeftRadius: 20,    // Thêm dòng này
+    borderTopRightRadius: 20,   // Thêm dòng này
+  },
+  headerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  iconWrapper: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 12,
+    padding: 6,
+    marginRight: 12,
   },
   sectionTitle: {
-    fontWeight: "bold",
-    fontSize: 15,
-    color: "#222"
+    fontWeight: "800",
+    fontSize: 16,
+    color: "#ffffff",
+    letterSpacing: 0.5,
   },
-  sectionSeeAll: {
-    color: "#2979ff",
-    fontSize: 13,
-    fontWeight: "600"
+  seeAllButton: {
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  seeAllGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  seeAllText: {
+    color: "#ffffff",
+    fontSize: 12,
+    fontWeight: "700",
+    marginRight: 6,
+  },
+
+  // Popular Section Styles
+  listContainer: {
+    paddingBottom: 16,
+  },
+  listContent: {
+    paddingRight: 20,
   },
   popularCard: {
-    width: 140,
-    backgroundColor: "#f9f9f9",
-    borderRadius: 14,
-    marginRight: 14,
-    padding: 10,
-    alignItems: "center",
-    elevation: 1,
-    shadowColor: "#000",
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 }
+    width: 160,
+    borderRadius: 16, // Bo tròn cả 4 góc
+    overflow: 'hidden',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+  },
+  cardGradient: {
+    flex: 1,
+    position: 'relative',
+    borderRadius: 16, // Bo tròn cả 4 góc
+  },
+  imageContainer: {
+    position: 'relative',
+    backgroundColor: '#f8f9ff',
+    borderRadius: 12,
+    margin: 12,
+    marginBottom: 8,
   },
   popularImage: {
-    width: 90,
-    height: 60,
-    borderRadius: 10,
-    marginBottom: 8,
+    width: '100%',
+    height: 100,
+    borderRadius: 12,
     resizeMode: "contain",
-    backgroundColor: "#fff"
+  },
+  trendingBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+  },
+  trendingBadgeGradient: {
+    borderRadius: 10,
+    padding: 4,
+  },
+  cardContent: {
+    paddingHorizontal: 12,
+    paddingBottom: 12,
   },
   popularName: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#222",
-    marginBottom: 2,
-    textAlign: "center"
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#2d3436",
+    marginBottom: 6,
+    lineHeight: 18,
   },
   popularPrice: {
-    color: "#f55858",
-    fontWeight: "bold",
-    fontSize: 14,
-    marginBottom: 2
+    color: "#e84393",
+    fontWeight: "800",
+    fontSize: 16,
+    marginBottom: 4,
+    letterSpacing: -0.3,
   },
   popularSold: {
-    color: "#888",
-    fontSize: 12
+    color: "#636e72",
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  ratingContainer: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 12,
+  },
+  ratingText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#2d3436',
+    marginLeft: 2,
+  },
+
+  // Liked Section Styles
+  gridContainer: {
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+  },
+  gridContent: {
+    justifyContent: 'space-between',
   },
   likedCard: {
-    width: "48%",
-    backgroundColor: "#f9f9f9",
-    borderRadius: 14,
-    margin: "1%",
-    padding: 10,
-    alignItems: "center",
-    elevation: 1,
-    shadowColor: "#000",
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 }
+    width: '48%',
+    marginBottom: 16,
+    borderRadius: 16,
+    overflow: 'hidden',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    marginHorizontal: 4,
+  },
+  likedCardGradient: {
+    flex: 1,
+  },
+  likedImageContainer: {
+    position: 'relative',
+    backgroundColor: '#f8f9ff',
+    borderRadius: 12,
+    margin: 12,
+    marginBottom: 8,
   },
   likedImage: {
-    width: 90,
-    height: 60,
-    borderRadius: 10,
-    marginBottom: 8,
+    width: '100%',
+    height: 80,
+    borderRadius: 12,
     resizeMode: "contain",
-    backgroundColor: "#fff"
+  },
+  likeButton: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+  },
+  likeButtonGradient: {
+    borderRadius: 12,
+    padding: 6,
+  },
+  likedContent: {
+    paddingHorizontal: 12,
+    paddingBottom: 12,
   },
   likedName: {
     fontSize: 13,
-    fontWeight: "600",
-    color: "#222",
-    marginBottom: 2,
-    textAlign: "center"
+    fontWeight: "700",
+    color: "#2d3436",
+    marginBottom: 6,
+    lineHeight: 16,
   },
   likedPrice: {
-    color: "#f55858",
-    fontWeight: "bold",
+    color: "#6c5ce7",
+    fontWeight: "800",
+    fontSize: 15,
+    marginBottom: 8,
+    letterSpacing: -0.3,
+  },
+  quickBuyButton: {
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  quickBuyGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  quickBuyText: {
+    color: '#ffffff',
+    fontSize: 11,
+    fontWeight: '700',
+    marginLeft: 4,
+  },
+  productCard: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 12,
+    marginHorizontal: 8,
+    marginVertical: 8,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 2,
+    width: 170, // hoặc phù hợp với FlatList
+  },
+  productImage: {
+    width: 90,
+    height: 90,
+    resizeMode: 'contain',
+    marginBottom: 8,
+  },
+  productName: {
     fontSize: 14,
-    marginBottom: 2
-  }
+    fontWeight: '600',
+    color: '#222',
+    textAlign: 'center',
+    marginBottom: 2,
+  },
+  productPrice: {
+    color: '#e53935',
+    fontWeight: 'bold',
+    fontSize: 16,
+    marginTop: 4,
+    textAlign: 'center',
+  },
+  productSold: {
+    fontSize: 12,
+    color: '#888',
+    marginTop: 2,
+  },
 });

@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, Modal, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import axiosInstance from '../utils/AxiosInstance';
 
@@ -41,11 +41,22 @@ const STEP_COLORS = {
   refunded: '#607D8B',
 };
 
+const CANCEL_REASONS = [
+  'Tôi muốn thay đổi thông tin địa chỉ',
+  'Tôi không có nhu cầu mua nữa',
+  'Tôi tìm được giá tốt hơn ở nơi khác',
+  'Thời gian giao hàng quá lâu',
+  'Khác'
+];
+
 export default function OrderStatusStepper({ orderId, initialStatus, onStatusChange, isUser = true }) {
   const [currentStatus, setCurrentStatus] = useState(initialStatus);
   const [statusHistory, setStatusHistory] = useState([]);
   const [loading, setLoading] = useState(false);
   const [isStockReturned, setIsStockReturned] = useState(false);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [selectedReason, setSelectedReason] = useState('');
+  const [customReason, setCustomReason] = useState('');
 
   useEffect(() => {
     let ignore = false;
@@ -64,29 +75,23 @@ export default function OrderStatusStepper({ orderId, initialStatus, onStatusCha
 
   // Hàm gọi API hủy đơn hàng
   const handleCancelOrder = async () => {
-    Alert.alert(
-      'Xác nhận',
-      'Bạn có chắc muốn hủy đơn hàng này?',
-      [
-        { text: 'Không' },
-        {
-          text: 'Hủy đơn',
-          style: 'destructive',
-          onPress: async () => {
-            setLoading(true);
-            try {
-              await axiosInstance.put(`/orders/${orderId}/cancel`);
-              setCurrentStatus('cancelled');
-              Alert.alert('Thành công', 'Đơn hàng đã được hủy.');
-              if (onStatusChange) onStatusChange('cancelled');
-            } catch (err) {
-              Alert.alert('Lỗi', err?.response?.data?.error || 'Không thể hủy đơn hàng');
-            }
-            setLoading(false);
-          }
-        }
-      ]
-    );
+    setShowCancelModal(true);
+  };
+
+  const confirmCancelOrder = async () => {
+    setLoading(true);
+    try {
+      await axiosInstance.put(`/orders/${orderId}/cancel`, {
+        reason: selectedReason === 'Khác' ? customReason : selectedReason
+      });
+      setCurrentStatus('cancelled');
+      setShowCancelModal(false);
+      Alert.alert('Thành công', 'Đơn hàng đã được hủy.');
+      if (onStatusChange) onStatusChange('cancelled');
+    } catch (err) {
+      Alert.alert('Lỗi', err?.response?.data?.error || 'Không thể hủy đơn hàng');
+    }
+    setLoading(false);
   };
 
   // Lấy index của trạng thái hiện tại
@@ -226,6 +231,100 @@ export default function OrderStatusStepper({ orderId, initialStatus, onStatusCha
           </TouchableOpacity>
         </View>
       )}
+
+      {/* Modal chọn lý do hủy */}
+      <Modal
+        visible={showCancelModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowCancelModal(false)}
+      >
+        <View style={{
+          flex: 1,
+          backgroundColor: 'rgba(0,0,0,0.25)',
+          justifyContent: 'center',
+          alignItems: 'center'
+        }}>
+          <View style={{
+            backgroundColor: '#fff',
+            borderRadius: 12,
+            padding: 20,
+            width: '85%',
+            elevation: 4
+          }}>
+            <Text style={{ fontSize: 16, fontWeight: 'bold', marginBottom: 12 }}>
+              Chọn lý do hủy đơn hàng
+            </Text>
+            {CANCEL_REASONS.map(reason => (
+              <TouchableOpacity
+                key={reason}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  marginBottom: 10
+                }}
+                onPress={() => setSelectedReason(reason)}
+              >
+                <View style={{
+                  width: 20,
+                  height: 20,
+                  borderRadius: 10,
+                  borderWidth: 2,
+                  borderColor: '#6366F1',
+                  marginRight: 10,
+                  backgroundColor: selectedReason === reason ? '#6366F1' : '#fff'
+                }} />
+                <Text style={{ fontSize: 15, color: '#333' }}>{reason}</Text>
+              </TouchableOpacity>
+            ))}
+            {selectedReason === 'Khác' && (
+              <View style={{ marginBottom: 10 }}>
+                <Text style={{ fontSize: 14, color: '#666', marginBottom: 4 }}>Nhập lý do khác:</Text>
+                <View style={{
+                  borderWidth: 1,
+                  borderColor: '#E5E7EB',
+                  borderRadius: 8,
+                  padding: 8,
+                  backgroundColor: '#F9FAFB'
+                }}>
+                  <TextInput
+                    value={customReason}
+                    onChangeText={setCustomReason}
+                    placeholder="Nhập lý do hủy..."
+                    style={{ fontSize: 14, color: '#333' }}
+                  />
+                </View>
+              </View>
+            )}
+            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 12 }}>
+              <TouchableOpacity
+                style={{
+                  paddingHorizontal: 18,
+                  paddingVertical: 10,
+                  backgroundColor: '#E5E7EB',
+                  borderRadius: 8,
+                  marginRight: 8
+                }}
+                onPress={() => setShowCancelModal(false)}
+              >
+                <Text style={{ color: '#333', fontWeight: 'bold' }}>Đóng</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={{
+                  paddingHorizontal: 18,
+                  paddingVertical: 10,
+                  backgroundColor: '#FF5252',
+                  borderRadius: 8
+                }}
+                disabled={!selectedReason || (selectedReason === 'Khác' && !customReason)}
+                onPress={confirmCancelOrder}
+              >
+                <Text style={{ color: '#fff', fontWeight: 'bold' }}>Xác nhận hủy</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }

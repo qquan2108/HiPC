@@ -280,9 +280,9 @@ export default function Profile() {
               },
               {
                 icon: (
-                  <Feather name="help-circle" size={22} color="#1976ff" />
+                  <Feather name="list" size={22} color="#1976ff" />
                 ),
-                label: "Chăm sóc khách hàng",
+                label: "Danh Sach Build",
                 onPress: () => router.push("./BuildListScreen"),
               },
               {

@@ -181,7 +181,8 @@ const handleAddToCart = async (comboId) => {
         </TouchableWithoutFeedback>
       )}
 
-      <View style={styles.bottomLeft}>
+      {/* XÓA các dòng sau để bỏ user và mô tả */}
+      {/* <View style={styles.bottomLeft}>
         <View style={styles.userRow}>
           <View style={styles.avatarWrapper}>
             <Ionicons name="person-circle" size={36} color="#fff" />
@@ -190,9 +191,12 @@ const handleAddToCart = async (comboId) => {
         </View>
         <Text style={styles.description}>{item.description || "Không có mô tả"}</Text>
         <Text style={styles.song}>Nhạc nền</Text>
-      </View>
+      </View> */}
 
-      {/* 🆕 Enhanced Combo Section */}
+      {/* Thêm dòng chữ đơn giản cho combo */}
+      
+
+      {/* Combo Section giữ nguyên */}
       {item.comboIds && item.comboIds.length > 0 && (
         <EnhancedComboSection
           comboList={item.comboIds}
@@ -203,42 +207,7 @@ const handleAddToCart = async (comboId) => {
         />
       )}
 
-      {/* Comments Modal */}
-      <Modal visible={modalVisible} animationType="slide" transparent>
-        <SafeAreaView style={styles.modalContainer}>
-          <View style={styles.commentBox}>
-            <Text style={styles.modalTitle}>Bình luận</Text>
-            <FlatList
-              data={currentComments}
-              keyExtractor={(_, i) => i.toString()}
-              renderItem={({ item }) => (
-                <Text style={styles.commentItem}>• {item}</Text>
-              )}
-              ListEmptyComponent={<Text>Chưa có bình luận nào.</Text>}
-              style={{ flex: 1, width: "100%" }}
-            />
-            <View style={styles.inputRow}>
-              <TextInput
-                style={styles.input}
-                placeholder="Viết bình luận..."
-                placeholderTextColor="#888"
-                value={newComment}
-                onChangeText={setNewComment}
-              />
-              <TouchableOpacity onPress={postComment} style={styles.sendBtn}>
-                <Text style={styles.sendText}>Gửi</Text>
-              </TouchableOpacity>
-            </View>
-            <TouchableOpacity
-              onPress={() => setModalVisible(false)}
-              style={styles.closeBtn}
-            >
-              <Text style={styles.closeText}>Đóng</Text>
-            </TouchableOpacity>
-          </View>
-        </SafeAreaView>
-      </Modal>
-
+      
       {/* Combo Detail Modal */}
       <Modal visible={comboModalVisible} animationType="slide" transparent>
         <SafeAreaView style={styles.modalContainer}>
@@ -319,7 +288,7 @@ function EnhancedComboSection({ comboList, onAddToCart, onSelectCombo, fadeAnim,
       ]}
     >
       <LinearGradient
-        colors={['rgba(0,0,0,0.6)', 'rgba(0,0,0,0.2)']}
+        colors={['rgba(0,0,0,0.8)', 'rgba(0,0,0,0.2)']}
         style={styles.gradientBackground}
       >
         <View style={styles.comboHeader}>
@@ -328,12 +297,9 @@ function EnhancedComboSection({ comboList, onAddToCart, onSelectCombo, fadeAnim,
               <View style={styles.liveIndicator} />
               <Text style={styles.liveText}>Hot combo </Text>
             </View>
-            <Text style={styles.comboTitle}>🛍️ Sản phẩm hot</Text>
+            
           </View>
-          <TouchableOpacity style={styles.viewAllBtn}>
-            <Text style={styles.viewAllText}>Xem tất cả</Text>
-            <Ionicons name="chevron-forward" size={14} color="#FF6B6B" />
-          </TouchableOpacity>
+          
         </View>
 
         <FlatList
@@ -643,7 +609,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 12,
+    marginBottom: 8,
   },
   headerLeft: {
     flexDirection: "row",

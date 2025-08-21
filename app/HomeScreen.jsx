@@ -7,6 +7,7 @@ import {
   Animated,
   Dimensions,
   ImageBackground,
+  Modal,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -47,7 +48,9 @@ export default function HomeScreen() {
   const [banners, setBanners] = useState([]);
   const scrollRef = useRef(null);
   const [currentIndex, setCurrentIndex] = useState(0);
-  
+  const [showUnpaidDialog, setShowUnpaidDialog] = useState(false);
+
+
   // 🟢 Thêm flag để track xem đã load dữ liệu lần đầu chưa
   const [hasInitialLoad, setHasInitialLoad] = useState(false);
 
@@ -300,6 +303,28 @@ export default function HomeScreen() {
     router.push("/LoginScreen");
   };
 
+  // Kiểm tra đơn hàng chưa thanh toán khi vào Home
+  useEffect(() => {
+    // Kiểm tra đơn hàng chưa thanh toán khi vào Home
+    (async () => {
+      try {
+        const userStr = await AsyncStorage.getItem("user");
+        if (!userStr) return;
+        const user = JSON.parse(userStr);
+        const userId = user._id || user.id;
+        if (!userId) return;
+
+        const res = await axiosInstance.get(`/orders/unpaid?user_id=${userId}`);
+        const unpaidOrders = res.data || [];
+        if (unpaidOrders.length > 0) {
+          setShowUnpaidDialog(true); // Hiện dialog nếu có đơn chưa thanh toán
+        }
+      } catch (err) {
+        // Không cần báo lỗi
+      }
+    })();
+  }, [hasInitialLoad]);
+
   return (
     <ImageBackground
       source={BackgroundImage}
@@ -402,7 +427,7 @@ export default function HomeScreen() {
                 {banners.map((item, i) => (
                   <View key={item._id} style={{ width, paddingHorizontal: 7 }}>
                     <Banner
-                      onPress={() => router.push("./DanhMucPC")}
+                      onPress={() => router.push("./danhmucall")}
                       source={{
                         uri: item.imageUrl.startsWith("http")
                           ? item.imageUrl
@@ -499,6 +524,66 @@ export default function HomeScreen() {
 
           {/* Custom Tab Bar */}
           <CustomTabBar router={router} />
+
+          {/* Dialog cảnh báo đơn chưa thanh toán */}
+          <Modal
+            visible={showUnpaidDialog}
+            transparent
+            animationType="slide"
+            onRequestClose={() => setShowUnpaidDialog(false)}
+          >
+            <View style={{
+              flex: 1,
+              backgroundColor: "rgba(0,0,0,0.25)",
+              justifyContent: "center",
+              alignItems: "center"
+            }}>
+              <View style={{
+                backgroundColor: "#fff",
+                borderRadius: 16,
+                padding: 24,
+                width: "80%",
+                alignItems: "center",
+                elevation: 8
+              }}>
+                <Ionicons name="alert-circle" size={48} color="#f55858" style={{ marginBottom: 12 }} />
+                <Text style={{ fontWeight: "bold", fontSize: 16, color: "#f55858", marginBottom: 8 }}>
+                  Bạn có đơn hàng chưa thanh toán!
+                </Text>
+                <Text style={{ fontSize: 15, color: "#333", textAlign: "center", marginBottom: 18 }}>
+                  Vui lòng thanh toán, nếu không đơn sẽ bị hủy sau 10 phút.
+                </Text>
+                <View style={{ flexDirection: "row", justifyContent: "center" }}>
+                  <TouchableOpacity
+                    style={{
+                      backgroundColor: "#2979ff",
+                      borderRadius: 8,
+                      paddingHorizontal: 18,
+                      paddingVertical: 10,
+                      marginRight: 12
+                    }}
+                    onPress={() => {
+                      setShowUnpaidDialog(false);
+                      router.push("/RetryPay");
+                    }}
+                  >
+                    <Text style={{ color: "#fff", fontWeight: "bold", fontSize: 15 }}>Tiếp tục</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={{
+                      backgroundColor: "#eee",
+                      borderRadius: 8,
+                      paddingHorizontal: 18,
+                      paddingVertical: 10
+                    }}
+                    onPress={() => setShowUnpaidDialog(false)}
+                  >
+                    <Text style={{ color: "#333", fontWeight: "bold", fontSize: 15 }}>Bỏ qua</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </Modal>
         </View>
       )}
     </ImageBackground>

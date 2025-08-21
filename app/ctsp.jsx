@@ -43,22 +43,8 @@ const fetchProductById = async (productId) => {
     });
   }
 
-
-  // API mới trả mảng nhóm biến thể { key, options: [ {label,priceDiff} ] }
-  let variantOptions = [];
-  if (Array.isArray(product.variants)) {
-    // ví dụ chỉ lấy nhóm đầu tiên (Phiên Bản)
-    const group = product.variants[0];
-    if (group?.options) {
-      variantOptions = group.options;
-    }
-  }
-
   const resolveImageUri = (url) =>
     url?.startsWith('http') ? url : `${base}${url}`;
-
-
-
 
   return {
     id: product._id,
@@ -68,7 +54,11 @@ const fetchProductById = async (productId) => {
     oldPrice: product.price,
     images:
       Array.isArray(product.images) && product.images.length
-        ? product.images.map((url) => ({ uri: resolveImageUri(url) }))
+        ? product.images.map((url) =>
+            typeof url === 'string'
+              ? { uri: resolveImageUri(url) }
+              : url
+          )
         : [require('../assets/images/pc1.png')],
     image: product.image
       ? { uri: resolveImageUri(product.image) }
@@ -78,7 +68,7 @@ const fetchProductById = async (productId) => {
     origin: product.origin || 'Unknown',
     specs: specsArr,
     buyWith: product.relatedProducts || product.buyWith || [],
-    variants: variantOptions,
+    variants: product.variants || [], // <-- Sửa dòng này
     brand: product.brand_id?.name || 'Unknown',
     category: product.category_id?.name || 'Unknown',
   };
@@ -109,7 +99,7 @@ const fetchAllProducts = async () => {
 
 
 function formatCurrency(num) {
-  return num.toLocaleString('vi-VN') + 'đ';
+  return num?.toLocaleString('vi-VN') + ' ₫';
 }
 
 export default function CTSP() {
@@ -132,6 +122,12 @@ export default function CTSP() {
   const [error, setError] = useState(null);
   const [showLoginDialog, setShowLoginDialog] = useState(false);
 
+  // Thêm state lưu lựa chọn từng nhóm biến thể
+  const [variantSelections, setVariantSelections] = useState({});
+
+  // Thêm state cho liked
+  const [liked, setLiked] = useState(false); // Thêm state này
+
   // Load product & all products
   useEffect(() => {
     (async () => {
@@ -140,26 +136,25 @@ export default function CTSP() {
         if (!productId) throw new Error('Thiếu ID sản phẩm');
         const fetched = await fetchProductById(productId);
         setProduct(fetched);
-        // Lưu biến thể vào state
         setVariants(fetched.variants || []);
         setCompareProducts([fetched]);
         setAllProducts(await fetchAllProducts());
 
-        // Set default variant nếu có
+        // Khởi tạo lựa chọn mặc định cho từng nhóm biến thể
         if (fetched.variants && fetched.variants.length > 0) {
-   const defaultOpt = fetched.variants[0];
-   setSelectedVariant({
-     key: 'Phiên Bản',      // phải trùng với onSelect
-     label: defaultOpt.label,
-     priceDiff: defaultOpt.priceDiff
-   });
- }
+          const defaults = {};
+          fetched.variants.forEach(group => {
+            if (group.options && group.options.length > 0) {
+              defaults[group.key] = group.options[0];
+            }
+          });
+          setVariantSelections(defaults);
+        }
       } catch (e) {
         setError(e.message);
       } finally {
         setLoading(false);
       }
-
     })();
   }, [productId]);
   const handleProductPress = (product) => {
@@ -181,6 +176,16 @@ export default function CTSP() {
       setDisplayPrice(basePrice + (selectedVariant.priceDiff || 0));
     }
   }, [selectedVariant, basePrice]);
+
+  useEffect(() => {
+    if (!product) return;
+    // Tính tổng chênh lệch giá từ các biến thể đã chọn
+    let priceDiff = 0;
+    Object.values(variantSelections).forEach(opt => {
+      if (opt && typeof opt.priceDiff === 'number') priceDiff += opt.priceDiff;
+    });
+    setDisplayPrice(product.price + priceDiff);
+  }, [variantSelections, product]);
 
   // Filter for compare modal
   const filteredProducts = allProducts.filter(
@@ -234,7 +239,6 @@ export default function CTSP() {
 
   // Hàm thêm vào giỏ hàng với variant đã chọn
   const AddToCart = async prod => {
-    
     try {
       const userStr = await AsyncStorage.getItem('user');
       if (!userStr) {
@@ -244,31 +248,54 @@ export default function CTSP() {
       const userObj = JSON.parse(userStr);
       const userId = userObj._id || userObj.id;
 
-      // Tạo object chứa thông tin cấu hình đã chọn
-      const selectedConfig = {
-        variant: selectedVariant,
-      };
+      // Gộp tất cả lựa chọn biến thể thành một object duy nhất
+      let variantPayload = undefined;
+      if (prod.variants && prod.variants.length > 0) {
+        // Nếu chỉ có 1 nhóm biến thể, gửi object như cũ
+        if (prod.variants.length === 1) {
+          const group = prod.variants[0];
+          const selected = variantSelections[group.key];
+          if (selected && selected.label && group.key) {
+            variantPayload = {
+              key: group.key,
+              label: selected.label,
+              priceDiff: selected.priceDiff || 0
+            };
+          }
+        } else {
+          // Nếu có nhiều nhóm, gộp lại thành một object
+          const keys = Object.keys(variantSelections);
+          const labels = keys.map(k => variantSelections[k]?.label).filter(Boolean);
+          const priceDiffSum = keys.reduce((sum, k) => sum + (variantSelections[k]?.priceDiff || 0), 0);
 
-      console.log('AddToCart với cấu hình:', selectedConfig);
+          variantPayload = {
+            key: keys.join(' + '), // ví dụ: "Chipset + Form Factor"
+            label: labels.join(' + '), // ví dụ: "B550 + ATX"
+            priceDiff: priceDiffSum
+          };
+        }
+      }
 
       // Gửi request với thông tin cấu hình
       await axiosInstance.post('/cartt/add-to-cart', {
-        user_id: userId,
-        productId: prod.id,
-        quantity: 1,
-        variant: selectedVariant, // Thêm thông tin cấu hình
+        user_id: userId, // phải là ObjectId, không phải undefined
+        productId: prod._id || prod.id, // phải là ObjectId, không phải undefined
+        quantity: 1, // phải là số, không phải undefined
+        variant: variantPayload // chỉ gửi nếu có
       });
 
       Toast.show({
         type: 'success',
         text1: 'Đã thêm vào giỏ hàng!',
-        text2: `Cấu hình: ${selectedVariant || 'Mặc định'}`,
+        text2: variantPayload
+          ? `Cấu hình: ${variantPayload.label}`
+          : 'Mặc định',
         position: 'bottom'
       });
       setTimeout(() => router.push({ pathname: './cart', params: { refresh: 1 } }), 1200);
     } catch (err) {
-      console.error('add-to-cart error:', err);
-      Toast.show({ type: 'error', text1: 'Thêm giỏ hàng thất bại!', position: 'top' });
+      console.error('add-to-cart error:', err?.response?.data || err.message, err);
+      Toast.show({ type: 'error', text1: 'Thêm giỏ hàng thất bại!', text2: err?.response?.data?.error || err.message, position: 'top' });
     }
   };
 
@@ -322,19 +349,38 @@ export default function CTSP() {
     }
 
     // Lấy biến thể đã chọn (nếu có)
-    const variant = selectedVariant
-      ? {
-          key: selectedVariant.key || product.variants[0]?.key || 'Phiên bản',
-          label: selectedVariant.label || selectedVariant.value || selectedVariant.key,
-          priceDiff: selectedVariant.priceDiff || 0
+    let variant = null;
+    if (product.variants && product.variants.length > 0) {
+      if (product.variants.length === 1) {
+        const group = product.variants[0];
+        const selected = variantSelections[group.key];
+        if (selected && selected.label && group.key) {
+          variant = {
+            key: group.key,
+            label: selected.label,
+            priceDiff: selected.priceDiff || 0
+          };
         }
-      : null;
+      } else {
+        // Nếu có nhiều nhóm, gộp lại thành một object
+        const keys = Object.keys(variantSelections);
+        const labels = keys.map(k => variantSelections[k]?.label).filter(Boolean);
+        const priceDiffSum = keys.reduce((sum, k) => sum + (variantSelections[k]?.priceDiff || 0), 0);
+
+        variant = {
+          key: keys.join(' + '),
+          label: labels.join(' + '),
+          priceDiff: priceDiffSum
+        };
+      }
+    }
 
     // Tính giá tổng
     const basePrice = typeof product.price === 'number'
       ? product.price
       : Number(String(product.price).replace(/[^\d]/g, ''));
-    const totalPrice = basePrice + (variant?.priceDiff || 0);
+    const variantTotalPrice = variant ? variant.priceDiff : 0;
+    const totalPrice = basePrice + variantTotalPrice;
 
     router.push({
       pathname: "/pay",
@@ -345,7 +391,7 @@ export default function CTSP() {
           price: totalPrice,
           image: product.image,
           quantity: 1,
-          variant: variant
+          variant // LUÔN TRUYỀN ĐỦ key, label, priceDiff
         }])
       }
     });
@@ -385,7 +431,6 @@ export default function CTSP() {
                 <Feather name="arrow-left" size={24} color="#222" />
               </TouchableOpacity>
               <Text style={styles.headerTitle}>Chi tiết sản phẩm</Text>
-              <Feather name="share-2" size={24} color="#222" />
             </View>
 
             {/* Image & Info */}
@@ -400,10 +445,9 @@ export default function CTSP() {
             <ProductPriceRow
               price={formatCurrency(displayPrice)}
               oldPrice={formatCurrency(basePrice)}
-              onLike={() => alert('Đã thêm vào yêu thích')}
+              onLike={() => setLiked(l => !l)} // Đổi thành setLiked
+              liked={liked} // Truyền prop liked
             />
-
-            
 
             {/* Mô tả sản phẩm (HTML) */}
             {product.description ? (
@@ -425,19 +469,19 @@ export default function CTSP() {
 
               {/* Hiển thị variants từ API nếu có */}
               {/* Hiển thị variants từ API */}
-              {variants.length > 0 && (
-                <OptionGroup
-                  label="Phiên bản"
-                  options={variants}
-                  selected={selectedVariant}
-                  onSelect={opt => setSelectedVariant({
-                    key: 'Phiên Bản',   // <-- bắt buộc phải có
-                    label: opt.label,
-                    priceDiff: opt.priceDiff
-                  })}
-                  type="variant"
-                />
-              )}
+              {product.variants && product.variants.length > 0 && product.variants.map(group => (
+  <OptionGroup
+    key={group.key}
+    label={group.key}
+    options={group.options}
+    selected={variantSelections[group.key]}
+    onSelect={opt => setVariantSelections(prev => ({
+      ...prev,
+      [group.key]: opt
+    }))}
+    type="variant"
+  />
+))}
 
 
               {/* Các options cố định khác */}
@@ -447,10 +491,9 @@ export default function CTSP() {
               <View style={styles.selectedConfigContainer}>
                 <Text style={styles.selectedConfigTitle}>Cấu hình đã chọn:</Text>
                 <View style={styles.selectedConfigList}>
-                  {selectedVariant && (
-                    <Text>• Phiên bản: {selectedVariant.label}</Text>
-                  )}
-
+                  {Object.entries(variantSelections).map(([key, opt]) => (
+                    <Text key={key}>• {key}: {opt.label}</Text>
+                  ))}
                 </View>
               </View>
             </View>
@@ -475,6 +518,14 @@ export default function CTSP() {
         )}
       />
 
+      {/* Hiển thị giá cuối cùng theo biến thể đã chọn */}
+      <View style={styles.finalPriceBox}>
+        <Text style={styles.finalPriceLabel}>Giá cấu hình đã chọn:</Text>
+        <Text style={styles.finalPriceValue}>
+          {formatCurrency(displayPrice)}
+        </Text>
+      </View>
+
       {/* Bottom Bar */}
       <View style={styles.bottomBar}>
         <TouchableOpacity
@@ -484,6 +535,12 @@ export default function CTSP() {
           <Feather name="shopping-cart" size={20} color="#1a73e8" />
           <Text style={styles.bottomCartText}>Giỏ hàng</Text>
         </TouchableOpacity>
+
+        <View style={styles.bottomBarPriceBox}>
+          <Text style={styles.bottomBarPriceLabel}>Tổng:</Text>
+          <Text style={styles.bottomBarPriceValue}>{formatCurrency(displayPrice)}</Text>
+        </View>
+
         <TouchableOpacity
           style={styles.bottomBuyBtn}
           onPress={handleBuyNow}
@@ -772,6 +829,29 @@ const styles = StyleSheet.create({
   },
   bottomBuyText: { color: '#fff', fontSize: 16, fontWeight: '700' },
 
+  bottomBarPriceBox: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    marginHorizontal: 4,
+    backgroundColor: '#fffbe7',
+    borderRadius: 10,
+    minWidth: 90,
+    height: 48,
+    alignSelf: 'center',
+  },
+  bottomBarPriceLabel: {
+    fontSize: 12,
+    color: '#888',
+    fontWeight: '500',
+  },
+  bottomBarPriceValue: {
+    fontSize: 17,
+    color: '#e53935',
+    fontWeight: 'bold',
+    marginTop: 2,
+  },
+
   // Compare modal
   modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' },
   bottomSheet: {
@@ -963,5 +1043,27 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 4,
   },
-
+  finalPriceBox: {
+    backgroundColor: '#e3f2fd',
+    borderRadius: 12,
+    marginHorizontal: 16,
+    marginBottom: 8,
+    paddingVertical: 14,
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 10,
+  },
+  finalPriceLabel: {
+    fontSize: 16,
+    color: '#1976d2',
+    fontWeight: '600',
+    marginRight: 8,
+  },
+  finalPriceValue: {
+    fontSize: 22,
+    color: '#e53935',
+    fontWeight: 'bold',
+    letterSpacing: 0.5,
+  },
 });
