@@ -9,9 +9,9 @@ const CategoryList = ({ categories, router }) => (
         activeOpacity={0.75}
         onPress={() => {
           if (cat.isMore) {
-            router.push("./DanhMucPC");
+            router.push("./danhmucall");
           } else {
-            router.push({ pathname: "./DanhMucPC", params: { category: cat.label } });
+            router.push({ pathname: "./danhmucall", params: { category: cat.label } });
           }
         }}
       >

@@ -285,13 +285,25 @@ const OrderCard = React.memo(({ order, tab, onCancel, onStatusChange, onReview }
         <View style={styles.cardFooter}>
           <View style={styles.totalSection}>
             <View>
-              <Text style={styles.totalLabel}>Total ({itemCount} items)</Text>
+              <Text style={styles.totalLabel}>Tổng cộng ({itemCount} sản phẩm)</Text>
               <View style={styles.orderMeta}>
                 <MaterialCommunityIcons name="calendar" size={12} color="#94A3B8" />
                 <Text style={styles.orderDate}>
                   {new Date(order.order_date).toLocaleDateString('vi-VN')}
                 </Text>
               </View>
+              {/* Hiển thị phí vận chuyển nếu có */}
+              {order.shippingFee > 0 && (
+                <Text style={{ color: "#6366F1", fontSize: 13 }}>
+                  Phí vận chuyển: {formatCurrency(order.shippingFee)}
+                </Text>
+              )}
+              {/* Hiển thị giảm giá nếu có */}
+              {order.voucherDiscount > 0 && (
+                <Text style={{ color: "#FF3B30", fontSize: 13 }}>
+                  Giảm giá: -{formatCurrency(order.voucherDiscount)}
+                </Text>
+              )}
             </View>
             <View style={styles.priceSection}>
               <Text style={styles.totalPrice}>{formatCurrency(order.total)}</Text>

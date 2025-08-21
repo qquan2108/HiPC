@@ -68,6 +68,35 @@ export default function CartScreen() {
     });
   }, []);
 
+  // ✅ Thêm useEffect để listen cart changes
+useEffect(() => {
+  const checkCartUpdate = async () => {
+    try {
+      const shouldReload = await AsyncStorage.getItem("shouldReloadCart");
+      const cartUpdated = await AsyncStorage.getItem("cartUpdated");
+      
+      if (shouldReload || cartUpdated) {
+        console.log("🔄 Detected cart update, refreshing...");
+        if (userId) {
+          await fetchCart();
+        }
+        // Clear flags
+        await AsyncStorage.removeItem("shouldReloadCart");
+        await AsyncStorage.removeItem("cartUpdated");
+      }
+    } catch (err) {
+      console.log("Cart update check error:", err);
+    }
+  };
+
+  checkCartUpdate();
+  
+  // Check mỗi 2 giây nếu có update
+  const interval = setInterval(checkCartUpdate, 2000);
+  
+  return () => clearInterval(interval);
+}, [userId, fetchCart]);
+
   // Kiểm tra đăng nhập
   useEffect(() => {
     AsyncStorage.getItem("token").then((token) => {
@@ -160,6 +189,7 @@ export default function CartScreen() {
 
           items.push({
             id: item.productId._id,
+            cartItemId: item._id, // <-- Thêm dòng này!
             name: item.productId.name || "Không có tên",
             price: displayPrice,
             originalPrice: item.productId.originalPrice,
@@ -194,6 +224,7 @@ export default function CartScreen() {
 
               items.push({
                 id: `combo_${item.comboId}`, // 🆕 Unique ID for combo
+                cartItemId: item._id, // <-- Thêm dòng này!
                 comboId: item.comboId, // 🆕 Keep original comboId
                 name: `🎁 ${combo.name}` || "Combo không có tên",
                 price: item.price || combo.price || 0,
@@ -212,6 +243,7 @@ export default function CartScreen() {
             // Fallback: add basic combo info
             items.push({
               id: `combo_${item.comboId}`,
+              cartItemId: item._id, // <-- Thêm dòng này!
               comboId: item.comboId,
               name: "🎁 Combo sản phẩm",
               price: item.price || 0,
@@ -254,7 +286,9 @@ export default function CartScreen() {
   // Reload on focus
   useFocusEffect(
     useCallback(() => {
-      if (userId) fetchCart();
+      if (userId) {
+        fetchCart();
+      }
     }, [fetchCart, userId])
   );
 
@@ -622,7 +656,8 @@ export default function CartScreen() {
             formatCurrency={formatCurrency}
             selectedIds={selectedIds}
             onToggleSelect={toggleSelect}
-            onProductPress={handleProductPress} // 🆕 truyền prop này
+            onProductPress={handleProductPress}
+            // Truyền thêm prop này nếu cần
           />
         ) : (
           <CartEmpty />
@@ -660,10 +695,15 @@ export default function CartScreen() {
             });
             return;
           }
+          // Truyền thêm cartItemId (nếu có) để pay.jsx nhận diện đúng sản phẩm
+          const selectedProductsWithCartId = selectedProducts.map(item => ({
+            ...item,
+            cartItemId: item.cartItemId, // Đảm bảo luôn là _id của item trong cart
+          }));
           router.push({
             pathname: "./pay",
             params: {
-              selectedProducts: JSON.stringify(selectedProducts),
+              selectedProducts: JSON.stringify(selectedProductsWithCartId),
               selectedVoucher: JSON.stringify(selectedVoucher),
             },
           });

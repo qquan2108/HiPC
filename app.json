@@ -5,7 +5,7 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": ["hipc", "fb1287087949733876"],
+    "scheme": "hipc",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": false,
     "ios": {
@@ -54,7 +54,8 @@
           "displayName": "HiPC",
           "scheme": "fb1287087949733876"
         }
-      ]
+      ],
+      "expo-notifications"
     ],
     "experiments": {
       "typedRoutes": true

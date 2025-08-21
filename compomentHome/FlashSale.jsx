@@ -26,6 +26,8 @@ export default function FlashSale  ({ flashSale, renderDiscountBadge, renderHotB
   const [quantity, setQuantity] = useState(1);
   const [showBuyNowDialog, setShowBuyNowDialog] = useState(false);
   const [buyNowInfo, setBuyNowInfo] = useState({ address: '', paymentMethod: '', shippingMethod: '', voucher: '' });
+  const [optionDialogMode, setOptionDialogMode] = useState('cart'); // 'cart' hoặc 'buy'
+  const [variantSelections, setVariantSelections] = useState({});
 
   // Thời gian kết thúc flash sale (ví dụ: 1 giờ từ lúc load)
   const [timeLeft, setTimeLeft] = useState(3600); // 1 giờ = 3600 giây
@@ -53,104 +55,153 @@ export default function FlashSale  ({ flashSale, renderDiscountBadge, renderHotB
   const { h, m, s } = formatTime(timeLeft);
 
   // Khi bấm nút thêm giỏ hàng
-  const handleAddToCart = async (product, event) => {
-    event?.stopPropagation();
-    
-    if (product.variants && product.variants.length > 0 && product.variants[0]?.options?.length > 0) {
-      setSelectedProduct(product);
-      setSelectedOption(null);
-      setQuantity(1);
-      setShowOptionDialog(true);
-      return;
-    }
-
-    if (!isLoggedIn) return onRequireLogin();
-    try {
-      const userStr = await AsyncStorage.getItem('user');
-      if (!userStr) {
-        Toast.show({ type:'error', text1:'Vui lòng đăng nhập để mua hàng!', position:'top' });
-        return router.push('/LoginScreen');
-      }
-      const userObj = JSON.parse(userStr);
-      const userId = userObj._id || userObj.id;
-      await axiosInstance.post('/cartt/add-to-cart', { user_id: userId, productId: product.id, quantity: 1 });
-      Toast.show({ type:'success', text1:'Đã thêm vào giỏ hàng!', position:'bottom' });
-    } catch {
-      Toast.show({ type:'error', text1:'Thêm giỏ hàng thất bại!', position:'top' });
-    }
-  };
-const handleConfirmOption = async () => {
-  if (!selectedOption) {
-    Toast.show({ type: 'info', text1: 'Vui lòng chọn phiên bản/cấu hình!' });
-    return;
-  }
-
-  if (!isLoggedIn) return onRequireLogin();
-
-  // Sửa lại lấy giá gốc đúng kiểu số
-  const basePrice = parsePrice(selectedProduct.price);
-  const priceDiff = Math.abs(Number(selectedOption.priceDiff) || 0);
-  const finalPrice = basePrice + priceDiff;
-
-  console.log({ basePrice, priceDiff, finalPrice, selectedProduct, selectedOption });
-
-  router.push({
-    pathname: "/pay",
-    params: {
-      selectedProducts: JSON.stringify([{
-        id: selectedProduct.id || selectedProduct._id,
-        name: selectedProduct.name,
-        price: finalPrice, // Đúng: giá gốc + giá biến thể
-        image: selectedProduct.image,
-        quantity: Number(quantity) || 1,
-        variant: {
-          key: selectedProduct.variants[0]?.key || 'Phiên bản',
-          label: selectedOption.label || selectedOption.value || selectedOption.key,
-          priceDiff: priceDiff
-        }
-      }])
-    }
-  });
-  setShowOptionDialog(false);
-};
-
-// Thêm hàm parsePrice ở đầu file
-function parsePrice(priceStr) {
-  if (typeof priceStr === 'number') return priceStr;
-  if (!priceStr) return 0;
-  return Number(priceStr.replace(/[^\d]/g, '')) || 0;
-}
-
-// Cũng cần sửa handleBuyNow cho sản phẩm không có biến thể
-const handleBuyNow = async (product, event) => {
-  event?.stopPropagation();
-
-  // Nếu có biến thể thì chọn trước
-  if (product.variants && product.variants.length > 0 && product.variants[0]?.options?.length > 0) {
+  // Xử lý thêm vào giỏ hàng (KHÔNG mở modal mua ngay)
+const handleAddToCart = async (product) => {
+  if (product.variants && product.variants.length > 0) {
     setSelectedProduct(product);
-    setSelectedOption(null);
+    // Khởi tạo lựa chọn mặc định cho từng nhóm
+    const defaults = {};
+    product.variants.forEach(group => {
+      if (group.options && group.options.length > 0) {
+        defaults[group.key] = group.options[0];
+      }
+    });
+    setVariantSelections(defaults);
     setQuantity(1);
     setShowOptionDialog(true);
-    // Khi xác nhận chọn biến thể, chuyển qua pay luôn
     return;
   }
 
-  // Nếu không có biến thể, chuyển qua pay luôn
   if (!isLoggedIn) return onRequireLogin();
-  router.push({
-    pathname: "/pay",
-    params: {
-      selectedProducts: JSON.stringify([{
-        id: product.id || product._id,
-        name: product.name,
-        price: Number(product.price), // Đảm bảo là số
-        image: product.image,
-        quantity: 1,
-        variant: null
-      }])
+  try {
+    const userStr = await AsyncStorage.getItem('user');
+    if (!userStr) {
+      Toast.show({ type:'error', text1:'Vui lòng đăng nhập để mua hàng!', position:'top' });
+      return router.push('/LoginScreen');
     }
-  });
+    const userObj = JSON.parse(userStr);
+    const userId = userObj._id || userObj.id;
+    await axiosInstance.post('/cartt/add-to-cart', { user_id: userId, productId: product.id, quantity: 1 });
+    Toast.show({ type:'success', text1:'Đã thêm vào giỏ hàng!', position:'bottom' });
+  } catch {
+    Toast.show({ type:'error', text1:'Thêm giỏ hàng thất bại!', position:'top' });
+  }
 };
+
+// Xác nhận chọn biến thể để thêm vào giỏ hàng (KHÔNG mua ngay)
+const handleConfirmOption = async () => {
+  const groups = selectedProduct.variants || [];
+  for (const group of groups) {
+    if (!variantSelections[group.key]) {
+      Toast.show({ type: 'info', text1: `Vui lòng chọn ${group.key}!` });
+      return;
+    }
+  }
+
+  let variantPayload;
+  if (groups.length === 1) {
+    const group = groups[0];
+    const selected = variantSelections[group.key];
+    variantPayload = {
+      key: group.key,
+      label: selected.label,
+      priceDiff: selected.priceDiff || 0
+    };
+  } else {
+    const keys = Object.keys(variantSelections);
+    const labels = keys.map(k => variantSelections[k]?.label).filter(Boolean);
+    const priceDiffSum = keys.reduce((sum, k) => sum + (variantSelections[k]?.priceDiff || 0), 0);
+
+    variantPayload = {
+      key: keys.join(' + '),
+      label: labels.join(' + '),
+      priceDiff: priceDiffSum
+    };
+  }
+
+  if (optionDialogMode === 'buy') {
+    // Chuyển qua trang pay với sản phẩm và biến thể đã chọn
+    const selected = [{
+      id: selectedProduct.id || selectedProduct._id,
+      name: selectedProduct.name,
+      price: parsePrice(selectedProduct.price) + (variantPayload.priceDiff || 0),
+      image: selectedProduct.image,
+      quantity,
+      variant: variantPayload
+    }];
+    setShowOptionDialog(false);
+    router.push({
+      pathname: "/pay",
+      params: {
+        selectedProducts: JSON.stringify(selected),
+      },
+    });
+    return;
+  }
+
+  if (!isLoggedIn) return onRequireLogin();
+  try {
+    const userStr = await AsyncStorage.getItem('user');
+    if (!userStr) {
+      Toast.show({ type: 'error', text1: 'Vui lòng đăng nhập để mua hàng!', position: 'top' });
+      setShowOptionDialog(false);
+      return router.push('/LoginScreen');
+    }
+    const userObj = JSON.parse(userStr);
+    const userId = userObj._id || userObj.id;
+    await axiosInstance.post('/cartt/add-to-cart', {
+      user_id: userId,
+      productId: selectedProduct.id || selectedProduct._id,
+      quantity,
+      variant: variantPayload
+    });
+    setShowOptionDialog(false);
+    Toast.show({ type: 'success', text1: 'Đã thêm vào giỏ hàng!', position: 'bottom' });
+  } catch (err) {
+    Toast.show({ type: 'error', text1: 'Thêm giỏ hàng thất bại!', position: 'top' });
+    console.error('add-to-cart error:', err?.response?.data || err);
+  }
+};
+
+// Khi bấm "Mua ngay"
+const handleBuyNow = (product, event) => {
+  event?.stopPropagation();
+  setSelectedProduct(product);
+  setQuantity(1);
+
+  // Khởi tạo lựa chọn mặc định cho từng nhóm biến thể
+  if (product.variants && product.variants.length > 0) {
+    const defaults = {};
+    product.variants.forEach(group => {
+      if (group.options && group.options.length > 0) {
+        defaults[group.key] = group.options[0];
+      }
+    });
+    setVariantSelections(defaults);
+    setOptionDialogMode('buy'); // Chế độ mua ngay
+    setShowOptionDialog(true);
+  } else {
+    // Không có biến thể, chuyển thẳng qua pay
+    const selected = [{
+      id: product.id || product._id,
+      name: product.name,
+      price: parsePrice(product.price),
+      image: product.image,
+      quantity: 1,
+      variant: null
+    }];
+    router.push({
+      pathname: "/pay",
+      params: {
+        selectedProducts: JSON.stringify(selected),
+      },
+    });
+  }
+};
+
+// Xác nhận chọn biến thể để "Mua ngay"
+
+
   const handleFavorite = (product, event) => {
     event?.stopPropagation();
     if (!isLoggedIn) {
@@ -390,44 +441,55 @@ const handleBuyNow = async (product, event) => {
                     <Image source={selectedProduct.image} style={styles.modalProductImage} />
                     <View style={styles.productDetails}>
                       <Text style={styles.modalProductName}>{selectedProduct.name}</Text>
-                      <Text style={styles.modalProductPrice}>{selectedProduct.price}</Text>
+                      <Text style={styles.modalProductPrice}>
+                        {selectedProduct.price !== undefined && selectedProduct.price !== null
+                          ? (parsePrice(selectedProduct.price) + Number(selectedOption?.priceDiff || 0)).toLocaleString('vi-VN') + '₫'
+                          : 'Chưa có giá'}
+                      </Text>
                     </View>
                   </View>
 
-                  <Text style={styles.sectionLabel}>Chọn phiên bản:</Text>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.optionsContainer}>
-                    {selectedProduct.variants[0]?.options?.map((option, idx) => (
-                      <TouchableOpacity
-                        key={idx}
-                        onPress={() => setSelectedOption(option)}
-                        style={[
-                          styles.optionButton,
-                          selectedOption === option && styles.optionButtonSelected
-                        ]}
-                        activeOpacity={0.8}
-                      >
-                        <Text style={[
-                          styles.optionText,
-                          selectedOption === option && styles.optionTextSelected
-                        ]}>
-                          {option.label || option}
-                        </Text>
-                        {option.priceDiff ? (
-                          <Text style={[
-                            styles.priceDiffText,
-                            selectedOption === option && styles.priceDiffTextSelected
-                          ]}>
-                            +{Math.abs(option.priceDiff).toLocaleString('vi-VN')}₫
-                          </Text>
-                        ) : null}
-                        {selectedOption === option && (
-                          <View style={styles.selectedIndicator}>
-                            <Ionicons name="checkmark" size={16} color="#fff" />
-                          </View>
-                        )}
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
+                  {selectedProduct?.variants?.map(group => (
+                    <View key={group.key} style={{ marginBottom: 12 }}>
+                      <Text style={styles.sectionLabel}>Chọn {group.key}:</Text>
+                      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.optionsContainer}>
+                        {group.options.map((option, idx) => (
+                          <TouchableOpacity
+                            key={idx}
+                            onPress={() => setVariantSelections(prev => ({
+                              ...prev,
+                              [group.key]: option
+                            }))}
+                            style={[
+                              styles.optionButton,
+                              variantSelections[group.key] === option && styles.optionButtonSelected
+                            ]}
+                            activeOpacity={0.8}
+                          >
+                            <Text style={[
+                              styles.optionText,
+                              variantSelections[group.key] === option && styles.optionTextSelected
+                            ]}>
+                              {option.label || option}
+                            </Text>
+                            {option.priceDiff ? (
+                              <Text style={[
+                                styles.priceDiffText,
+                                variantSelections[group.key] === option && styles.priceDiffTextSelected
+                              ]}>
+                                +{option.priceDiff.toLocaleString('vi-VN')}₫
+                              </Text>
+                            ) : null}
+                            {variantSelections[group.key] === option && (
+                              <View style={styles.selectedIndicator}>
+                                <Ionicons name="checkmark" size={16} color="#fff" />
+                              </View>
+                            )}
+                          </TouchableOpacity>
+                        ))}
+                      </ScrollView>
+                    </View>
+                  ))}
 
                   <Text style={styles.sectionLabel}>Số lượng:</Text>
                   <View style={styles.quantityContainer}>
@@ -471,109 +533,14 @@ const handleBuyNow = async (product, event) => {
                         colors={['#667eea', '#764ba2']}
                         style={styles.confirmButtonGradient}
                       >
-                        <Text style={styles.confirmButtonText}>Thêm vào giỏ</Text>
+                        <Text style={styles.confirmButtonText}>
+                          {optionDialogMode === 'buy' ? 'Mua ngay' : 'Thêm vào giỏ'}
+                        </Text>
                       </LinearGradient>
                     </TouchableOpacity>
                   </View>
                 </>
               )}
-            </View>
-          </View>
-        </Modal>
-
-        {/* Modal mua ngay - Enhanced */}
-        <Modal
-          visible={showBuyNowDialog}
-          transparent
-          animationType="slide"
-          onRequestClose={() => setShowBuyNowDialog(false)}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalContainer}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Mua ngay</Text>
-                <TouchableOpacity
-                  onPress={() => setShowBuyNowDialog(false)}
-                  style={styles.closeButton}
-                >
-                  <Ionicons name="close" size={24} color="#666" />
-                </TouchableOpacity>
-              </View>
-              <Text style={styles.sectionLabel}>Địa chỉ nhận hàng:</Text>
-              <TextInput
-                style={styles.quantityInput}
-                placeholder="Nhập địa chỉ nhận hàng"
-                value={buyNowInfo.address}
-                onChangeText={txt => setBuyNowInfo(info => ({ ...info, address: txt }))}
-              />
-              <Text style={styles.sectionLabel}>Phương thức thanh toán:</Text>
-              <TextInput
-                style={styles.quantityInput}
-                placeholder="Chuyển khoản/ COD"
-                value={buyNowInfo.paymentMethod}
-                onChangeText={txt => setBuyNowInfo(info => ({ ...info, paymentMethod: txt }))}
-              />
-              <Text style={styles.sectionLabel}>Phương thức vận chuyển:</Text>
-              <TextInput
-                style={styles.quantityInput}
-                placeholder="Giao hàng nhanh/ tiết kiệm"
-                value={buyNowInfo.shippingMethod}
-                onChangeText={txt => setBuyNowInfo(info => ({ ...info, shippingMethod: txt }))}
-              />
-              <Text style={styles.sectionLabel}>Mã giảm giá (nếu có):</Text>
-              <TextInput
-                style={styles.quantityInput}
-                placeholder="Nhập mã giảm giá"
-                value={buyNowInfo.voucher}
-                onChangeText={txt => setBuyNowInfo(info => ({ ...info, voucher: txt }))}
-              />
-              <View style={styles.modalActions}>
-                <TouchableOpacity
-                  onPress={() => setShowBuyNowDialog(false)}
-                  style={styles.cancelButton}
-                >
-                  <Text style={styles.cancelButtonText}>Huỷ</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={async () => {
-                    if (!isLoggedIn) return onRequireLogin();
-                    try {
-                      const userStr = await AsyncStorage.getItem('user');
-                      const userObj = JSON.parse(userStr);
-                      const userId = userObj._id || userObj.id;
-                      const res = await axiosInstance.post('/buy-now', {
-                        user_id: userId,
-                        productId: selectedProduct.id || selectedProduct._id,
-                        quantity,
-                        variant: selectedOption ? {
-                          key: selectedProduct.variants[0]?.key || 'Phiên bản',
-                          label: selectedOption.label || selectedOption.value || selectedOption.key,
-                          priceDiff: selectedOption.priceDiff || 0
-                        } : undefined,
-                        address: buyNowInfo.address,
-                        paymentMethod: buyNowInfo.paymentMethod,
-                        shippingMethod: buyNowInfo.shippingMethod,
-                        voucher: buyNowInfo.voucher
-                      });
-                      setShowBuyNowDialog(false);
-                      Toast.show({ type:'success', text1:'Đặt hàng thành công!', position:'bottom' });
-                      // Hiển thị thông tin chuyển khoản nếu cần
-                      // res.data.acc, res.data.bank, res.data.amount, res.data.des
-                    } catch (err) {
-                      Toast.show({ type:'error', text1:'Đặt hàng thất bại!', position:'top' });
-                      setShowBuyNowDialog(false);
-                    }
-                  }}
-                  style={styles.confirmButton}
-                >
-                  <LinearGradient
-                    colors={['#FFD700', '#FFC107']}
-                    style={styles.confirmButtonGradient}
-                  >
-                    <Text style={styles.confirmButtonText}>Xác nhận mua ngay</Text>
-                  </LinearGradient>
-                </TouchableOpacity>
-              </View>
             </View>
           </View>
         </Modal>
@@ -932,7 +899,7 @@ const styles = StyleSheet.create({
   buttonText: {
     color: '#FFFFFF',
     fontWeight: '700',
-    fontSize: 10,
+    fontSize: 12,
     marginLeft: 4,
   },
   viewAllCard: {
@@ -1186,7 +1153,7 @@ const styles = StyleSheet.create({
   paymentMethodContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 16,
+    marginBottom: 14,
   },
   paymentMethodButton: {
     flex: 1,
@@ -1247,3 +1214,14 @@ const styles = StyleSheet.create({
     color: '#333',
   },
 });
+
+// Hàm phân tích và chuyển đổi giá
+function parsePrice(price) {
+  if (typeof price === 'number') return price;
+  if (typeof price === 'string') {
+    // Loại bỏ ký tự không phải số
+    const cleaned = price.replace(/[^\d]/g, '');
+    return Number(cleaned);
+  }
+  return 0;
+}

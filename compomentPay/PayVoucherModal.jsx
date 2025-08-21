@@ -23,6 +23,7 @@ export default function PayVoucherModal({
   setSelectedVoucher, 
   setShowVoucher,
   orderAmount = 0,
+  voucherType = 'order', // Thêm prop này
   onVoucherApplied 
 }) {
   const [vouchers, setVouchers] = useState([]);
@@ -34,9 +35,15 @@ export default function PayVoucherModal({
   const fetchVouchers = async () => {
     setLoading(true);
     try {
-      // Đúng endpoint backend trả về danh sách voucher còn hiệu lực
       const response = await axiosInstance.get('/vouchers/active');
-      setVouchers(Array.isArray(response.data) ? response.data : []);
+      // Đảm bảo lấy đúng mảng voucher
+      let vouchersArr = [];
+      if (Array.isArray(response.data)) {
+        vouchersArr = response.data;
+      } else if (Array.isArray(response.data.vouchers)) {
+        vouchersArr = response.data.vouchers;
+      }
+      setVouchers(vouchersArr);
     } catch (error) {
       console.error('Error fetching vouchers:', error);
       Alert.alert('Lỗi', 'Không thể tải danh sách voucher');
@@ -253,6 +260,9 @@ export default function PayVoucherModal({
     );
   };
 
+  // Lọc voucher theo loại
+  const filteredVouchers = vouchers.filter(v => v.apply_for === voucherType);
+
   return (
     <Modal visible={visible} animationType="fade" transparent>
       <View style={styles.modalOverlay}>
@@ -271,9 +281,11 @@ export default function PayVoucherModal({
         >
           {/* Header */}
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Chọn mã giảm giá</Text>
+            <Text style={styles.modalTitle}>
+              {voucherType === 'order' ? 'Chọn mã giảm giá đơn hàng' : 'Chọn mã giảm giá phí vận chuyển'}
+            </Text>
             <Text style={styles.orderAmount}>
-              Đơn hàng: {orderAmount.toLocaleString('vi-VN')}đ
+              {voucherType === 'order' ? 'Đơn hàng' : 'Phí vận chuyển'}: {orderAmount.toLocaleString('vi-VN')}đ
             </Text>
             <TouchableOpacity
               style={styles.closeModalBtn}
@@ -291,7 +303,7 @@ export default function PayVoucherModal({
             </View>
           ) : (
             <FlatList
-              data={vouchers}
+              data={filteredVouchers}
               keyExtractor={(item, idx) => item?._id?.toString() || item?.code?.toString() || idx.toString()}
               renderItem={renderVoucherItem}
               showsVerticalScrollIndicator={false}
@@ -299,7 +311,7 @@ export default function PayVoucherModal({
               ListEmptyComponent={
                 <View style={styles.emptyContainer}>
                   <MaterialIcons name="local-offer" size={64} color="#ddd" />
-                  <Text style={styles.emptyText}>Không có voucher nào</Text>
+                  <Text style={styles.emptyText}>Không có voucher phù hợp</Text>
                 </View>
               }
             />
