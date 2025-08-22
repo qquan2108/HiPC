@@ -564,9 +564,9 @@ export default function DanhMucAll(props) {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#ee4d2d" />
+      <StatusBar barStyle="light-content" backgroundColor="#1062ddff" />
 
-      <LinearGradient colors={['#ee4d2d', '#ff6b6b']} style={styles.header}>
+      <LinearGradient colors={["#1062ddff", "#1062ddff"]} style={styles.header}>
         <SafeAreaView>
           <View style={styles.headerContent}>
             <TouchableOpacity onPress={() => router.back()}>

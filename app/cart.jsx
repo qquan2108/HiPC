@@ -299,6 +299,19 @@ useEffect(() => {
 
     const newQty = Math.max(1, prod.quantity + delta);
 
+    // Kiểm tra tồn kho trước khi cập nhật
+    const maxStock = prod.stock || 99;
+    if (newQty > maxStock) {
+      Toast.show({
+        type: "error",
+        text1: "Số lượng vượt quá kho",
+        text2: `Sản phẩm này chỉ còn ${maxStock} trong kho`,
+        position: "top",
+        visibilityTime: 3000,
+      });
+      return;
+    }
+
     // Optimistic update
     setCart((prev) =>
       prev.map((item) =>
@@ -704,7 +717,7 @@ useEffect(() => {
             pathname: "./pay",
             params: {
               selectedProducts: JSON.stringify(selectedProductsWithCartId),
-              selectedVoucher: JSON.stringify(selectedVoucher),
+              selectedOrderVoucher: JSON.stringify(selectedVoucher),
             },
           });
         }}
