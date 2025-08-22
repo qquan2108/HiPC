@@ -1,10 +1,10 @@
 // danhmucall.jsx - Fixed version
-import { Feather } from '@expo/vector-icons';
-import MultiSlider from '@ptomasroos/react-native-multi-slider';
-import Constants from 'expo-constants';
-import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { Feather } from "@expo/vector-icons";
+import MultiSlider from "@ptomasroos/react-native-multi-slider";
+import Constants from "expo-constants";
+import { LinearGradient } from "expo-linear-gradient";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Dimensions,
@@ -18,10 +18,10 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View
-} from 'react-native';
-import CustomTabBar from '../compomentHome/CustomTabBar';
-import axios from '../utils/AxiosInstance';
+  View,
+} from "react-native";
+import CustomTabBar from "../compomentHome/CustomTabBar";
+import axios from "../utils/AxiosInstance";
 
 const API_BASE_URL =
   Constants.manifest?.extra?.apiBaseUrl ||
@@ -30,18 +30,25 @@ const API_BASE_URL =
 
 function computeSource(uri, fallback) {
   if (!uri) return fallback;
-  if (uri.startsWith('http://') || uri.startsWith('https://')) {
+  if (uri.startsWith("http://") || uri.startsWith("https://")) {
     return { uri };
   }
   return {
-    uri: API_BASE_URL.replace(/\/$/, '') + '/' + uri.replace(/^\/+/, '')
+    uri: API_BASE_URL.replace(/\/$/, "") + "/" + uri.replace(/^\/+/, ""),
   };
 }
 
-const { width, height } = Dimensions.get('window');
-const tabs = ['ALL','Mới nhất', 'Giá thấp', 'Giá cao', 'Bộ lọc'];
+const { width, height } = Dimensions.get("window");
+const tabs = ["ALL", "Mới nhất", "Giá thấp", "Giá cao", "Bộ lọc"];
 
-const FilterModal = ({ visible, onClose, onApply, filters, setFilters, categoryId }) => {
+const FilterModal = ({
+  visible,
+  onClose,
+  onApply,
+  filters,
+  setFilters,
+  categoryId,
+}) => {
   const [tempFilters, setTempFilters] = useState(filters);
   const [filterFields, setFilterFields] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -64,8 +71,10 @@ const FilterModal = ({ visible, onClose, onApply, filters, setFilters, categoryI
 
   const fetchCategories = async () => {
     try {
-      const res = await axios.get('/category/all');
-      setCategories(Array.isArray(res.data.categories) ? res.data.categories : []);
+      const res = await axios.get("/category/all");
+      setCategories(
+        Array.isArray(res.data.categories) ? res.data.categories : []
+      );
     } catch (e) {
       setCategories([]);
     }
@@ -73,7 +82,7 @@ const FilterModal = ({ visible, onClose, onApply, filters, setFilters, categoryI
 
   const fetchBrands = async () => {
     try {
-      const res = await axios.get('/brands');
+      const res = await axios.get("/brands");
       setBrands(Array.isArray(res.data) ? res.data : []);
     } catch (e) {
       setBrands([]);
@@ -92,32 +101,84 @@ const FilterModal = ({ visible, onClose, onApply, filters, setFilters, categoryI
     }
   };
 
-  const brandOptions = ['HP', 'ASUS', 'LG', 'Dell', 'MSI', 'Lenovo', 'Gigabyte', 'Acer', 'Apple', 'Huawei', 'Vaio', 'Masstel'];
-  const storageOptions = ['256GB', '512GB', '1TB', '2TB', '128GB', '120GB', '8TB', 'HDD: 1TB'];
-  const usageOptions = ['Học tập - Văn phòng', 'Gaming', 'Đồ họa - Kỹ thuật', 'Cao cấp - Sang trọng', 'Mỏng nhẹ', 'Laptop sáng tạo nội dung'];
-  const cpuOptions = ['Intel Core i3', 'Intel Core i5', 'Intel Core i7', 'Intel Core i9', 'AMD Ryzen 3', 'AMD Ryzen 5', 'AMD Ryzen 7', 'AMD Ryzen 9'];
+  const brandOptions = [
+    "HP",
+    "ASUS",
+    "LG",
+    "Dell",
+    "MSI",
+    "Lenovo",
+    "Gigabyte",
+    "Acer",
+    "Apple",
+    "Huawei",
+    "Vaio",
+    "Masstel",
+  ];
+  const storageOptions = [
+    "256GB",
+    "512GB",
+    "1TB",
+    "2TB",
+    "128GB",
+    "120GB",
+    "8TB",
+    "HDD: 1TB",
+  ];
+  const usageOptions = [
+    "Học tập - Văn phòng",
+    "Gaming",
+    "Đồ họa - Kỹ thuật",
+    "Cao cấp - Sang trọng",
+    "Mỏng nhẹ",
+    "Laptop sáng tạo nội dung",
+  ];
+  const cpuOptions = [
+    "Intel Core i3",
+    "Intel Core i5",
+    "Intel Core i7",
+    "Intel Core i9",
+    "AMD Ryzen 3",
+    "AMD Ryzen 5",
+    "AMD Ryzen 7",
+    "AMD Ryzen 9",
+  ];
   const screenSizeOptions = ['13"', '14"', '15.6"', '17"', '16"', '12"'];
-  const graphicsOptions = ['Intel UHD', 'NVIDIA GTX 1650', 'NVIDIA RTX 3060', 'NVIDIA RTX 4060', 'AMD Radeon', 'Intel Iris Xe'];
-  const resolutionOptions = ['Full HD (1920x1080)', '4K (3840x2160)', 'QHD (2560x1440)', 'HD (1366x768)'];
+  const graphicsOptions = [
+    "Intel UHD",
+    "NVIDIA GTX 1650",
+    "NVIDIA RTX 3060",
+    "NVIDIA RTX 4060",
+    "AMD Radeon",
+    "Intel Iris Xe",
+  ];
+  const resolutionOptions = [
+    "Full HD (1920x1080)",
+    "4K (3840x2160)",
+    "QHD (2560x1440)",
+    "HD (1366x768)",
+  ];
 
   const updateFilter = (key, value) => {
-    setTempFilters(prev => ({
+    setTempFilters((prev) => ({
       ...prev,
       [key]: prev[key].includes(value)
-        ? prev[key].filter(item => item !== value)
-        : [...prev[key], value]
+        ? prev[key].filter((item) => item !== value)
+        : [...prev[key], value],
     }));
   };
 
   const updateSpecificationFilter = (specKey, specValue) => {
-    setTempFilters(prev => ({
+    setTempFilters((prev) => ({
       ...prev,
       specifications: {
         ...prev.specifications,
-        [specKey]: prev.specifications[specKey] && prev.specifications[specKey].includes(specValue)
-          ? prev.specifications[specKey].filter(item => item !== specValue)
-          : [...(prev.specifications[specKey] || []), specValue]
-      }
+        [specKey]:
+          prev.specifications[specKey] &&
+          prev.specifications[specKey].includes(specValue)
+            ? prev.specifications[specKey].filter((item) => item !== specValue)
+            : [...(prev.specifications[specKey] || []), specValue],
+      },
     }));
   };
 
@@ -139,7 +200,7 @@ const FilterModal = ({ visible, onClose, onApply, filters, setFilters, categoryI
       graphics: [],
       resolution: [],
       specifications: {},
-      category: null
+      category: null,
     };
     setTempFilters(resetData);
     setSelectedCategory(null);
@@ -156,14 +217,18 @@ const FilterModal = ({ visible, onClose, onApply, filters, setFilters, categoryI
             key={index}
             style={[
               filterStyles.option,
-              tempFilters[filterKey].includes(option) && filterStyles.optionSelected
+              tempFilters[filterKey].includes(option) &&
+                filterStyles.optionSelected,
             ]}
             onPress={() => updateFilter(filterKey, option)}
           >
-            <Text style={[
-              filterStyles.optionText,
-              tempFilters[filterKey].includes(option) && filterStyles.optionTextSelected
-            ]}>
+            <Text
+              style={[
+                filterStyles.optionText,
+                tempFilters[filterKey].includes(option) &&
+                  filterStyles.optionTextSelected,
+              ]}
+            >
               {option}
             </Text>
           </TouchableOpacity>
@@ -183,14 +248,18 @@ const FilterModal = ({ visible, onClose, onApply, filters, setFilters, categoryI
               key={index}
               style={[
                 filterStyles.option,
-                tempFilters.specifications[specKey]?.includes(option) && filterStyles.optionSelected
+                tempFilters.specifications[specKey]?.includes(option) &&
+                  filterStyles.optionSelected,
               ]}
               onPress={() => updateSpecificationFilter(specKey, option)}
             >
-              <Text style={[
-                filterStyles.optionText,
-                tempFilters.specifications[specKey]?.includes(option) && filterStyles.optionTextSelected
-              ]}>
+              <Text
+                style={[
+                  filterStyles.optionText,
+                  tempFilters.specifications[specKey]?.includes(option) &&
+                    filterStyles.optionTextSelected,
+                ]}
+              >
                 {option}
               </Text>
             </TouchableOpacity>
@@ -202,22 +271,22 @@ const FilterModal = ({ visible, onClose, onApply, filters, setFilters, categoryI
 
   const getSpecificationOptions = (specKey) => {
     switch (specKey.toLowerCase()) {
-      case 'cpu':
+      case "cpu":
         return cpuOptions;
-      case 'storage':
-      case 'dung lượng':
+      case "storage":
+      case "dung lượng":
         return storageOptions;
-      case 'screen size':
-      case 'kích thước màn hình':
+      case "screen size":
+      case "kích thước màn hình":
         return screenSizeOptions;
-      case 'graphics':
-      case 'card đồ họa':
+      case "graphics":
+      case "card đồ họa":
         return graphicsOptions;
-      case 'resolution':
-      case 'độ phân giải':
+      case "resolution":
+      case "độ phân giải":
         return resolutionOptions;
       default:
-        return ['Option 1', 'Option 2', 'Option 3'];
+        return ["Option 1", "Option 2", "Option 3"];
     }
   };
 
@@ -230,14 +299,20 @@ const FilterModal = ({ visible, onClose, onApply, filters, setFilters, categoryI
             key={brand._id || index}
             style={[
               filterStyles.option,
-              tempFilters.brands.includes(brand._id) && filterStyles.optionSelected
+              tempFilters.brands.includes(brand._id) &&
+                filterStyles.optionSelected,
             ]}
-            onPress={() => updateFilter('brands', brand._id)}
+            onPress={() => updateFilter("brands", brand._id)}
           >
-            <Text style={[
-              filterStyles.optionText,
-              tempFilters.brands.includes(brand._id) && filterStyles.optionTextSelected
-            ]}>{brand.name}</Text>
+            <Text
+              style={[
+                filterStyles.optionText,
+                tempFilters.brands.includes(brand._id) &&
+                  filterStyles.optionTextSelected,
+              ]}
+            >
+              {brand.name}
+            </Text>
           </TouchableOpacity>
         ))}
       </View>
@@ -245,7 +320,11 @@ const FilterModal = ({ visible, onClose, onApply, filters, setFilters, categoryI
   );
 
   return (
-    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
+    <Modal
+      visible={visible}
+      animationType="slide"
+      presentationStyle="pageSheet"
+    >
       <SafeAreaView style={filterStyles.container}>
         <View style={filterStyles.header}>
           <TouchableOpacity onPress={onClose}>
@@ -256,7 +335,10 @@ const FilterModal = ({ visible, onClose, onApply, filters, setFilters, categoryI
             <Text style={filterStyles.resetButton}>Thiết lập lại</Text>
           </TouchableOpacity>
         </View>
-        <ScrollView style={filterStyles.content} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          style={filterStyles.content}
+          showsVerticalScrollIndicator={false}
+        >
           {loading ? (
             <View style={filterStyles.loadingContainer}>
               <ActivityIndicator size="large" color="#ee4d2d" />
@@ -268,8 +350,12 @@ const FilterModal = ({ visible, onClose, onApply, filters, setFilters, categoryI
               <View style={filterStyles.section}>
                 <Text style={filterStyles.sectionTitle}>Khoảng giá</Text>
                 <View style={filterStyles.priceContainer}>
-                  <Text style={filterStyles.priceText}>{tempFilters.priceRange[0].toLocaleString()}đ</Text>
-                  <Text style={filterStyles.priceText}>{tempFilters.priceRange[1].toLocaleString()}đ</Text>
+                  <Text style={filterStyles.priceText}>
+                    {tempFilters.priceRange[0].toLocaleString()}đ
+                  </Text>
+                  <Text style={filterStyles.priceText}>
+                    {tempFilters.priceRange[1].toLocaleString()}đ
+                  </Text>
                 </View>
                 <MultiSlider
                   values={tempFilters.priceRange}
@@ -277,13 +363,12 @@ const FilterModal = ({ visible, onClose, onApply, filters, setFilters, categoryI
                   max={200000000}
                   step={100000}
                   onValuesChange={(values) =>
-                    setTempFilters(prev => ({
+                    setTempFilters((prev) => ({
                       ...prev,
-                      priceRange: values
+                      priceRange: values,
                     }))
                   }
-                  />
-
+                />
               </View>
 
               {/* Brand Filter từ API */}
@@ -292,38 +377,54 @@ const FilterModal = ({ visible, onClose, onApply, filters, setFilters, categoryI
               <View style={filterStyles.section}>
                 <Text style={filterStyles.sectionTitle}>Danh mục</Text>
                 <View style={filterStyles.optionContainer}>
-                  {Array.isArray(categories) && categories.length > 0 ? categories.map((cat, idx) => (
-                    <TouchableOpacity
-                      key={cat._id || idx}
-                      style={[
-                        filterStyles.option,
-                        selectedCategory === cat._id && filterStyles.optionSelected
-                      ]}
-                      onPress={() => {
-                        setSelectedCategory(cat._id);
-                        setFilterFields([]);
-                        setTempFilters(prev => ({ ...prev, specifications: {} }));
-                      }}
-                    >
-                      <Text style={[
-                        filterStyles.optionText,
-                        selectedCategory === cat._id && filterStyles.optionTextSelected
-                      ]}>{cat.name}</Text>
-                    </TouchableOpacity>
-                  )) : (
-                    <Text style={{ color: '#999' }}>Không có danh mục</Text>
+                  {Array.isArray(categories) && categories.length > 0 ? (
+                    categories.map((cat, idx) => (
+                      <TouchableOpacity
+                        key={cat._id || idx}
+                        style={[
+                          filterStyles.option,
+                          selectedCategory === cat._id &&
+                            filterStyles.optionSelected,
+                        ]}
+                        onPress={() => {
+                          setSelectedCategory(cat._id);
+                          setFilterFields([]);
+                          setTempFilters((prev) => ({
+                            ...prev,
+                            specifications: {},
+                          }));
+                        }}
+                      >
+                        <Text
+                          style={[
+                            filterStyles.optionText,
+                            selectedCategory === cat._id &&
+                              filterStyles.optionTextSelected,
+                          ]}
+                        >
+                          {cat.name}
+                        </Text>
+                      </TouchableOpacity>
+                    ))
+                  ) : (
+                    <Text style={{ color: "#999" }}>Không có danh mục</Text>
                   )}
                 </View>
               </View>
               {/* Dynamic specification filters theo danh mục */}
-              {selectedCategory && filterFields.length > 0 && filterFields.map((field, index) => (
-                <View key={index}>{renderSpecificationSection(field)}</View>
-              ))}
+              {selectedCategory &&
+                filterFields.length > 0 &&
+                filterFields.map((field, index) => (
+                  <View key={index}>{renderSpecificationSection(field)}</View>
+                ))}
             </>
           )}
         </ScrollView>
         <View style={filterStyles.footer}>
-          <TouchableOpacity style={filterStyles.resetBtn} onPress={resetFilters}>
+          <TouchableOpacity
+            style={filterStyles.resetBtn}
+            onPress={resetFilters}
+          >
             <Text style={filterStyles.resetBtnText}>Thiết lập lại</Text>
           </TouchableOpacity>
           <TouchableOpacity style={filterStyles.applyBtn} onPress={handleApply}>
@@ -336,14 +437,9 @@ const FilterModal = ({ visible, onClose, onApply, filters, setFilters, categoryI
 };
 
 export default function DanhMucAll(props) {
+  const params = useLocalSearchParams();
   const router = useRouter();
-  const [products, setProducts] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState(0);
-  const [filterVisible, setFilterVisible] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [categoryId, setCategoryId] = useState(null);
-  const [favoriteIds, setFavoriteIds] = useState([]);
+  const [categoryId, setCategoryId] = useState(params.categoryId || null);
   const [filters, setFilters] = useState({
     priceRange: [0, 200000000],
     status: [],
@@ -355,8 +451,15 @@ export default function DanhMucAll(props) {
     graphics: [],
     resolution: [],
     specifications: {},
-    category: null
+    category: params.categoryId || null,
   });
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState(0);
+  const [filterVisible, setFilterVisible] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  // Thêm dòng này để khai báo state yêu thích
+  const [favoriteIds, setFavoriteIds] = useState([]);
 
   const toggleFavorite = (productId) => {
     setFavoriteIds((prev) =>
@@ -365,151 +468,105 @@ export default function DanhMucAll(props) {
         : [...prev, productId]
     );
   };
-
-  // ✅ FIX: Properly handle params and set initial filters
-  useEffect(() => {
-    const setupInitialState = () => {
-      // Debug log để xem params
-      console.log('Router params:', router?.params);
-      console.log('Router query:', router?.query);
-      
-      // Lấy categoryId từ router params (ưu tiên params trước)
-      const paramCategoryId = router?.params?.categoryId || router?.query?.categoryId;
-      
-      if (paramCategoryId) {
-        console.log('Setting category filter with ID:', paramCategoryId);
-        // Set category filter và fetch products by category
-        setCategoryId(paramCategoryId);
-        setFilters(prev => ({
-          ...prev,
-          category: paramCategoryId
-        }));
-      } else {
-        // Handle other query params
-        const { type, brandId, min, max } = router?.query || {};
-        
-        if (type === 'brand' && brandId) {
-          setFilters(prev => ({
-            ...prev,
-            brands: [brandId],
-            category: null
-          }));
-          setCategoryId(null);
-        } else if (type === 'price' && min && max) {
-          setFilters(prev => ({
-            ...prev,
-            priceRange: [parseInt(min), parseInt(max)],
-            category: null
-          }));
-          setCategoryId(null);
-        } else {
-          // No filters - show all products
-          setFilters({
-            priceRange: [0, 200000000],
-            status: [],
-            brands: [],
-            storage: [],
-            usage: [],
-            cpu: [],
-            screenSize: [],
-            graphics: [],
-            resolution: [],
-            specifications: {},
-            category: null
-          });
-          setCategoryId(null);
-        }
-      }
-    };
-
-    setupInitialState();
-  }, [router?.params?.categoryId, router?.query]);
-
-  // ✅ FIX: Fetch products when categoryId, filters, or activeTab change
-  useEffect(() => {
-    console.log('Fetching products with categoryId:', categoryId, 'filters:', filters);
-    fetchProducts();
-  }, [activeTab, categoryId, filters.category]);
-
   const fetchProducts = async () => {
     try {
       setLoading(true);
-      const currentCategoryId = categoryId || filters.category;
 
-      // Nếu ở tab ALL và có categoryId, chỉ lấy sản phẩm theo danh mục
-      if (activeTab === 0 && currentCategoryId) {
-        console.log('Fetching products by category:', currentCategoryId);
-        const response = await axios.get(`/product/by-category/${currentCategoryId}`);
+      // Tab "Mới nhất" (index 1): lấy tất cả sản phẩm, sort newest
+      if (activeTab === 1) {
+        const response = await axios.get("/product/filter?sort=newest&page=1&limit=50");
         setProducts(response.data.products || []);
         setLoading(false);
         return;
       }
 
-      // Các tab khác vẫn dùng filter API như cũ
-      const params = new URLSearchParams();
-      if (searchQuery.trim()) {
-        params.append('q', searchQuery.trim());
+      // Tab "Giá thấp" (index 2): lấy tất cả sản phẩm, sort price_asc
+      if (activeTab === 2) {
+        const response = await axios.get("/product/filter?sort=price_asc&page=1&limit=50");
+        setProducts(response.data.products || []);
+        setLoading(false);
+        return;
       }
-      let sortParam = 'newest';
-      switch (activeTab) {
-        case 1: sortParam = 'newest'; break;
-        case 2: sortParam = 'price_asc'; break;
-        case 3: sortParam = 'price_desc'; break;
-        default: sortParam = 'newest';
-      }
-      params.append('sort', sortParam);
-      params.append('page', '1');
-      params.append('limit', '50');
-      if (filters.priceRange[0] > 0) {
-        params.append('priceMin', filters.priceRange[0].toString());
-      }
-      if (filters.priceRange[1] < 200000000) {
-        params.append('priceMax', filters.priceRange[1].toString());
-      }
-      if (filters.brands && filters.brands.length > 0) {
-        params.append('brand', filters.brands.join(','));
-      }
-      const specFilters = Object.keys(filters.specifications).filter(
-        key => filters.specifications[key] && filters.specifications[key].length > 0
-      );
-      if (specFilters.length > 0) {
-        const firstSpecKey = specFilters[0];
-        params.append('specKey', firstSpecKey);
-        params.append('specValue', filters.specifications[firstSpecKey].join(','));
-      }
-      const queryString = params.toString();
-      const apiUrl = `/product/filter?${queryString}`;
-      console.log('Calling filter API:', apiUrl);
 
-      const response = await axios.get(apiUrl);
-      if (response.data) {
-        if (response.data.products && Array.isArray(response.data.products)) {
-          setProducts(response.data.products);
-        } else if (Array.isArray(response.data)) {
-          setProducts(response.data);
-        } else {
-          setProducts([]);
-        }
+      // Tab "Giá cao" (index 3): lấy tất cả sản phẩm, sort price_desc
+      if (activeTab === 3) {
+        const response = await axios.get("/product/filter?sort=price_desc&page=1&limit=50");
+        setProducts(response.data.products || []);
+        setLoading(false);
+        return;
+      }
+
+      // Tab "ALL" (index 0): vẫn giữ logic lọc theo danh mục nếu có categoryId
+      const currentCategoryId = categoryId || filters.category;
+      const showAll = params.showAll === 'true';
+
+      if (currentCategoryId) {
+        const response = await axios.get(`/product/by-category/${currentCategoryId}`);
+        setProducts(response.data.products || []);
+      } else if (showAll) {
+        const response = await axios.get("/product/all");
+        setProducts(response.data.products || []);
       } else {
         setProducts([]);
       }
     } catch (error) {
-      console.error('Error fetching products:', error);
       setProducts([]);
     } finally {
       setLoading(false);
     }
   };
 
+  // Chỉ cập nhật categoryId khi params thay đổi và khác với state hiện tại
+ useEffect(() => {
+  if (params.categoryId && params.categoryId !== categoryId) {
+    setCategoryId(params.categoryId);
+    setFilters((prev) => ({
+      ...prev,
+      category: params.categoryId,
+    }));
+  } else if (params.showAll === 'true') {
+    // Handle show all case
+    setCategoryId(null);
+    setFilters((prev) => ({
+      ...prev,
+      category: null,
+    }));
+  } else if (!params.categoryId && !params.showAll && categoryId !== null) {
+    setCategoryId(null);
+    setFilters({
+      priceRange: [0, 200000000],
+      status: [],
+      brands: [],
+      storage: [],
+      usage: [],
+      cpu: [],
+      screenSize: [],
+      graphics: [],
+      resolution: [],
+      specifications: {},
+      category: null,
+    });
+  }
+}, [params.categoryId, params.showAll]);
+
+  // Fetch products khi categoryId, activeTab, hoặc filters.category thay đổi
+  useEffect(() => {
+    console.log("Params từ Home:", params);
+    console.log("categoryId:", categoryId);
+    fetchProducts();
+  }, [categoryId, activeTab]);
+
+ 
+
   const handleTabPress = (index) => {
     setActiveTab(index);
-    if (tabs[index] === 'Bộ lọc') {
+    if (tabs[index] === "Bộ lọc") {
       setFilterVisible(true);
     }
   };
 
   const applyFilters = () => {
-    console.log('Applying filters:', filters);
+    console.log("Applying filters:", filters);
     fetchProducts();
   };
 
@@ -534,7 +591,12 @@ export default function DanhMucAll(props) {
     return (
       <TouchableOpacity
         style={styles.card}
-        onPress={() => router.push({ pathname: '/ctsp', params: { id: item._id || item.id } })}
+        onPress={() =>
+          router.push({
+            pathname: "/ctsp",
+            params: { id: item._id || item.id },
+          })
+        }
         activeOpacity={0.9}
       >
         <View style={styles.cardHeader}>
@@ -545,21 +607,28 @@ export default function DanhMucAll(props) {
             <Feather
               name="heart"
               size={20}
-              color={favoriteIds.includes(item._id || item.id) ? "#ee4d2d" : "#ccc"}
+              color={
+                favoriteIds.includes(item._id || item.id) ? "#ee4d2d" : "#ccc"
+              }
             />
           </TouchableOpacity>
         </View>
 
         <View style={styles.imageContainer}>
           <Image
-            source={computeSource(item.image, require('../assets/images/pc1.png'))}
+            source={computeSource(
+              item.image,
+              require("../assets/images/pc1.png")
+            )}
             style={styles.image}
             resizeMode="contain"
           />
         </View>
 
         <View style={styles.info}>
-          <Text numberOfLines={2} style={styles.title}>{item.name || 'Tên sản phẩm'}</Text>
+          <Text numberOfLines={2} style={styles.title}>
+            {item.name || "Tên sản phẩm"}
+          </Text>
 
           <View style={styles.ratingContainer}>
             <View style={styles.stars}>
@@ -568,20 +637,22 @@ export default function DanhMucAll(props) {
                   key={i}
                   style={[
                     styles.star,
-                    i < Math.round(rating) ? styles.starFilled : styles.starEmpty
+                    i < Math.round(rating)
+                      ? styles.starFilled
+                      : styles.starEmpty,
                   ]}
                 >
                   ★
                 </Text>
               ))}
             </View>
-            <Text style={styles.ratingText}>
-              ({reviewCount})
-            </Text>
+            <Text style={styles.ratingText}>({reviewCount})</Text>
           </View>
 
           <View style={styles.priceContainer}>
-            <Text style={styles.price}>{(item.price || 0).toLocaleString()}đ</Text>
+            <Text style={styles.price}>
+              {(item.price || 0).toLocaleString()}đ
+            </Text>
           </View>
 
           <View style={styles.badges}>
@@ -590,7 +661,7 @@ export default function DanhMucAll(props) {
             </View>
             <View style={[styles.badge, styles.stockBadge]}>
               <Text style={styles.badgeText}>
-                {item.stock > 0 ? `Còn ${item.stock} sản phẩm` : 'Hết hàng'}
+                {item.stock > 0 ? `Còn ${item.stock} sản phẩm` : "Hết hàng"}
               </Text>
             </View>
           </View>
@@ -618,7 +689,10 @@ export default function DanhMucAll(props) {
                 onChangeText={setSearchQuery}
                 onSubmitEditing={handleSearch}
               />
-              <TouchableOpacity style={styles.searchIcon} onPress={handleSearch}>
+              <TouchableOpacity
+                style={styles.searchIcon}
+                onPress={handleSearch}
+              >
                 <Text style={styles.searchIconText}>🔍</Text>
               </TouchableOpacity>
             </View>
@@ -634,11 +708,16 @@ export default function DanhMucAll(props) {
               style={[styles.tab, activeTab === index && styles.activeTab]}
               onPress={() => handleTabPress(index)}
             >
-              <Text style={[styles.tabText, activeTab === index && styles.activeTabText]}>
+              <Text
+                style={[
+                  styles.tabText,
+                  activeTab === index && styles.activeTabText,
+                ]}
+              >
                 {tab}
-                {tab === 'Giá thấp' && ' ↑'}
-                {tab === 'Giá cao' && ' ↓'}
-                {tab === 'Bộ lọc' && ' ⚙'}
+                {tab === "Giá thấp" && " ↑"}
+                {tab === "Giá cao" && " ↓"}
+                {tab === "Bộ lọc" && " ⚙"}
               </Text>
               {activeTab === index && <View style={styles.tabIndicator} />}
             </TouchableOpacity>
@@ -659,9 +738,14 @@ export default function DanhMucAll(props) {
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyText}>
-              {categoryId ? 'Danh mục này chưa có sản phẩm nào' : 'Không tìm thấy sản phẩm nào'}
+              {categoryId
+                ? "Danh mục này chưa có sản phẩm nào"
+                : "Không tìm thấy sản phẩm nào"}
             </Text>
-            <TouchableOpacity style={styles.retryButton} onPress={fetchProducts}>
+            <TouchableOpacity
+              style={styles.retryButton}
+              onPress={fetchProducts}
+            >
               <Text style={styles.retryButtonText}>Thử lại</Text>
             </TouchableOpacity>
           </View>
@@ -680,6 +764,9 @@ export default function DanhMucAll(props) {
       <CustomTabBar
         router={router}
         style={styles.tabbar}
+        activeTab={activeTab}
+        tabs={tabs}
+        onTabPress={handleTabPress}
       />
     </View>
   );
@@ -688,326 +775,326 @@ export default function DanhMucAll(props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5'
+    backgroundColor: "#f5f5f5",
   },
   loading: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#fff'
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#fff",
   },
   loadingText: {
     marginTop: 12,
     fontSize: 16,
-    color: '#666'
+    color: "#666",
   },
   header: {
-    paddingBottom: 16
+    paddingBottom: 16,
   },
   headerContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 16,
-    paddingTop: 8
+    paddingTop: 8,
   },
   backIcon: {
     fontSize: 24,
-    color: '#fff',
-    marginRight: 12
+    color: "#fff",
+    marginRight: 12,
   },
   searchContainer: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fff',
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#fff",
     borderRadius: 8,
     paddingHorizontal: 12,
-    height: 40
+    height: 40,
   },
   searchInput: {
     flex: 1,
     fontSize: 14,
-    color: '#333'
+    color: "#333",
   },
   searchIcon: {
-    padding: 4
+    padding: 4,
   },
   searchIconText: {
-    fontSize: 16
+    fontSize: 16,
   },
   tabsContainer: {
-    backgroundColor: '#fff',
-    shadowColor: '#000',
+    backgroundColor: "#fff",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
-    elevation: 3
+    elevation: 3,
   },
   tabs: {
-    flexDirection: 'row',
-    backgroundColor: '#fff'
+    flexDirection: "row",
+    backgroundColor: "#fff",
   },
   tab: {
     flex: 1,
-    alignItems: 'center',
+    alignItems: "center",
     paddingVertical: 16,
-    position: 'relative'
+    position: "relative",
   },
   activeTab: {
-    backgroundColor: '#fff'
+    backgroundColor: "#fff",
   },
   tabText: {
     fontSize: 14,
-    color: '#666',
-    fontWeight: '500'
+    color: "#666",
+    fontWeight: "500",
   },
   activeTabText: {
-    color: '#ee4d2d',
-    fontWeight: '600'
+    color: "#ee4d2d",
+    fontWeight: "600",
   },
   tabIndicator: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
     height: 3,
-    backgroundColor: '#ee4d2d',
-    borderRadius: 2
+    backgroundColor: "#ee4d2d",
+    borderRadius: 2,
   },
   productList: {
     paddingHorizontal: 16,
     paddingTop: 16,
-    paddingBottom: 100
+    paddingBottom: 100,
   },
   productRow: {
-    justifyContent: 'space-between',
-    marginBottom: 16
+    justifyContent: "space-between",
+    marginBottom: 16,
   },
   emptyContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 50
+    justifyContent: "center",
+    alignItems: "center",
+    paddingVertical: 50,
   },
   emptyText: {
     fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
-    marginBottom: 16
+    color: "#666",
+    textAlign: "center",
+    marginBottom: 16,
   },
   retryButton: {
-    backgroundColor: '#ee4d2d',
+    backgroundColor: "#ee4d2d",
     paddingHorizontal: 20,
     paddingVertical: 10,
-    borderRadius: 8
+    borderRadius: 8,
   },
   retryButtonText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 14,
-    fontWeight: '600'
+    fontWeight: "600",
   },
   card: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderRadius: 12,
     width: (width - 48) / 2,
-    overflow: 'hidden',
-    shadowColor: '#000',
+    overflow: "hidden",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 6,
-    elevation: 3
+    elevation: 3,
   },
   cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    alignItems: 'flex-start',
-    position: 'absolute',
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    alignItems: "flex-start",
+    position: "absolute",
     top: 8,
     right: 8,
-    zIndex: 1
+    zIndex: 1,
   },
   heartCircle: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: 'rgba(255,255,255,0.9)',
-    justifyContent: 'center',
-    alignItems: 'center'
+    backgroundColor: "rgba(255,255,255,0.9)",
+    justifyContent: "center",
+    alignItems: "center",
   },
   imageContainer: {
     height: width * 0.4,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#f8f8f8'
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#f8f8f8",
   },
   image: {
-    width: '90%',
-    height: '90%'
+    width: "90%",
+    height: "90%",
   },
   info: {
-    padding: 12
+    padding: 12,
   },
   title: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
+    fontWeight: "600",
+    color: "#333",
     marginBottom: 8,
-    lineHeight: 20
+    lineHeight: 20,
   },
   ratingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
   },
   stars: {
-    flexDirection: 'row',
-    marginRight: 4
+    flexDirection: "row",
+    marginRight: 4,
   },
   star: {
-    fontSize: 12
+    fontSize: 12,
   },
   starFilled: {
-    color: '#ffc107'
+    color: "#ffc107",
   },
   starEmpty: {
-    color: '#ddd'
+    color: "#ddd",
   },
   ratingText: {
     fontSize: 12,
-    color: '#666'
+    color: "#666",
   },
   priceContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
   },
   price: {
     fontSize: 16,
-    fontWeight: '700',
-    color: '#ee4d2d',
-    marginRight: 8
+    fontWeight: "700",
+    color: "#ee4d2d",
+    marginRight: 8,
   },
   badges: {
-    flexDirection: 'row',
-    flexWrap: 'wrap'
+    flexDirection: "row",
+    flexWrap: "wrap",
   },
   badge: {
-    backgroundColor: '#e3f2fd',
+    backgroundColor: "#e3f2fd",
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
     marginRight: 4,
-    marginBottom: 4
+    marginBottom: 4,
   },
   stockBadge: {
-    backgroundColor: '#e8f5e8'
+    backgroundColor: "#e8f5e8",
   },
   badgeText: {
     fontSize: 10,
-    color: '#1976d2',
-    fontWeight: '500'
+    color: "#1976d2",
+    fontWeight: "500",
   },
   tabbar: {
-    position: 'absolute',
+    position: "absolute",
     left: 0,
     right: 0,
-    bottom: 0
-  }
+    bottom: 0,
+  },
 });
 
 const filterStyles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff'
+    backgroundColor: "#fff",
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingHorizontal: 16,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee'
+    borderBottomColor: "#eee",
   },
   closeButton: {
     fontSize: 20,
-    color: '#666'
+    color: "#666",
   },
   title: {
     fontSize: 18,
-    fontWeight: '600',
-    color: '#333'
+    fontWeight: "600",
+    color: "#333",
   },
   resetButton: {
     fontSize: 14,
-    color: '#ee4d2d'
+    color: "#ee4d2d",
   },
   content: {
     flex: 1,
-    paddingHorizontal: 16
+    paddingHorizontal: 16,
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 50
+    justifyContent: "center",
+    alignItems: "center",
+    paddingVertical: 50,
   },
   section: {
-    marginVertical: 16
+    marginVertical: 16,
   },
   sectionTitle: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 12
+    fontWeight: "600",
+    color: "#333",
+    marginBottom: 12,
   },
   priceContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 8
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 8,
   },
   priceText: {
     fontSize: 14,
-    color: '#666'
+    color: "#666",
   },
   slider: {
-    width: '100%',
-    height: 40
+    width: "100%",
+    height: 40,
   },
   sliderThumb: {
-    backgroundColor: '#ee4d2d'
+    backgroundColor: "#ee4d2d",
   },
   optionContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap'
+    flexDirection: "row",
+    flexWrap: "wrap",
   },
   option: {
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: "#ddd",
     marginRight: 8,
     marginBottom: 8,
-    backgroundColor: '#fff'
+    backgroundColor: "#fff",
   },
   optionSelected: {
-    backgroundColor: '#ee4d2d',
-    borderColor: '#ee4d2d'
+    backgroundColor: "#ee4d2d",
+    borderColor: "#ee4d2d",
   },
   optionText: {
     fontSize: 14,
-    color: '#666'
+    color: "#666",
   },
   optionTextSelected: {
-    color: '#fff'
+    color: "#fff",
   },
   footer: {
-    flexDirection: 'row',
+    flexDirection: "row",
     paddingHorizontal: 16,
     paddingVertical: 16,
     borderTopWidth: 1,
-    borderTopColor: '#eee'
+    borderTopColor: "#eee",
   },
   resetBtn: {
     flex: 1,
@@ -1015,24 +1102,24 @@ const filterStyles = StyleSheet.create({
     marginRight: 8,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#ddd',
-    alignItems: 'center'
+    borderColor: "#ddd",
+    alignItems: "center",
   },
   resetBtnText: {
     fontSize: 16,
-    color: '#666'
+    color: "#666",
   },
   applyBtn: {
     flex: 1,
     paddingVertical: 12,
     marginLeft: 8,
     borderRadius: 8,
-    backgroundColor: '#ee4d2d',
-    alignItems: 'center'
+    backgroundColor: "#ee4d2d",
+    alignItems: "center",
   },
   applyBtnText: {
     fontSize: 16,
-    color: '#fff',
-    fontWeight: '600'
-  }
+    color: "#fff",
+    fontWeight: "600",
+  },
 });

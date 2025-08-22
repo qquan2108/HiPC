@@ -175,6 +175,7 @@ export default function HomeScreen() {
             (i) => i.category_id && i.category_id._id === cat._id
           );
           return {
+            _id: cat._id, // Thêm dòng này để truyền ObjectId
             key: cat.name,
             label: cat.name,
             icon: img ? { uri: img.url } : require("../assets/images/pc.png"),
@@ -478,21 +479,8 @@ export default function HomeScreen() {
     elevation: 2,
   }}
 >
-  <CategoryList
-    categories={categories.map(cat => ({
-      ...cat,
-      // ✅ FIX: Thêm categoryId để CategoryList có thể sử dụng
-      categoryId: cat._id || cat.id
-    }))}
-    router={router}
-    // ✅ FIX: Truyền function xử lý navigation đúng cách
-    onCategoryPress={(categoryId) => {
-      router.push({
-        pathname: "/danhmucall",
-        params: { categoryId }
-      });
-    }}
-  />
+  {console.log("Categories truyền sang CategoryList:", categories)}
+  <CategoryList categories={categories} router={router} />
 </View>
 
             {/* Khung giờ vàng */}
