@@ -20,8 +20,8 @@ export default function CartProductList({
   selectedIds,
   onQuantityInput,
   onProductPress,
-  onVariantChange, // Thêm prop để xử lý thay đổi biến thể
-  availableVariants // Thêm prop chứa các biến thể có sẵn cho từng sản phẩm
+  onVariantChange,
+  availableVariants
 }) {
   const [editingQuantity, setEditingQuantity] = useState({});
   const [tempQuantity, setTempQuantity] = useState({});
@@ -51,7 +51,7 @@ export default function CartProductList({
   };
 
   const handleVariantPress = (item) => {
-    if (item.type === 'combo') return; // Không cho phép thay đổi biến thể combo
+    if (item.type === 'combo') return;
     setSelectedProduct(item);
     setVariantModalVisible(true);
   };
@@ -64,19 +64,48 @@ export default function CartProductList({
     setSelectedProduct(null);
   };
 
-  // Render từng dòng biến thể riêng biệt
+  // ✅ FIXED: Render variant info with better logic
   const renderVariantInfo = (item) => {
     if (!item.variant) return null;
 
-    if (typeof item.variant === 'string') {
+    // Handle old format: { key: "A + B", label: "X + Y" }
+    if (typeof item.variant === 'object' && item.variant.key && item.variant.label) {
+      const { key, label } = item.variant;
+      
+      // Check if both key and label contain "+"
+      if (key.includes(' + ') && label.includes(' + ')) {
+        const keys = key.split(' + ').map(k => k.trim());
+        const labels = label.split(' + ').map(l => l.trim());
+        
+        return (
+          <View style={styles.variantContainer}>
+            {keys.map((k, index) => (
+              <TouchableOpacity
+                key={`${k}_${index}`}
+                style={styles.variantRow}
+                onPress={() => handleVariantPress(item)}
+                disabled={item.type === 'combo'}
+              >
+                <Text style={styles.variantLabel}>{k}:</Text>
+                <Text style={styles.variantValue}>{labels[index] || ''}</Text>
+                {item.type !== 'combo' && (
+                  <Feather name="chevron-down" size={14} color="#999" />
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+        );
+      }
+      
+      // Single variant display
       return (
         <TouchableOpacity 
           style={styles.variantRow}
           onPress={() => handleVariantPress(item)}
           disabled={item.type === 'combo'}
         >
-          <Text style={styles.variantLabel}>Phân loại:</Text>
-          <Text style={styles.variantValue}>{item.variant}</Text>
+          <Text style={styles.variantLabel}>{key}:</Text>
+          <Text style={styles.variantValue}>{label}</Text>
           {item.type !== 'combo' && (
             <Feather name="chevron-down" size={14} color="#999" />
           )}
@@ -84,39 +113,20 @@ export default function CartProductList({
       );
     }
 
+    // Handle new format: { "Phiên Bản": "Tray", "Bảo Hành": "3 năm" }
     if (typeof item.variant === 'object' && Object.keys(item.variant).length > 0) {
       return (
         <View style={styles.variantContainer}>
-          {Object.entries(item.variant).map(([variantType, v], idx) => {
-            // Nếu key và label đều có dấu "+" thì tách ra từng dòng
-            if (
-              variantType.includes('+') &&
-              typeof v === 'object' &&
-              v.label &&
-              v.label.includes(' + ')
-            ) {
-              const keys = variantType.split('+').map(k => k.trim());
-              const labels = v.label.split(' + ').map(l => l.trim());
-              return keys.map((key, i) => (
-                <TouchableOpacity
-                  key={`${key}_${i}_${idx}`}
-                  style={styles.variantRow}
-                  onPress={() => handleVariantPress(item)}
-                  disabled={item.type === 'combo'}
-                >
-                  <Text style={styles.variantLabel}>{key}:</Text>
-                  <Text style={styles.variantValue}>{labels[i] || ''}</Text>
-                  {item.type !== 'combo' && (
-                    <Feather name="chevron-down" size={14} color="#999" />
-                  )}
-                </TouchableOpacity>
-              ));
+          {Object.entries(item.variant).map(([variantType, variantValue], idx) => {
+            // Skip key, label, priceDiff properties from old format
+            if (['key', 'label', 'priceDiff'].includes(variantType)) {
+              return null;
             }
-            // Trường hợp thông thường
-            const displayValue =
-              typeof v === 'object' && v !== null
-                ? (v.label || v.value || v)
-                : v;
+            
+            const displayValue = typeof variantValue === 'object' && variantValue !== null
+              ? (variantValue.label || variantValue.value || variantValue)
+              : variantValue;
+
             return (
               <TouchableOpacity
                 key={`${variantType}_${idx}`}
@@ -133,6 +143,23 @@ export default function CartProductList({
             );
           })}
         </View>
+      );
+    }
+
+    // Handle string variant
+    if (typeof item.variant === 'string') {
+      return (
+        <TouchableOpacity 
+          style={styles.variantRow}
+          onPress={() => handleVariantPress(item)}
+          disabled={item.type === 'combo'}
+        >
+          <Text style={styles.variantLabel}>Phân loại:</Text>
+          <Text style={styles.variantValue}>{item.variant}</Text>
+          {item.type !== 'combo' && (
+            <Feather name="chevron-down" size={14} color="#999" />
+          )}
+        </TouchableOpacity>
       );
     }
 
@@ -275,7 +302,7 @@ export default function CartProductList({
                 {item.name}
               </Text>
               
-              {/* Enhanced Variant Display */}
+              {/* ✅ FIXED: Enhanced Variant Display */}
               {renderVariantInfo(item)}
 
               {/* Price section */}
@@ -456,7 +483,7 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     marginBottom: 8,
   },
-  // Enhanced Variant Styles
+  // ✅ IMPROVED: Enhanced Variant Styles
   variantContainer: {
     marginBottom: 8,
   },
@@ -475,7 +502,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#666',
     fontWeight: '500',
-    minWidth: 60,
+    minWidth: 70, // ✅ Increased width for better alignment
   },
   variantValue: {
     fontSize: 12,

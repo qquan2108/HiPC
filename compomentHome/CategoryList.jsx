@@ -4,14 +4,15 @@ const CategoryList = ({ categories, router }) => (
   <View style={styles.grid}>
     {categories.map((cat, idx) => (
       <TouchableOpacity
-        key={cat.key}
+        key={cat._id || cat.id || cat.key || idx}
         style={styles.item}
         activeOpacity={0.75}
         onPress={() => {
           if (cat.isMore) {
             router.push("./danhmucall");
           } else {
-            router.push({ pathname: "./danhmucall", params: { category: cat.label } });
+            // Truyền đúng id qua params (ưu tiên _id, sau đó id, sau đó key)
+            router.push({ pathname: "./danhmucall", params: { categoryId: cat._id || cat.id || cat.key } });
           }
         }}
       >
@@ -24,7 +25,7 @@ const CategoryList = ({ categories, router }) => (
             style={{ width: 34, height: 34, resizeMode: "contain" }}
           />
         </View>
-        <Text style={styles.label} numberOfLines={2}>{cat.label}</Text>
+        <Text style={styles.label} numberOfLines={2}>{cat.label || cat.name}</Text>
       </TouchableOpacity>
     ))}
   </View>

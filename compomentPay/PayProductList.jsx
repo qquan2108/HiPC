@@ -1,6 +1,64 @@
 import { Image, StyleSheet, Text, View } from "react-native";
 
 export default function PayProductList({ products, formatCurrency }) {
+  // Hàm render biến thể giống CartProductList
+  const renderVariantInfo = (item) => {
+    if (!item.variant) return null;
+
+    // Kiểu cũ: { key: "A + B", label: "X + Y" }
+    if (typeof item.variant === 'object' && item.variant.key && item.variant.label) {
+      const { key, label } = item.variant;
+      if (key.includes(' + ') && label.includes(' + ')) {
+        const keys = key.split(' + ').map(k => k.trim());
+        const labels = label.split(' + ').map(l => l.trim());
+        return (
+          <View>
+            {keys.map((k, idx) => (
+              <Text style={styles.variantText} key={`old_${k}_${idx}`}>
+                {k}: {labels[idx] || ''}
+              </Text>
+            ))}
+          </View>
+        );
+      }
+      return (
+        <Text style={styles.variantText}>
+          {key}: {label}
+        </Text>
+      );
+    }
+
+    // Kiểu mới: { "Phiên Bản": "Tray", "Bảo Hành": "3 năm" }
+    if (typeof item.variant === 'object' && Object.keys(item.variant).length > 0) {
+      return (
+        <View>
+          {Object.entries(item.variant).map(([variantType, variantValue], idx) => {
+            if (['key', 'label', 'priceDiff'].includes(variantType)) return null;
+            const displayValue = typeof variantValue === 'object' && variantValue !== null
+              ? (variantValue.label || variantValue.value || variantValue)
+              : variantValue;
+            return (
+              <Text style={styles.variantText} key={`new_${variantType}_${idx}`}>
+                {variantType}: {displayValue}
+              </Text>
+            );
+          })}
+        </View>
+      );
+    }
+
+    // Kiểu string
+    if (typeof item.variant === 'string') {
+      return (
+        <Text style={styles.variantText}>
+          Phân loại: {item.variant}
+        </Text>
+      );
+    }
+
+    return null;
+  };
+
   return (
     <View>
       {products.map((item) => (
@@ -10,24 +68,8 @@ export default function PayProductList({ products, formatCurrency }) {
             <Text style={styles.productName} numberOfLines={2}>
               {item.name}
             </Text>
-            {/* Hiển thị nhiều biến thể nếu có */}
-            {Array.isArray(item.variants) && item.variants.length > 0 ? (
-              item.variants.map((variant, idx) => (
-                <Text style={styles.variantText} key={idx}>
-                  Biến thể: {variant.label}
-                  {variant.priceDiff
-                    ? ` ( +${formatCurrency(variant.priceDiff)} )`
-                    : ""}
-                </Text>
-              ))
-            ) : item.variant && item.variant.label ? (
-              <Text style={styles.variantText}>
-                Biến thể: {item.variant.label}
-                {item.variant.priceDiff
-                  ? ` ( +${formatCurrency(item.variant.priceDiff)} )`
-                  : ""}
-              </Text>
-            ) : null}
+            {/* Hiển thị biến thể tách dòng giống CartProductList */}
+            {renderVariantInfo(item)}
             {/* Hiển thị giá đã bao gồm biến thể */}
             <Text style={styles.productPrice}>
               {formatCurrency(item.price)}

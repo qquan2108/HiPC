@@ -76,20 +76,51 @@ export default function DanhGia() {
 
   // Image picker
   const handleImagePicker = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Thông báo', 'Cần quyền truy cập thư viện ảnh');
-      return;
-    }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 0.8,
-    });
-    if (!result.canceled && result.assets?.[0]) {
-      await uploadImage(result.assets[0].uri);
-    }
+    Alert.alert(
+      "Chọn ảnh",
+      "Bạn muốn chọn ảnh từ đâu?",
+      [
+        {
+          text: "Máy ảnh",
+          onPress: async () => {
+            const { status } = await ImagePicker.requestCameraPermissionsAsync();
+            if (status !== 'granted') {
+              Alert.alert('Thông báo', 'Cần quyền truy cập máy ảnh');
+              return;
+            }
+            const result = await ImagePicker.launchCameraAsync({
+              mediaTypes: ImagePicker.MediaTypeOptions.Images,
+              allowsEditing: true,
+              aspect: [4, 3],
+              quality: 0.8,
+            });
+            if (!result.canceled && result.assets?.[0]) {
+              await uploadImage(result.assets[0].uri);
+            }
+          }
+        },
+        {
+          text: "Thư viện",
+          onPress: async () => {
+            const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+            if (status !== 'granted') {
+              Alert.alert('Thông báo', 'Cần quyền truy cập thư viện ảnh');
+              return;
+            }
+            const result = await ImagePicker.launchImageLibraryAsync({
+              mediaTypes: ImagePicker.MediaTypeOptions.Images,
+              allowsEditing: true,
+              aspect: [4, 3],
+              quality: 0.8,
+            });
+            if (!result.canceled && result.assets?.[0]) {
+              await uploadImage(result.assets[0].uri);
+            }
+          }
+        },
+        { text: "Hủy", style: "cancel" }
+      ]
+    );
   };
 
   const uploadImage = async (uri) => {

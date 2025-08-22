@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
+  Image,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -129,7 +130,7 @@ export default function ReviewBox({ product = {} }) {
     }
     setLoading(true);
     axiosInstance
-      .get("/productreviews", { params: { product_id: productId } })
+      .get(`/productreviews/by-product/${productId}`)
       .then((res) => {
         if (!ignore) setReviews(res?.data || []);
       })
@@ -281,11 +282,6 @@ export default function ReviewBox({ product = {} }) {
                   >
                     {item?.user_id?.full_name || "Ẩn danh"}
                   </Text>
-                  <StarRating
-                    rating={Number(item?.rating) || 0}
-                    size={14}
-                    color="#1976d2"
-                  />
                   <Text
                     style={{ marginLeft: 8, color: "#90a4ae", fontSize: 12 }}
                   >
@@ -294,10 +290,103 @@ export default function ReviewBox({ product = {} }) {
                       : ""}
                   </Text>
                 </View>
+                {/* Đưa rating xuống dòng riêng */}
+                <View style={{ marginTop: 2, marginBottom: 2 }}>
+                  <StarRating
+                    rating={Number(item?.rating) || 0}
+                    size={14}
+                    color="#1976d2"
+                  />
+                </View>
+
+                {/* Hiển thị biến thể đã mua nếu có */}
+                {item?.variant && (
+                  <View style={styles.variantContainer}>
+                    {/* Kiểu cũ: key + label */}
+                    {item.variant.key && item.variant.label && item.variant.key.includes(' + ') && item.variant.label.includes(' + ')
+                      ? (() => {
+                          const keys = item.variant.key.split(' + ').map(k => k.trim());
+                          const labels = item.variant.label.split(' + ').map(l => l.trim());
+                          return keys.map((k, idx) => (
+                            <View key={`${k}_${idx}`} style={{ flexDirection: 'row', marginBottom: 2 }}>
+                              <Text style={styles.variantLabel}>{k}:</Text>
+                              <Text style={styles.variantText}>{labels[idx] || ''}</Text>
+                            </View>
+                          ));
+                        })()
+                      : null}
+
+                    {/* Kiểu mới: object */}
+                    {typeof item.variant === 'object' && Object.keys(item.variant).length > 0 && !item.variant.key && !item.variant.label
+                      ? Object.entries(item.variant).map(([variantType, variantValue], idx) => {
+                          if (['key', 'label', 'priceDiff'].includes(variantType)) return null;
+                          const displayValue = typeof variantValue === 'object' && variantValue !== null
+                            ? (variantValue.label || variantValue.value || variantValue)
+                            : variantValue;
+                          return (
+                            <View key={`${variantType}_${idx}`} style={{ flexDirection: 'row', marginBottom: 2 }}>
+                              <Text style={styles.variantLabel}>{variantType}:</Text>
+                              <Text style={styles.variantText}>{displayValue}</Text>
+                            </View>
+                          );
+                        })
+                      : null}
+
+                    {/* Key/label đơn */}
+                    {item.variant.key && item.variant.label && !(item.variant.key.includes(' + ') && item.variant.label.includes(' + '))
+                      ? (
+                        <View style={{ flexDirection: 'row', marginBottom: 2 }}>
+                          <Text style={styles.variantLabel}>{item.variant.key}:</Text>
+                          <Text style={styles.variantText}>{item.variant.label}</Text>
+                        </View>
+                      )
+                      : null}
+
+                    {/* String */}
+                    {typeof item.variant === 'string'
+                      ? (
+                        <View style={{ flexDirection: 'row', marginBottom: 2 }}>
+                          <Text style={styles.variantLabel}>Phân loại:</Text>
+                          <Text style={styles.variantText}>{item.variant}</Text>
+                        </View>
+                      )
+                      : null}
+                  </View>
+                )}
+
+                {/* Hiển thị ảnh sản phẩm đã mua nếu có */}
+                {(item?.boughtImage || item?.variant?.image) && (
+                  <View style={styles.productImageContainer}>
+                    <Image
+                      source={{ uri: item.boughtImage || item.variant.image }}
+                      style={styles.productImage}
+                    />
+                  </View>
+                )}
+
                 {!!item?.comment && (
                   <Text style={{ marginTop: 4, color: "#263238" }}>
                     {item.comment}
                   </Text>
+                )}
+
+                {/* Hiển thị hình ảnh đánh giá nếu có */}
+                {Array.isArray(item.images) && item.images.length > 0 && (
+                  <View style={{ flexDirection: "row", marginTop: 6, gap: 8 }}>
+                    {item.images.map((img, idx) => (
+                      <Image
+                        key={idx}
+                        source={{ uri: img }}
+                        style={{
+                          width: 60,
+                          height: 60,
+                          borderRadius: 8,
+                          marginRight: 8,
+                          backgroundColor: "#f0f0f0",
+                        }}
+                      />
+                    ))}
+                  </View>
                 )}
               </View>
             )}
@@ -417,5 +506,43 @@ const styles = StyleSheet.create({
     color: "#607d8b",
     fontWeight: "600",
     fontSize: 12,
+  },
+
+  // Variant styles
+  variantContainer: {
+    flexDirection: "column", // Đổi từ "row" sang "column"
+    alignItems: "flex-start",
+    marginTop: 4,
+    paddingVertical: 2,
+  },
+  variantLabel: {
+    color: "#1976d2",
+    fontSize: 13,
+    fontWeight: "600",
+    marginRight: 6,
+  },
+  variantText: {
+    color: "#1976d2",
+    fontSize: 13,
+    fontWeight: "500",
+  },
+  variantPrice: {
+    color: "#1976d2",
+    fontSize: 13,
+    fontWeight: "600",
+  },
+
+  // Product image styles
+  productImageContainer: {
+    marginTop: 6,
+    marginBottom: 2,
+  },
+  productImage: {
+    width: 50,
+    height: 50,
+    borderRadius: 8,
+    backgroundColor: "#f0f0f0",
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
   },
 });

@@ -1,6 +1,6 @@
-import { Feather, MaterialIcons } from '@expo/vector-icons';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { Feather, MaterialIcons } from "@expo/vector-icons";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -10,12 +10,12 @@ import {
   Text,
   TouchableOpacity,
   View,
-} from 'react-native';
-import OrderStatusStepper from '../components/OrderStatusStepper';
-import axiosInstance from '../utils/AxiosInstance';
+} from "react-native";
+import OrderStatusStepper from "../components/OrderStatusStepper";
+import axiosInstance from "../utils/AxiosInstance";
 
 function formatCurrency(num) {
-  return typeof num === 'number' ? num.toLocaleString('vi-VN') + ' đ' : '';
+  return typeof num === "number" ? num.toLocaleString("vi-VN") + " đ" : "";
 }
 
 export default function OrderDetailScreen() {
@@ -36,7 +36,7 @@ export default function OrderDetailScreen() {
         if (!ignore) setOrder(res.data);
       })
       .catch((err) => {
-        console.error('Fetch order detail error:', err);
+        console.error("Fetch order detail error:", err);
       })
       .finally(() => {
         if (!ignore) setLoading(false);
@@ -54,20 +54,20 @@ export default function OrderDetailScreen() {
             ? { uri: item.productId.image }
             : item.productId?.images?.length > 0
             ? { uri: item.productId.images[0] }
-            : require('../assets/images/pc1.png')
+            : require("../assets/images/pc1.png")
         }
         style={styles.productImg}
       />
       <View style={styles.productInfo}>
         <Text numberOfLines={2} style={styles.productName}>
-          {item.productId?.name || 'Sản phẩm'}
+          {item.productId?.name || "Sản phẩm"}
         </Text>
         {/* Hiển thị chi tiết biến thể nếu có */}
         {item.variant && (
           <Text style={styles.variantText}>
             {Object.entries(item.variant)
               .map(([k, v]) => `${k}: ${v}`)
-              .join(', ')}
+              .join(", ")}
           </Text>
         )}
         <Text style={styles.productPrice}>
@@ -95,40 +95,40 @@ export default function OrderDetailScreen() {
   }
 
   const orderDate = order.order_date
-    ? new Date(order.order_date).toLocaleString('vi-VN', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
+    ? new Date(order.order_date).toLocaleString("vi-VN", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
       })
-    : '';
+    : "";
 
   // Tính tổng giá sản phẩm (nếu backend không trả về)
   const productTotal =
     order.productTotal ||
     order.subtotal ||
-    (
-      (order.products || []).reduce(
-        (sum, prod) =>
-          sum + ((prod.productId?.price || 0) * (prod.quantity || 1)),
-        0
-      ) +
+    (order.products || []).reduce(
+      (sum, prod) => sum + (prod.productId?.price || 0) * (prod.quantity || 1),
+      0
+    ) +
       (order.combos || []).reduce(
-        (sum, combo) => sum + ((combo.price || 0) * (combo.quantity || 1)),
+        (sum, combo) => sum + (combo.price || 0) * (combo.quantity || 1),
         0
-      )
-    );
+      );
 
   // Tính phí vận chuyển gốc (nếu backend không trả về)
   const shippingFeeOrigin =
     order.shippingFeeOrigin ||
-    ((order.shippingFee || 0) + (order.shippingDiscount || 0));
+    (order.shippingFee || 0) + (order.shippingDiscount || 0);
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#F9FAFB' }}>
+    <View style={{ flex: 1, backgroundColor: "#F9FAFB" }}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.headerBtn}>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={styles.headerBtn}
+        >
           <Feather name="arrow-left" size={24} color="#1F2937" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Chi tiết đơn hàng</Text>
@@ -139,9 +139,7 @@ export default function OrderDetailScreen() {
         <OrderStatusStepper
           orderId={order._id}
           initialStatus={order.status}
-          onStatusChange={(status) =>
-            setOrder((prev) => ({ ...prev, status }))
-          }
+          onStatusChange={(status) => setOrder((prev) => ({ ...prev, status }))}
         />
 
         <View style={styles.section}>
@@ -156,22 +154,20 @@ export default function OrderDetailScreen() {
           </View>
           <View style={styles.row}>
             <Text style={styles.label}>Phương thức thanh toán</Text>
-            <Text style={styles.value}>{order.paymentMethod || '--'}</Text>
+            <Text style={styles.value}>{order.paymentMethod || "--"}</Text>
           </View>
 
           {/* Giá sản phẩm */}
           <View style={styles.row}>
             <Text style={styles.label}>Giá sản phẩm</Text>
-            <Text style={styles.value}>
-              {formatCurrency(productTotal)}
-            </Text>
+            <Text style={styles.value}>{formatCurrency(productTotal)}</Text>
           </View>
 
           {/* Giảm giá voucher sản phẩm nếu có */}
           {order.voucherDiscount > 0 && (
             <View style={styles.row}>
               <Text style={styles.label}>Giảm giá voucher</Text>
-              <Text style={[styles.value, { color: '#22c55e' }]}>
+              <Text style={[styles.value, { color: "#22c55e" }]}>
                 -{formatCurrency(order.voucherDiscount)}
               </Text>
             </View>
@@ -187,7 +183,7 @@ export default function OrderDetailScreen() {
           {order.shippingDiscount > 0 && (
             <View style={styles.row}>
               <Text style={styles.label}>Giảm phí vận chuyển</Text>
-              <Text style={[styles.value, { color: '#22c55e' }]}>
+              <Text style={[styles.value, { color: "#22c55e" }]}>
                 -{formatCurrency(order.shippingDiscount)}
               </Text>
             </View>
@@ -195,7 +191,7 @@ export default function OrderDetailScreen() {
           {order.shippingVoucherDiscount > 0 && (
             <View style={styles.row}>
               <Text style={styles.label}>Giảm voucher phí vận chuyển</Text>
-              <Text style={[styles.value, { color: '#22c55e' }]}>
+              <Text style={[styles.value, { color: "#22c55e" }]}>
                 -{formatCurrency(order.shippingVoucherDiscount)}
               </Text>
             </View>
@@ -205,7 +201,7 @@ export default function OrderDetailScreen() {
           {order.discount > 0 && (
             <View style={styles.row}>
               <Text style={styles.label}>Giảm giá</Text>
-              <Text style={[styles.value, { color: '#22c55e' }]}>
+              <Text style={[styles.value, { color: "#22c55e" }]}>
                 -{formatCurrency(order.discount)}
               </Text>
             </View>
@@ -219,24 +215,57 @@ export default function OrderDetailScreen() {
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Địa chỉ giao hàng</Text>
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
-            <MaterialIcons name="person" size={18} color="#6366F1" style={{ marginRight: 6 }} />
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              marginBottom: 4,
+            }}
+          >
+            <MaterialIcons
+              name="person"
+              size={18}
+              color="#6366F1"
+              style={{ marginRight: 6 }}
+            />
             <Text style={styles.addressText}>
               {order.shippingAddress?.recipientName ||
                 order.recipientName ||
                 order.user_id?.full_name}
             </Text>
           </View>
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
-            <MaterialIcons name="phone" size={18} color="#6366F1" style={{ marginRight: 6 }} />
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              marginBottom: 4,
+            }}
+          >
+            <MaterialIcons
+              name="phone"
+              size={18}
+              color="#6366F1"
+              style={{ marginRight: 6 }}
+            />
             <Text style={styles.addressText}>
               {order.shippingAddress?.phoneNumber ||
                 order.phoneNumber ||
                 order.user_id?.phone}
             </Text>
           </View>
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
-            <MaterialIcons name="location-on" size={18} color="#6366F1" style={{ marginRight: 6 }} />
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              marginBottom: 4,
+            }}
+          >
+            <MaterialIcons
+              name="location-on"
+              size={18}
+              color="#6366F1"
+              style={{ marginRight: 6 }}
+            />
             <Text style={styles.addressText}>
               {order.shippingAddress?.address || order.address}
             </Text>
@@ -260,10 +289,10 @@ export default function OrderDetailScreen() {
                 <View
                   key={combo._id || idx}
                   style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
+                    flexDirection: "row",
+                    alignItems: "center",
                     marginVertical: 8,
-                    backgroundColor: '#fef7f0',
+                    backgroundColor: "#fef7f0",
                     borderRadius: 10,
                     padding: 10,
                   }}
@@ -272,13 +301,13 @@ export default function OrderDetailScreen() {
                     source={
                       combo.comboId?.image
                         ? { uri: combo.comboId.image }
-                        : require('../assets/images/pc1.png')
+                        : require("../assets/images/pc1.png")
                     }
                     style={{
                       width: 56,
                       height: 56,
                       borderRadius: 12,
-                      backgroundColor: '#F3F4F6',
+                      backgroundColor: "#F3F4F6",
                       marginRight: 12,
                     }}
                   />
@@ -286,22 +315,37 @@ export default function OrderDetailScreen() {
                     <Text
                       style={{
                         fontSize: 14,
-                        fontWeight: '600',
-                        color: '#ff6b35',
+                        fontWeight: "600",
+                        color: "#ff6b35",
                         marginBottom: 4,
                       }}
                       numberOfLines={2}
                     >
-                      🎁 {combo.comboId?.name || 'Combo sản phẩm'}
+                      🎁 {combo.comboId?.name || "Combo sản phẩm"}
                     </Text>
-                    <Text style={{ fontSize: 13, color: '#374151', marginBottom: 2 }}>
-                      {combo.comboId?.productIds?.length || 0} sản phẩm trong combo
+                    <Text
+                      style={{
+                        fontSize: 13,
+                        color: "#374151",
+                        marginBottom: 2,
+                      }}
+                    >
+                      {combo.comboId?.productIds?.length || 0} sản phẩm trong
+                      combo
                     </Text>
-                    <Text style={{ fontSize: 14, color: '#DC2626', fontWeight: '600' }}>
+                    <Text
+                      style={{
+                        fontSize: 14,
+                        color: "#DC2626",
+                        fontWeight: "600",
+                      }}
+                    >
                       {formatCurrency(combo.price)}
                     </Text>
                   </View>
-                  <Text style={{ fontSize: 14, color: '#6B7280', marginLeft: 8 }}>
+                  <Text
+                    style={{ fontSize: 14, color: "#6B7280", marginLeft: 8 }}
+                  >
                     x{combo.quantity}
                   </Text>
                 </View>
@@ -310,16 +354,16 @@ export default function OrderDetailScreen() {
           )}
         </View>
 
-        {order.status === 'delivered' && order.products?.length > 0 && (
+        {order.status === "delivered" && order.products?.length > 0 && (
           <View style={{ paddingHorizontal: 0, paddingTop: 8 }}>
             {order.products.map((prod) => (
               <TouchableOpacity
                 key={prod._id}
                 style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  backgroundColor: '#6366F1',
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  backgroundColor: "#6366F1",
                   borderRadius: 10,
                   paddingVertical: 12,
                   paddingHorizontal: 16,
@@ -327,7 +371,7 @@ export default function OrderDetailScreen() {
                 }}
                 onPress={() => {
                   router.push({
-                    pathname: '/danhgia',
+                    pathname: "/danhgia",
                     params: {
                       product_id: prod.productId._id,
                       product_name: prod.productId.name,
@@ -342,15 +386,15 @@ export default function OrderDetailScreen() {
                 <Feather name="star" size={16} color="#fff" />
                 <Text
                   style={{
-                    color: '#fff',
-                    fontWeight: '600',
+                    color: "#fff",
+                    fontWeight: "600",
                     fontSize: 13,
                     marginLeft: 6,
                   }}
                 >
                   Đánh giá "
                   {prod.productId.name.length > 20
-                    ? prod.productId.name.substring(0, 20) + '...'
+                    ? prod.productId.name.substring(0, 20) + "..."
                     : prod.productId.name}
                   "
                 </Text>
@@ -365,26 +409,26 @@ export default function OrderDetailScreen() {
 
 const styles = StyleSheet.create({
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: "#E5E7EB",
   },
   headerBtn: {
     width: 24,
     height: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   headerTitle: {
     fontSize: 18,
-    fontWeight: '600',
-    color: '#1F2937',
+    fontWeight: "600",
+    color: "#1F2937",
   },
   container: {
     padding: 16,
@@ -392,15 +436,15 @@ const styles = StyleSheet.create({
   },
   center: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   section: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOpacity: 0.05,
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 2 },
@@ -408,57 +452,57 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
     marginBottom: 12,
-    color: '#374151',
+    color: "#374151",
   },
   row: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     marginBottom: 8,
   },
   label: {
     fontSize: 14,
-    color: '#6B7280',
+    color: "#6B7280",
     flex: 1,
   },
   value: {
     fontSize: 14,
-    color: '#111827',
+    color: "#111827",
     flex: 1,
-    textAlign: 'right',
+    textAlign: "right",
   },
   totalRow: {
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
+    borderTopColor: "#E5E7EB",
     paddingTop: 8,
     marginTop: 8,
   },
   totalLabel: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#111827',
+    fontWeight: "600",
+    color: "#111827",
   },
   total: {
     fontSize: 16,
-    fontWeight: '700',
-    color: '#DC2626',
+    fontWeight: "700",
+    color: "#DC2626",
   },
   addressText: {
     fontSize: 14,
-    color: '#374151',
+    color: "#374151",
     marginBottom: 4,
   },
   productRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginVertical: 8,
   },
   productImg: {
     width: 56,
     height: 56,
     borderRadius: 12,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: "#F3F4F6",
   },
   productInfo: {
     flex: 1,
@@ -466,23 +510,23 @@ const styles = StyleSheet.create({
   },
   productName: {
     fontSize: 14,
-    fontWeight: '500',
-    color: '#374151',
+    fontWeight: "500",
+    color: "#374151",
     marginBottom: 4,
   },
   productPrice: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#DC2626',
+    fontWeight: "600",
+    color: "#DC2626",
   },
   productQty: {
     fontSize: 14,
-    color: '#6B7280',
+    color: "#6B7280",
     marginLeft: 8,
   },
   variantText: {
     fontSize: 13,
-    color: '#6366F1',
+    color: "#6366F1",
     marginBottom: 2,
   },
 });

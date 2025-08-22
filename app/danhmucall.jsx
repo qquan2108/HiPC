@@ -1,4 +1,5 @@
-import { Feather } from '@expo/vector-icons'; // Thêm dòng này ở đầu file nếu chưa có
+// danhmucall.jsx - Fixed version
+import { Feather } from '@expo/vector-icons';
 import MultiSlider from '@ptomasroos/react-native-multi-slider';
 import Constants from 'expo-constants';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -21,6 +22,7 @@ import {
 } from 'react-native';
 import CustomTabBar from '../compomentHome/CustomTabBar';
 import axios from '../utils/AxiosInstance';
+
 const API_BASE_URL =
   Constants.manifest?.extra?.apiBaseUrl ||
   process.env.EXPO_PUBLIC_API_BASE_URL ||
@@ -37,15 +39,15 @@ function computeSource(uri, fallback) {
 }
 
 const { width, height } = Dimensions.get('window');
-const tabs = ['Mới nhất', 'Giá thấp', 'Giá cao', 'Bộ lọc'];
+const tabs = ['ALL','Mới nhất', 'Giá thấp', 'Giá cao', 'Bộ lọc'];
 
 const FilterModal = ({ visible, onClose, onApply, filters, setFilters, categoryId }) => {
   const [tempFilters, setTempFilters] = useState(filters);
   const [filterFields, setFilterFields] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [categories, setCategories] = useState([]); // Danh sách danh mục
-  const [brands, setBrands] = useState([]); // Danh sách hãng
-  const [selectedCategory, setSelectedCategory] = useState(categoryId); // Danh mục đang chọn
+  const [categories, setCategories] = useState([]);
+  const [brands, setBrands] = useState([]);
+  const [selectedCategory, setSelectedCategory] = useState(categoryId);
 
   useEffect(() => {
     if (visible) {
@@ -280,8 +282,10 @@ const FilterModal = ({ visible, onClose, onApply, filters, setFilters, categoryI
                       priceRange: values
                     }))
                   }
-                />
+                  />
+
               </View>
+
               {/* Brand Filter từ API */}
               {renderBrandSection()}
               {/* Category Filter */}
@@ -297,7 +301,7 @@ const FilterModal = ({ visible, onClose, onApply, filters, setFilters, categoryI
                       ]}
                       onPress={() => {
                         setSelectedCategory(cat._id);
-                        setFilterFields([]); // reset specs khi đổi danh mục
+                        setFilterFields([]);
                         setTempFilters(prev => ({ ...prev, specifications: {} }));
                       }}
                     >
@@ -339,6 +343,7 @@ export default function DanhMucAll(props) {
   const [filterVisible, setFilterVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryId, setCategoryId] = useState(null);
+  const [favoriteIds, setFavoriteIds] = useState([]);
   const [filters, setFilters] = useState({
     priceRange: [0, 200000000],
     status: [],
@@ -349,119 +354,133 @@ export default function DanhMucAll(props) {
     screenSize: [],
     graphics: [],
     resolution: [],
-    specifications: {}
+    specifications: {},
+    category: null
   });
 
-  // Đọc params từ router để set filters khi chuyển từ DanhMucPC
-  useEffect(() => {
-    if (router && router.query) {
-      const { type, brandId, min, max, categoryId: catId } = router.query;
-      if (!type && !brandId && !min && !max && !catId) {
-        // Không có filter, reset về mặc định (hiện tất cả)
-        setFilters({
-          priceRange: [0, 200000000],
-          status: [],
-          brands: [],
-          storage: [],
-          usage: [],
-          cpu: [],
-          screenSize: [],
-          graphics: [],
-          resolution: [],
-          specifications: {}
-        });
-        setCategoryId(null);
-      } else if (type === 'brand' && brandId) {
-        setFilters(prev => ({
-          ...prev,
-          brands: [brandId],
-        }));
-        setCategoryId(null);
-      } else if (type === 'price' && min && max) {
-        setFilters(prev => ({
-          ...prev,
-          priceRange: [parseInt(min), parseInt(max)]
-        }));
-        setCategoryId(null);
-      } else if (catId) {
-        setFilters(prev => ({
-          ...prev,
-          category: catId
-        }));
-        setCategoryId(catId);
-      }
-    }
-  }, [router.query]);
+  const toggleFavorite = (productId) => {
+    setFavoriteIds((prev) =>
+      prev.includes(productId)
+        ? prev.filter((id) => id !== productId)
+        : [...prev, productId]
+    );
+  };
 
+  // ✅ FIX: Properly handle params and set initial filters
   useEffect(() => {
-    fetchProducts();
-  }, [activeTab, filters]);
-
-  useEffect(() => {
-    // Nếu có params truyền sang thì lọc theo params
-    const { categoryId, brandId, min, max } = router?.params || {};
-    if (categoryId || brandId || min || max) {
-      setLoading(true);
-      axios.get('/product/filter', {
-        params: {
-          category: categoryId,
-          brand: brandId,
-          priceMin: min,
-          priceMax: max
+    const setupInitialState = () => {
+      // Debug log để xem params
+      console.log('Router params:', router?.params);
+      console.log('Router query:', router?.query);
+      
+      // Lấy categoryId từ router params (ưu tiên params trước)
+      const paramCategoryId = router?.params?.categoryId || router?.query?.categoryId;
+      
+      if (paramCategoryId) {
+        console.log('Setting category filter with ID:', paramCategoryId);
+        // Set category filter và fetch products by category
+        setCategoryId(paramCategoryId);
+        setFilters(prev => ({
+          ...prev,
+          category: paramCategoryId
+        }));
+      } else {
+        // Handle other query params
+        const { type, brandId, min, max } = router?.query || {};
+        
+        if (type === 'brand' && brandId) {
+          setFilters(prev => ({
+            ...prev,
+            brands: [brandId],
+            category: null
+          }));
+          setCategoryId(null);
+        } else if (type === 'price' && min && max) {
+          setFilters(prev => ({
+            ...prev,
+            priceRange: [parseInt(min), parseInt(max)],
+            category: null
+          }));
+          setCategoryId(null);
+        } else {
+          // No filters - show all products
+          setFilters({
+            priceRange: [0, 200000000],
+            status: [],
+            brands: [],
+            storage: [],
+            usage: [],
+            cpu: [],
+            screenSize: [],
+            graphics: [],
+            resolution: [],
+            specifications: {},
+            category: null
+          });
+          setCategoryId(null);
         }
-      })
-      .then(res => setProducts(res.data.products || []))
-      .catch(() => setProducts([]))
-      .finally(() => setLoading(false));
-      return; // Không gọi fetchProducts nữa
-    }
-    // Nếu không có params thì gọi fetchProducts như cũ
+      }
+    };
+
+    setupInitialState();
+  }, [router?.params?.categoryId, router?.query]);
+
+  // ✅ FIX: Fetch products when categoryId, filters, or activeTab change
+  useEffect(() => {
+    console.log('Fetching products with categoryId:', categoryId, 'filters:', filters);
     fetchProducts();
-  }, [router?.params, activeTab, filters]);
+  }, [activeTab, categoryId, filters.category]);
 
   const fetchProducts = async () => {
     try {
       setLoading(true);
+      const currentCategoryId = categoryId || filters.category;
+
+      // Nếu ở tab ALL và có categoryId, chỉ lấy sản phẩm theo danh mục
+      if (activeTab === 0 && currentCategoryId) {
+        console.log('Fetching products by category:', currentCategoryId);
+        const response = await axios.get(`/product/by-category/${currentCategoryId}`);
+        setProducts(response.data.products || []);
+        setLoading(false);
+        return;
+      }
+
+      // Các tab khác vẫn dùng filter API như cũ
       const params = new URLSearchParams();
       if (searchQuery.trim()) {
         params.append('q', searchQuery.trim());
       }
       let sortParam = 'newest';
       switch (activeTab) {
-        case 0: sortParam = 'newest'; break;
-        case 1: sortParam = 'price_asc'; break;
-        case 2: sortParam = 'price_desc'; break;
+        case 1: sortParam = 'newest'; break;
+        case 2: sortParam = 'price_asc'; break;
+        case 3: sortParam = 'price_desc'; break;
         default: sortParam = 'newest';
       }
       params.append('sort', sortParam);
       params.append('page', '1');
       params.append('limit', '50');
-      // Chỉ truyền filter khi ở tab Bộ lọc
-      if (activeTab === 3) {
-        const catId = filters.category || selectedCategory || categoryId;
-        if (catId) {
-          params.append('category', catId);
-        }
-        if (filters.priceRange[0] > 0) {
-          params.append('priceMin', filters.priceRange[0].toString());
-        }
-        if (filters.priceRange[1] < 200000000) {
-          params.append('priceMax', filters.priceRange[1].toString());
-        }
-        if (filters.brands && filters.brands.length > 0) {
-          params.append('brand', filters.brands.join(','));
-        }
-        const specFilters = Object.keys(filters.specifications).filter(
-          key => filters.specifications[key] && filters.specifications[key].length > 0
-        );
-        if (specFilters.length > 0) {
-          const firstSpecKey = specFilters[0];
-          params.append('specKey', firstSpecKey);
-          params.append('specValue', filters.specifications[firstSpecKey].join(','));
-        }
+      if (filters.priceRange[0] > 0) {
+        params.append('priceMin', filters.priceRange[0].toString());
+      }
+      if (filters.priceRange[1] < 200000000) {
+        params.append('priceMax', filters.priceRange[1].toString());
+      }
+      if (filters.brands && filters.brands.length > 0) {
+        params.append('brand', filters.brands.join(','));
+      }
+      const specFilters = Object.keys(filters.specifications).filter(
+        key => filters.specifications[key] && filters.specifications[key].length > 0
+      );
+      if (specFilters.length > 0) {
+        const firstSpecKey = specFilters[0];
+        params.append('specKey', firstSpecKey);
+        params.append('specValue', filters.specifications[firstSpecKey].join(','));
       }
       const queryString = params.toString();
       const apiUrl = `/product/filter?${queryString}`;
+      console.log('Calling filter API:', apiUrl);
+
       const response = await axios.get(apiUrl);
       if (response.data) {
         if (response.data.products && Array.isArray(response.data.products)) {
@@ -475,6 +494,7 @@ export default function DanhMucAll(props) {
         setProducts([]);
       }
     } catch (error) {
+      console.error('Error fetching products:', error);
       setProducts([]);
     } finally {
       setLoading(false);
@@ -483,12 +503,13 @@ export default function DanhMucAll(props) {
 
   const handleTabPress = (index) => {
     setActiveTab(index);
-    if (index === 3) {
+    if (tabs[index] === 'Bộ lọc') {
       setFilterVisible(true);
     }
   };
 
   const applyFilters = () => {
+    console.log('Applying filters:', filters);
     fetchProducts();
   };
 
@@ -505,9 +526,11 @@ export default function DanhMucAll(props) {
     );
   }
 
-  // Enhanced product rendering with better error handling
   const renderItem = ({ item }) => {
     if (!item) return null;
+    const rating = Number(item.rating || 0);
+    const reviewCount = item.reviewCount || 0;
+
     return (
       <TouchableOpacity
         style={styles.card}
@@ -515,15 +538,21 @@ export default function DanhMucAll(props) {
         activeOpacity={0.9}
       >
         <View style={styles.cardHeader}>
-          <TouchableOpacity style={styles.heartCircle}>
-            <Feather name="heart" size={20} color="#ee4d2d" />
+          <TouchableOpacity
+            style={styles.heartCircle}
+            onPress={() => toggleFavorite(item._id || item.id)}
+          >
+            <Feather
+              name="heart"
+              size={20}
+              color={favoriteIds.includes(item._id || item.id) ? "#ee4d2d" : "#ccc"}
+            />
           </TouchableOpacity>
         </View>
 
         <View style={styles.imageContainer}>
           <Image
             source={computeSource(item.image, require('../assets/images/pc1.png'))}
-            
             style={styles.image}
             resizeMode="contain"
           />
@@ -535,12 +564,20 @@ export default function DanhMucAll(props) {
           <View style={styles.ratingContainer}>
             <View style={styles.stars}>
               {[...Array(5)].map((_, i) => (
-                <Text key={i} style={[styles.star, i < 4 ? styles.starFilled : styles.starEmpty]}>
+                <Text
+                  key={i}
+                  style={[
+                    styles.star,
+                    i < Math.round(rating) ? styles.starFilled : styles.starEmpty
+                  ]}
+                >
                   ★
                 </Text>
               ))}
             </View>
-            <Text style={styles.ratingText}>(0)</Text>
+            <Text style={styles.ratingText}>
+              ({reviewCount})
+            </Text>
           </View>
 
           <View style={styles.priceContainer}>
@@ -621,7 +658,9 @@ export default function DanhMucAll(props) {
         onRefresh={fetchProducts}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>Không tìm thấy sản phẩm nào</Text>
+            <Text style={styles.emptyText}>
+              {categoryId ? 'Danh mục này chưa có sản phẩm nào' : 'Không tìm thấy sản phẩm nào'}
+            </Text>
             <TouchableOpacity style={styles.retryButton} onPress={fetchProducts}>
               <Text style={styles.retryButtonText}>Thử lại</Text>
             </TouchableOpacity>

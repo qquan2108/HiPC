@@ -459,26 +459,41 @@ export default function HomeScreen() {
             </View>
 
             {/* Danh mục */}
-            <View
-              style={{
-                marginHorizontal: 16,
-                marginTop: 10,
-                marginBottom: 18,
-                borderRadius: 18,
-                borderWidth: 1.5,
-                borderColor: "#e0e7ef",
-                backgroundColor: "#fafdff",
-                paddingVertical: 12,
-                paddingHorizontal: 6,
-                shadowColor: "#000",
-                shadowOpacity: 0.04,
-                shadowRadius: 6,
-                shadowOffset: { width: 0, height: 2 },
-                elevation: 2,
-              }}
-            >
-              <CategoryList categories={categories} router={router} />
-            </View>
+            
+<View
+  style={{
+    marginHorizontal: 16,
+    marginTop: 10,
+    marginBottom: 18,
+    borderRadius: 18,
+    borderWidth: 1.5,
+    borderColor: "#e0e7ef",
+    backgroundColor: "#fafdff",
+    paddingVertical: 12,
+    paddingHorizontal: 6,
+    shadowColor: "#000",
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  }}
+>
+  <CategoryList
+    categories={categories.map(cat => ({
+      ...cat,
+      // ✅ FIX: Thêm categoryId để CategoryList có thể sử dụng
+      categoryId: cat._id || cat.id
+    }))}
+    router={router}
+    // ✅ FIX: Truyền function xử lý navigation đúng cách
+    onCategoryPress={(categoryId) => {
+      router.push({
+        pathname: "/danhmucall",
+        params: { categoryId }
+      });
+    }}
+  />
+</View>
 
             {/* Khung giờ vàng */}
             <FlashSale
