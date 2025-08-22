@@ -245,9 +245,20 @@ export default function CTSP() {
     }
   };
 
-  // Hàm thêm vào giỏ hàng với variant đã chọn
+  // Hàm thêm vào giỏ hàng với kiểm tra tồn kho
   const AddToCart = async (prod) => {
     try {
+      // Kiểm tra tồn kho
+      const maxStock = prod.stock ?? 99;
+      if (maxStock < 1) {
+        Toast.show({
+          type: "error",
+          text1: "Sản phẩm đã hết hàng!",
+          position: "top",
+        });
+        return;
+      }
+
       const userStr = await AsyncStorage.getItem("user");
       if (!userStr) {
         Toast.show({
@@ -263,7 +274,6 @@ export default function CTSP() {
       // Gộp tất cả lựa chọn biến thể thành một object duy nhất
       let variantPayload = undefined;
       if (prod.variants && prod.variants.length > 0) {
-        // Nếu chỉ có 1 nhóm biến thể, gửi object như cũ
         if (prod.variants.length === 1) {
           const group = prod.variants[0];
           const selected = variantSelections[group.key];
@@ -275,7 +285,6 @@ export default function CTSP() {
             };
           }
         } else {
-          // Nếu có nhiều nhóm, gộp lại thành một object
           const keys = Object.keys(variantSelections);
           const labels = keys
             .map((k) => variantSelections[k]?.label)
@@ -284,21 +293,19 @@ export default function CTSP() {
             (sum, k) => sum + (variantSelections[k]?.priceDiff || 0),
             0
           );
-
           variantPayload = {
-            key: keys.join(" + "), // ví dụ: "Chipset + Form Factor"
-            label: labels.join(" + "), // ví dụ: "B550 + ATX"
+            key: keys.join(" + "),
+            label: labels.join(" + "),
             priceDiff: priceDiffSum,
           };
         }
       }
 
-      // Gửi request với thông tin cấu hình
       await axiosInstance.post("/cartt/add-to-cart", {
-        user_id: userId, // phải là ObjectId, không phải undefined
-        productId: prod._id || prod.id, // phải là ObjectId, không phải undefined
-        quantity: 1, // phải là số, không phải undefined
-        variant: variantPayload, // chỉ gửi nếu có
+        user_id: userId,
+        productId: prod._id || prod.id,
+        quantity: 1,
+        variant: variantPayload,
       });
 
       Toast.show({
@@ -310,11 +317,6 @@ export default function CTSP() {
         position: "bottom",
       });
     } catch (err) {
-      console.error(
-        "add-to-cart error:",
-        err?.response?.data || err.message,
-        err
-      );
       Toast.show({
         type: "error",
         text1: "Thêm giỏ hàng thất bại!",
@@ -368,7 +370,19 @@ export default function CTSP() {
     });
   };
 
+  // Hàm mua ngay với kiểm tra tồn kho
   const handleBuyNow = async () => {
+    // Kiểm tra tồn kho
+    const maxStock = product.stock ?? 99;
+    if (maxStock < 1) {
+      Toast.show({
+        type: "error",
+        text1: "Sản phẩm đã hết hàng!",
+        position: "top",
+      });
+      return;
+    }
+
     // Kiểm tra đăng nhập
     let userStr;
     try {
@@ -397,7 +411,6 @@ export default function CTSP() {
           };
         }
       } else {
-        // Nếu có nhiều nhóm, gộp lại thành một object
         const keys = Object.keys(variantSelections);
         const labels = keys
           .map((k) => variantSelections[k]?.label)
@@ -406,7 +419,6 @@ export default function CTSP() {
           (sum, k) => sum + (variantSelections[k]?.priceDiff || 0),
           0
         );
-
         variant = {
           key: keys.join(" + "),
           label: labels.join(" + "),
@@ -520,7 +532,7 @@ export default function CTSP() {
               <View style={styles.configHeader}>
                 <Text style={styles.configTitle}>Tùy chọn cấu hình</Text>
                 <View style={styles.configBadge}>
-                  <Text style={styles.configBadgeText}>Tùy chỉnh</Text>
+                  <Text style={styles.configBadgeText}></Text>
                 </View>
               </View>
 
@@ -833,7 +845,7 @@ const styles = StyleSheet.create({
     color: "#1a1a1a",
   },
   configBadge: {
-    backgroundColor: "#e8f5e8",
+    backgroundColor: "",
     paddingHorizontal: 12,
     paddingVertical: 4,
     borderRadius: 12,
@@ -841,7 +853,7 @@ const styles = StyleSheet.create({
   configBadgeText: {
     fontSize: 12,
     fontWeight: "600",
-    color: "#2e7d32",
+    color: "",
   },
   selectedConfigContainer: {
     marginTop: 20,
