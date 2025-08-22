@@ -4,6 +4,7 @@ import axios from "axios";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -104,6 +105,8 @@ export default function PayScreen() {
   const [allDistricts, setAllDistricts] = useState([]);
   const [allWards, setAllWards] = useState([]);
 
+  const [isOrdering, setIsOrdering] = useState(false); // thêm state
+
   // Calculations
   const subtotal = products.reduce((sum, p) => sum + p.price * p.quantity, 0);
   const totalBeforeDiscount = subtotal + shippingFee;
@@ -185,58 +188,75 @@ export default function PayScreen() {
   };
 
   // Fetch available shipping services
-  const fetchShippingServices = async (address) => {
-    if (!address || !address.districtId) {
+  const SERVICE_PRIORITY = { 1: 0, 2: 1, 3: 2, 0: 3 }; // ưu tiên: Nhanh > Chuẩn > Tiết kiệm > khác
+
+const fetchShippingServices = async (address) => {
+  if (!address || !address.districtId) {
+    setShippingServices([]);
+    setSelectedService(null);
+    Toast.show({
+      type: "error",
+      text1: "Vui lòng tạo địa chỉ đúng tại sổ địa chỉ",
+      text2: "Để tính phí giao hàng nhanh",
+    });
+    return;
+  }
+
+  setIsLoadingShipping(true);
+  try {
+    const response = await ghnRequest(
+      "/v2/shipping-order/available-services",
+      {
+        shop_id: Number(GHN_SHOP_ID),
+        from_district: Number(SHOP_DISTRICT_ID),
+        to_district: Number(address.districtId),
+      }
+    );
+
+    const services = Array.isArray(response?.data) ? response.data : [];
+
+    if (services.length === 0) {
       setShippingServices([]);
       setSelectedService(null);
       Toast.show({
         type: "error",
-        text1: "Vui lòng tạo địa chỉ đúng tại sổ địa chỉ",
-        text2: "Để tính phí giao hàng nhanh",
+        text1: "Không có dịch vụ giao hàng khả dụng",
+        text2: "Vui lòng kiểm tra lại địa chỉ giao hàng",
       });
       return;
     }
 
-    setIsLoadingShipping(true);
-    try {
-      const response = await ghnRequest(
-        "/v2/shipping-order/available-services",
-        {
-          shop_id: parseInt(GHN_SHOP_ID),
-          from_district: SHOP_DISTRICT_ID,
-          to_district: parseInt(address.districtId),
-        }
-      );
+    // Sắp xếp theo độ ưu tiên service_type_id
+    const sorted = [...services].sort((a, b) => {
+      const pa = SERVICE_PRIORITY[a?.service_type_id] ?? 99;
+      const pb = SERVICE_PRIORITY[b?.service_type_id] ?? 99;
+      return pa - pb;
+    });
 
-      const services = response.data || [];
-      const fastService = services.find((s) => s.service_type_id === 5);
-      if (!fastService) {
-        setShippingServices([]);
-        setSelectedService(null);
-        Toast.show({
-          type: "error",
-          text1: "Vui lòng tạo địa chỉ đúng tại sổ địa chỉ",
-          text2: "Để tính phí giao hàng nhanh",
-        });
-      } else {
-        setShippingServices([fastService]);
-        if (!selectedService) {
-          setSelectedService(fastService);
-        }
-      }
-    } catch (error) {
-      console.error("Error fetching shipping services:", error);
-      setShippingServices([]);
-      setSelectedService(null);
-      Toast.show({
-        type: "error",
-        text1: "Không thể tải dịch vụ vận chuyển",
-        text2: "Vui lòng kiểm tra địa chỉ giao hàng",
-      });
-    } finally {
-      setIsLoadingShipping(false);
+    setShippingServices(services);
+
+    // Nếu chưa chọn hoặc service đã chọn không còn trong danh sách, chọn theo ưu tiên
+    const stillValid =
+      selectedService &&
+      services.some((s) => s.service_id === selectedService.service_id);
+
+    if (!stillValid) {
+      setSelectedService(sorted[0]);
     }
-  };
+  } catch (error) {
+    console.error("Error fetching shipping services:", error);
+    setShippingServices([]);
+    setSelectedService(null);
+    Toast.show({
+      type: "error",
+      text1: "Không thể tải dịch vụ vận chuyển",
+      text2: "Vui lòng kiểm tra địa chỉ giao hàng",
+    });
+  } finally {
+    setIsLoadingShipping(false);
+  }
+};
+
 
   // Calculate shipping fee
   const calculateShippingFee = async (service, address) => {
@@ -647,6 +667,9 @@ export default function PayScreen() {
       return;
     }
 
+    setIsOrdering(true); // Bắt đầu loading
+    Toast.show({ type: "info", text1: "Vui lòng đợi...", autoHide: false });
+
     try {
       const userStr = await AsyncStorage.getItem("user");
       if (!userStr) throw new Error("Chưa xác định được user");
@@ -750,7 +773,7 @@ export default function PayScreen() {
         text2: "Cảm ơn bạn.",
       });
       setPayStatus("success");
-      router.push({
+      router.replace({
         pathname: "/CheckoutSuccess",
         params: {
           orderId: res.data.orderId,
@@ -778,6 +801,9 @@ export default function PayScreen() {
         });
       }
       setPayStatus("fail");
+    } finally {
+      setIsOrdering(false); // Kết thúc loading
+      Toast.hide();
     }
   };
 
@@ -1143,20 +1169,25 @@ export default function PayScreen() {
               (!selectedAddress ||
                 products.length === 0 ||
                 !selectedService ||
-                shippingFee <= 0) &&
-                styles.orderButtonDisabled,
+                shippingFee <= 0 ||
+                isOrdering) && styles.orderButtonDisabled,
             ]}
             onPress={handleOrder}
             disabled={
               !selectedAddress ||
               products.length === 0 ||
               !selectedService ||
-              shippingFee <= 0
+              shippingFee <= 0 ||
+              isOrdering
             }
           >
-            <Text style={styles.orderButtonText}>
-              Đặt hàng · {formatCurrency(total)}
-            </Text>
+            {isOrdering ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.orderButtonText}>
+                Đặt hàng · {formatCurrency(total)}
+              </Text>
+            )}
           </TouchableOpacity>
         </View>
       </ScrollView>

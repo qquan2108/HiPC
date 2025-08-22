@@ -1,16 +1,22 @@
-import { Feather } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
+import { Feather } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
-export default function OptionGroup({ label, options = [], selected, onSelect, type = "default" }) {
+export default function OptionGroup({
+  label,
+  options = [],
+  selected,
+  onSelect,
+  type = "default",
+}) {
   return (
     <View style={styles.container}>
       {/* Enhanced Header */}
       <View style={styles.headerContainer}>
         <LinearGradient
-          colors={['#667eea', '#764ba2']}
-          start={{x: 0, y: 0}}
-          end={{x: 1, y: 0}}
+          colors={["#667eea", "#764ba2"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
           style={styles.labelGradient}
         >
           <Text style={styles.optionLabel}>{String(label ?? "")}</Text>
@@ -20,12 +26,12 @@ export default function OptionGroup({ label, options = [], selected, onSelect, t
         </LinearGradient>
       </View>
 
-      
       <View style={styles.optionGrid}>
         {options.map((option, index) => {
-          const displayLabel = option && typeof option === 'object' && 'label' in option
-            ? option.label
-            : option;
+          const displayLabel =
+            option && typeof option === "object" && "label" in option
+              ? option.label
+              : option;
           const isSelected =
             (typeof selected === "string" && displayLabel === selected) ||
             (typeof selected === "object" && selected.label === displayLabel);
@@ -40,35 +46,43 @@ export default function OptionGroup({ label, options = [], selected, onSelect, t
               onPress={() => onSelect(option)}
               activeOpacity={0.85}
             >
-              
               {isSelected && (
                 <LinearGradient
-                  colors={['#667eea', '#764ba2']}
+                  colors={["#667eea", "#764ba2"]}
                   style={styles.selectedBackground}
-                  start={{x: 0, y: 0}}
-                  end={{x: 1, y: 1}}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
                 />
               )}
 
               {/* Content */}
               <View style={styles.optionContent}>
-                <Text style={[
-                  styles.optionText,
-                  isSelected && styles.optionTextSelected
-                ]}>
+                <Text
+                  style={[
+                    styles.optionText,
+                    isSelected && styles.optionTextSelected,
+                  ]}
+                >
                   {String(displayLabel ?? "")}
                 </Text>
-                
+
                 {typeof option.priceDiff === "number" && (
-                  <Text style={[
-                    styles.priceDiff,
-                    isSelected && styles.priceDiffSelected
-                  ]}>
-                    {option.priceDiff > 0 ? `+${option.priceDiff.toLocaleString('vi-VN')}đ` : option.priceDiff < 0 ? `-${Math.abs(option.priceDiff).toLocaleString('vi-VN')}đ` : '0đ'}
+                  <Text
+                    style={[
+                      styles.priceDiff,
+                      isSelected && styles.priceDiffSelected,
+                    ]}
+                  >
+                    {option.priceDiff > 0
+                      ? `+${option.priceDiff.toLocaleString("vi-VN")}đ`
+                      : option.priceDiff < 0
+                      ? `-${Math.abs(option.priceDiff).toLocaleString(
+                          "vi-VN"
+                        )}đ`
+                      : "0đ"}
                   </Text>
                 )}
 
-                
                 {isSelected && (
                   <View style={styles.selectionIndicator}>
                     <Feather name="check" size={14} color="#ffffff" />
@@ -76,11 +90,12 @@ export default function OptionGroup({ label, options = [], selected, onSelect, t
                 )}
               </View>
 
-              
-              <View style={[
-                styles.animatedBorder,
-                isSelected && styles.animatedBorderActive
-              ]} />
+              <View
+                style={[
+                  styles.animatedBorder,
+                  isSelected && styles.animatedBorderActive,
+                ]}
+              />
             </TouchableOpacity>
           );
         })}
@@ -90,68 +105,67 @@ export default function OptionGroup({ label, options = [], selected, onSelect, t
 }
 
 const styles = StyleSheet.create({
-  container: { 
+  container: {
     marginBottom: 24,
     marginHorizontal: 16,
   },
-  
-  
-  headerContainer: { 
+
+  headerContainer: {
     marginBottom: 16,
   },
   labelGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderRadius: 16,
     elevation: 4,
-    shadowColor: '#667eea',
+    shadowColor: "#667eea",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
   },
-  optionLabel: { 
-    fontWeight: "800", 
-    fontSize: 16, 
+  optionLabel: {
+    fontWeight: "800",
+    fontSize: 16,
     color: "#ffffff",
     letterSpacing: 0.5,
   },
   labelIcon: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
     borderRadius: 10,
     padding: 4,
   },
 
   // Options Grid
-  optionGrid: { 
-    flexDirection: "row", 
+  optionGrid: {
+    flexDirection: "row",
     flexWrap: "wrap",
-    justifyContent: 'space-between',
+    justifyContent: "space-between",
   },
-  
+
   // Option Card
   optionCard: {
-    minWidth: '47%',
+    minWidth: "47%",
     marginBottom: 12,
     borderRadius: 16,
-    backgroundColor: '#ffffff',
-    position: 'relative',
-    overflow: 'hidden',
+    backgroundColor: "#ffffff",
+    position: "relative",
+    overflow: "hidden",
     // Subtle shadow
     elevation: 3,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 12,
     borderWidth: 2,
-    borderColor: '#f1f3f4',
+    borderColor: "#f1f3f4",
   },
   optionCardSelected: {
-    borderColor: '#667eea',
+    borderColor: "#667eea",
     elevation: 8,
-    shadowColor: '#667eea',
+    shadowColor: "#667eea",
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.25,
     shadowRadius: 16,
@@ -160,7 +174,7 @@ const styles = StyleSheet.create({
 
   // Selected Background
   selectedBackground: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     left: 0,
     right: 0,
@@ -174,13 +188,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     minHeight: 70,
-    position: 'relative',
+    position: "relative",
   },
   optionText: {
     fontSize: 15,
     color: "#2d3436",
     fontWeight: "600",
-    textAlign: 'center',
+    textAlign: "center",
     marginBottom: 4,
   },
   optionTextSelected: {
@@ -191,37 +205,37 @@ const styles = StyleSheet.create({
     color: "#74b9ff",
     fontSize: 12,
     fontWeight: "600",
-    backgroundColor: 'rgba(116, 185, 255, 0.1)',
+    backgroundColor: "rgba(116, 185, 255, 0.1)",
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 8,
   },
   priceDiffSelected: {
     color: "#ffffff",
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
   },
 
   // Selection Indicator
   selectionIndicator: {
-    position: 'absolute',
+    position: "absolute",
     top: 8,
     right: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    backgroundColor: "rgba(255, 255, 255, 0.3)",
     borderRadius: 12,
     padding: 4,
   },
 
   // Animated Border
   animatedBorder: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 0,
     left: 0,
     height: 3,
     width: 0,
-    backgroundColor: '#667eea',
+    backgroundColor: "#667eea",
     borderRadius: 2,
   },
   animatedBorderActive: {
-    width: '100%',
+    width: "100%",
   },
 });

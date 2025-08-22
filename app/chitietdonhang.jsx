@@ -1,4 +1,4 @@
-import { Feather } from '@expo/vector-icons';
+import { Feather, MaterialIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
@@ -62,6 +62,14 @@ export default function OrderDetailScreen() {
         <Text numberOfLines={2} style={styles.productName}>
           {item.productId?.name || 'Sản phẩm'}
         </Text>
+        {/* Hiển thị chi tiết biến thể nếu có */}
+        {item.variant && (
+          <Text style={styles.variantText}>
+            {Object.entries(item.variant)
+              .map(([k, v]) => `${k}: ${v}`)
+              .join(', ')}
+          </Text>
+        )}
         <Text style={styles.productPrice}>
           {formatCurrency(item.productId?.price ?? 0)}
         </Text>
@@ -170,30 +178,25 @@ export default function OrderDetailScreen() {
           )}
 
           {/* Phí vận chuyển và giảm phí vận chuyển nếu có */}
-          {order.shippingDiscount > 0 || order.shippingVoucherDiscount > 0 ? (
-            <>
-              {order.shippingDiscount > 0 && (
-                <View style={styles.row}>
-                  <Text style={styles.label}>Giảm phí vận chuyển</Text>
-                  <Text style={[styles.value, { color: '#22c55e' }]}>
-                    -{formatCurrency(order.shippingDiscount)}
-                  </Text>
-                </View>
-              )}
-              {order.shippingVoucherDiscount > 0 && (
-                <View style={styles.row}>
-                  <Text style={styles.label}>Giảm voucher phí vận chuyển</Text>
-                  <Text style={[styles.value, { color: '#22c55e' }]}>
-                    -{formatCurrency(order.shippingVoucherDiscount)}
-                  </Text>
-                </View>
-              )}
-            </>
-          ) : (
+          <View style={styles.row}>
+            <Text style={styles.label}>Phí vận chuyển</Text>
+            <Text style={styles.value}>
+              {formatCurrency(order.shippingFee || 0)}
+            </Text>
+          </View>
+          {order.shippingDiscount > 0 && (
             <View style={styles.row}>
-              <Text style={styles.label}>Phí vận chuyển</Text>
-              <Text style={styles.value}>
-                {formatCurrency(order.shippingFee || 0)}
+              <Text style={styles.label}>Giảm phí vận chuyển</Text>
+              <Text style={[styles.value, { color: '#22c55e' }]}>
+                -{formatCurrency(order.shippingDiscount)}
+              </Text>
+            </View>
+          )}
+          {order.shippingVoucherDiscount > 0 && (
+            <View style={styles.row}>
+              <Text style={styles.label}>Giảm voucher phí vận chuyển</Text>
+              <Text style={[styles.value, { color: '#22c55e' }]}>
+                -{formatCurrency(order.shippingVoucherDiscount)}
               </Text>
             </View>
           )}
@@ -216,19 +219,28 @@ export default function OrderDetailScreen() {
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Địa chỉ giao hàng</Text>
-          <Text style={styles.addressText}>
-            {order.shippingAddress?.recipientName ||
-              order.recipientName ||
-              order.user_id?.full_name}
-          </Text>
-          <Text style={styles.addressText}>
-            {order.shippingAddress?.phoneNumber ||
-              order.phoneNumber ||
-              order.user_id?.phone}
-          </Text>
-          <Text style={styles.addressText}>
-            {order.shippingAddress?.address || order.address}
-          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+            <MaterialIcons name="person" size={18} color="#6366F1" style={{ marginRight: 6 }} />
+            <Text style={styles.addressText}>
+              {order.shippingAddress?.recipientName ||
+                order.recipientName ||
+                order.user_id?.full_name}
+            </Text>
+          </View>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+            <MaterialIcons name="phone" size={18} color="#6366F1" style={{ marginRight: 6 }} />
+            <Text style={styles.addressText}>
+              {order.shippingAddress?.phoneNumber ||
+                order.phoneNumber ||
+                order.user_id?.phone}
+            </Text>
+          </View>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+            <MaterialIcons name="location-on" size={18} color="#6366F1" style={{ marginRight: 6 }} />
+            <Text style={styles.addressText}>
+              {order.shippingAddress?.address || order.address}
+            </Text>
+          </View>
         </View>
 
         <View style={styles.section}>
@@ -467,5 +479,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#6B7280',
     marginLeft: 8,
+  },
+  variantText: {
+    fontSize: 13,
+    color: '#6366F1',
+    marginBottom: 2,
   },
 });

@@ -1,7 +1,8 @@
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useRef } from "react";
+import { useLocalSearchParams, useRouter, useFocusEffect } from "expo-router";
+import { useEffect, useRef, useCallback } from "react";
+import { BackHandler } from "react-native";
 import { Animated, Easing, FlatList, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 
@@ -83,6 +84,17 @@ export default function CheckoutSuccess() {
       }),
     ]).start();
   }, []);
+
+useFocusEffect(
+  useCallback(() => {
+    const onBackPress = () => {
+      router.replace("/HomeScreen");
+      return true;
+    };
+    const subscription = BackHandler.addEventListener("hardwareBackPress", onBackPress);
+    return () => subscription.remove();
+  }, [router])
+);
 
   const rotateInterpolate = tickRotate.interpolate({
     inputRange: [0, 1],

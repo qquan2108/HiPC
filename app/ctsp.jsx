@@ -309,10 +309,6 @@ export default function CTSP() {
           : "Mặc định",
         position: "bottom",
       });
-      setTimeout(
-        () => router.push({ pathname: "./cart", params: { refresh: 1 } }),
-        1200
-      );
     } catch (err) {
       console.error(
         "add-to-cart error:",
@@ -480,6 +476,12 @@ export default function CTSP() {
                 <Feather name="arrow-left" size={24} color="#222" />
               </TouchableOpacity>
               <Text style={styles.headerTitle}>Chi tiết sản phẩm</Text>
+              <TouchableOpacity
+                onPress={() => router.push("/cart")}
+                style={{ marginLeft: 8 }}
+              >
+                <Feather name="shopping-cart" size={24} color="#1976ff" />
+              </TouchableOpacity>
             </View>
 
             {/* Image & Info */}
