@@ -1,6 +1,6 @@
 import { Feather } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -96,6 +96,27 @@ export default function OrderDetailScreen() {
       })
     : '';
 
+  // Tính tổng giá sản phẩm (nếu backend không trả về)
+  const productTotal =
+    order.productTotal ||
+    order.subtotal ||
+    (
+      (order.products || []).reduce(
+        (sum, prod) =>
+          sum + ((prod.productId?.price || 0) * (prod.quantity || 1)),
+        0
+      ) +
+      (order.combos || []).reduce(
+        (sum, combo) => sum + ((combo.price || 0) * (combo.quantity || 1)),
+        0
+      )
+    );
+
+  // Tính phí vận chuyển gốc (nếu backend không trả về)
+  const shippingFeeOrigin =
+    order.shippingFeeOrigin ||
+    ((order.shippingFee || 0) + (order.shippingDiscount || 0));
+
   return (
     <View style={{ flex: 1, backgroundColor: '#F9FAFB' }}>
       <View style={styles.header}>
@@ -129,20 +150,64 @@ export default function OrderDetailScreen() {
             <Text style={styles.label}>Phương thức thanh toán</Text>
             <Text style={styles.value}>{order.paymentMethod || '--'}</Text>
           </View>
+
+          {/* Giá sản phẩm */}
           <View style={styles.row}>
-            <Text style={styles.label}>Phí vận chuyển</Text>
+            <Text style={styles.label}>Giá sản phẩm</Text>
             <Text style={styles.value}>
-              {formatCurrency(order.shippingFee || 0)}
+              {formatCurrency(productTotal)}
             </Text>
           </View>
+
+          {/* Giảm giá voucher sản phẩm nếu có */}
+          {order.voucherDiscount > 0 && (
+            <View style={styles.row}>
+              <Text style={styles.label}>Giảm giá voucher</Text>
+              <Text style={[styles.value, { color: '#22c55e' }]}>
+                -{formatCurrency(order.voucherDiscount)}
+              </Text>
+            </View>
+          )}
+
+          {/* Phí vận chuyển và giảm phí vận chuyển nếu có */}
+          {order.shippingDiscount > 0 || order.shippingVoucherDiscount > 0 ? (
+            <>
+              {order.shippingDiscount > 0 && (
+                <View style={styles.row}>
+                  <Text style={styles.label}>Giảm phí vận chuyển</Text>
+                  <Text style={[styles.value, { color: '#22c55e' }]}>
+                    -{formatCurrency(order.shippingDiscount)}
+                  </Text>
+                </View>
+              )}
+              {order.shippingVoucherDiscount > 0 && (
+                <View style={styles.row}>
+                  <Text style={styles.label}>Giảm voucher phí vận chuyển</Text>
+                  <Text style={[styles.value, { color: '#22c55e' }]}>
+                    -{formatCurrency(order.shippingVoucherDiscount)}
+                  </Text>
+                </View>
+              )}
+            </>
+          ) : (
+            <View style={styles.row}>
+              <Text style={styles.label}>Phí vận chuyển</Text>
+              <Text style={styles.value}>
+                {formatCurrency(order.shippingFee || 0)}
+              </Text>
+            </View>
+          )}
+
+          {/* Giảm giá đơn hàng nếu có */}
           {order.discount > 0 && (
             <View style={styles.row}>
               <Text style={styles.label}>Giảm giá</Text>
-              <Text style={styles.value}>
+              <Text style={[styles.value, { color: '#22c55e' }]}>
                 -{formatCurrency(order.discount)}
               </Text>
             </View>
           )}
+
           <View style={[styles.row, styles.totalRow]}>
             <Text style={styles.totalLabel}>Tổng cộng</Text>
             <Text style={styles.total}>{formatCurrency(order.total)}</Text>
