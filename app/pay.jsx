@@ -462,7 +462,18 @@ export default function PayScreen() {
         console.warn("Không parse được voucher từ params:", e);
       }
     }
-  }, [params.selectedVoucher]);
+    // Nếu có nhiều loại voucher:
+    if (params.selectedOrderVoucher) {
+      try {
+        setSelectedOrderVoucher(JSON.parse(params.selectedOrderVoucher));
+      } catch (e) {}
+    }
+    if (params.selectedShippingVoucher) {
+      try {
+        setSelectedShippingVoucher(JSON.parse(params.selectedShippingVoucher));
+      } catch (e) {}
+    }
+  }, [params.selectedVoucher, params.selectedOrderVoucher, params.selectedShippingVoucher]);
 
   useEffect(() => {
     (async () => {

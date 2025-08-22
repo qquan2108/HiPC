@@ -213,7 +213,7 @@ export default function OrderStatusStepper({ orderId, initialStatus, onStatusCha
       </View>
 
       {/* Nút hủy đơn hàng */}
-      {isUser && ['pending', 'confirmed'].includes(currentStatus) && (
+      {isUser && ['pending', 'packed'].includes(currentStatus) && (
         <View style={styles.buttonContainer}>
           <TouchableOpacity
             style={styles.cancelButton}
