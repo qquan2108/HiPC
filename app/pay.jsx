@@ -118,7 +118,20 @@ export default function PayScreen() {
       : 0
     : 0;
 
-  const [selectedOrderVoucher, setSelectedOrderVoucher] = useState(null);
+  // --- SỬA: Nhận voucher đơn hàng từ params (truyền từ cart) ---
+  const [selectedOrderVoucher, setSelectedOrderVoucher] = useState(
+    params.selectedOrderVoucher
+      ? (() => {
+          try {
+            return JSON.parse(params.selectedOrderVoucher);
+          } catch {
+            return null;
+          }
+        })()
+      : null
+  );
+  // --- END SỬA ---
+
   const [selectedShippingVoucher, setSelectedShippingVoucher] = useState(null);
 
   // Tính discount cho đơn hàng
@@ -455,27 +468,6 @@ export default function PayScreen() {
   }, []);
 
   useEffect(() => {
-    if (params.selectedVoucher) {
-      try {
-        setSelectedVoucher(JSON.parse(params.selectedVoucher));
-      } catch (e) {
-        console.warn("Không parse được voucher từ params:", e);
-      }
-    }
-    // Nếu có nhiều loại voucher:
-    if (params.selectedOrderVoucher) {
-      try {
-        setSelectedOrderVoucher(JSON.parse(params.selectedOrderVoucher));
-      } catch (e) {}
-    }
-    if (params.selectedShippingVoucher) {
-      try {
-        setSelectedShippingVoucher(JSON.parse(params.selectedShippingVoucher));
-      } catch (e) {}
-    }
-  }, [params.selectedVoucher, params.selectedOrderVoucher, params.selectedShippingVoucher]);
-
-  useEffect(() => {
     (async () => {
       try {
         const res = await axiosInstance.get("/vouchers");
@@ -675,13 +667,13 @@ export default function PayScreen() {
         user_id: userId,
         products: productsData,
         total_price: totalBeforeDiscount,
-        shippingFee,
+        shippingFee, 
         total,
         address: selectedAddress?.address || "",
         paymentMethod: selectedPayment,
         shippingMethod: selectedService?.service_id || null,
-        selectedOrderVoucher, // gửi đúng trường cho voucher đơn hàng
-        selectedShippingVoucher, // gửi đúng trường cho voucher phí vận chuyển
+        selectedOrderVoucher,
+        selectedShippingVoucher,
       };
 
       // Nếu có cartItemId thì truyền selectedProducts (mua từ cart)
