@@ -29,6 +29,7 @@ import SkeletonHome from "./SkeletonHome";
 
 const { width } = Dimensions.get("window");
 const base = axiosInstance.defaults.baseURL;
+const PLACEHOLDER_IMG = require("../assets/images/pc1.png");
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -49,7 +50,6 @@ export default function HomeScreen() {
   const scrollRef = useRef(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showUnpaidDialog, setShowUnpaidDialog] = useState(false);
-
 
   // 🟢 Thêm flag để track xem đã load dữ liệu lần đầu chưa
   const [hasInitialLoad, setHasInitialLoad] = useState(false);
@@ -107,37 +107,51 @@ export default function HomeScreen() {
   // 🟢 Tách logic load products thành function riêng
   const loadProducts = useCallback(async () => {
     try {
-      const { data } = await axiosInstance.get('/product');
-      const mapped = (data.products || []).map(p => {
-        const raw = p.image;
-        const uri = raw
-          ? raw.startsWith('http')
-            ? raw
-            : `${base}${raw}`
-          : undefined;
+      const { data } = await axiosInstance.get("/product");
+      const mapped = (data.products || []).map((p) => {
+        // ---- Chuẩn hoá ảnh với nhiều trường hợp và fallback ảnh mặc định ----
+        const getImageSource = () => {
+          // 1) p.image: có thể là "" | "/uploads/a.jpg" | "http..."
+          if (typeof p.image === "string" && p.image.trim() !== "") {
+            const u = p.image.trim();
+            return { uri: u.startsWith("http") ? u : `${base}${u}` };
+          }
+          // 2) p.images: mảng string/obj {url}
+          if (Array.isArray(p.images) && p.images.length > 0) {
+            const first = p.images[0];
+            const u = typeof first === "string" ? first : first?.url;
+            if (u && typeof u === "string") {
+              return { uri: u.startsWith("http") ? u : `${base}${u}` };
+            }
+          }
+          // 3) Fallback
+          return PLACEHOLDER_IMG;
+        };
+        const imageSource = getImageSource();
 
         return {
           ...p,
           id: p._id,
-          image: uri
-            ? { uri }
-            : require('../assets/images/pc1.png'),
+          // RN Image dùng được cả {uri} hoặc require()
+          image: imageSource,
+          // Cho các component nào chỉ nhận string URL:
+          imageUrl: imageSource?.uri ?? null,
           discount:
             p.originalPrice && p.price < p.originalPrice
               ? Math.round(100 - (p.price / p.originalPrice) * 100)
               : 0,
           isHot: (p.sold || 0) > 50,
           isBestSeller: p.isBestSeller ?? false,
-          price: (p.price ?? 0).toLocaleString('vi-VN') + ' đ',
+          price: (p.price ?? 0).toLocaleString("vi-VN") + " đ",
           originalPrice: p.originalPrice
-            ? p.originalPrice.toLocaleString('vi-VN') + ' đ'
+            ? p.originalPrice.toLocaleString("vi-VN") + " đ"
             : undefined,
         };
       });
 
       setProducts(mapped);
-      setBestSellers(mapped.filter(p => p.isBestSeller));
-      setFlashSaleProducts(mapped.filter(p => p.discount > 0));
+      setBestSellers(mapped.filter((p) => p.isBestSeller));
+      setFlashSaleProducts(mapped.filter((p) => p.discount > 0));
     } catch (error) {
       console.error("Load products error:", error);
       setProducts([]);
@@ -153,7 +167,7 @@ export default function HomeScreen() {
         axiosInstance.get("/category"),
         axiosInstance.get("/images"),
       ]);
-      
+
       const images = imgRes.data;
       setCategories(
         catRes.data.map((cat) => {
@@ -163,9 +177,7 @@ export default function HomeScreen() {
           return {
             key: cat.name,
             label: cat.name,
-            icon: img
-              ? { uri: img.url }
-              : require("../assets/images/pc.png"),
+            icon: img ? { uri: img.url } : require("../assets/images/pc.png"),
           };
         })
       );
@@ -187,27 +199,30 @@ export default function HomeScreen() {
   }, []);
 
   // 🟢 Function tổng hợp load tất cả dữ liệu
-  const loadAllData = useCallback(async (showLoadingSpinner = false) => {
-    if (showLoadingSpinner) {
-      setLoading(true);
-    }
-    
-    try {
-      await Promise.all([
-        loadProducts(),
-        loadCategories(),
-        loadBanners(),
-        loadAvatar(),
-      ]);
-    } catch (error) {
-      console.error("Load all data error:", error);
-    } finally {
+  const loadAllData = useCallback(
+    async (showLoadingSpinner = false) => {
       if (showLoadingSpinner) {
-        setLoading(false);
+        setLoading(true);
       }
-      setHasInitialLoad(true);
-    }
-  }, [loadProducts, loadCategories, loadBanners, loadAvatar]);
+
+      try {
+        await Promise.all([
+          loadProducts(),
+          loadCategories(),
+          loadBanners(),
+          loadAvatar(),
+        ]);
+      } catch (error) {
+        console.error("Load all data error:", error);
+      } finally {
+        if (showLoadingSpinner) {
+          setLoading(false);
+        }
+        setHasInitialLoad(true);
+      }
+    },
+    [loadProducts, loadCategories, loadBanners, loadAvatar]
+  );
 
   // 🟢 Pull-to-refresh handler
   const onRefresh = useCallback(async () => {
@@ -231,7 +246,7 @@ export default function HomeScreen() {
         setIsLoggedIn(!!token);
       };
       checkLogin();
-      
+
       // Chỉ load avatar nếu chưa có (user có thể đã đổi avatar)
       if (!avatarUri) {
         loadAvatar();
@@ -243,7 +258,7 @@ export default function HomeScreen() {
   useEffect(() => {
     if (banners.length === 0) return;
     const timer = setInterval(() => {
-      setCurrentIndex(prev => {
+      setCurrentIndex((prev) => {
         const next = (prev + 1) % banners.length;
         scrollRef.current?.scrollTo({
           x: next * width,
@@ -337,7 +352,7 @@ export default function HomeScreen() {
       ) : (
         <View style={styles.container}>
           {/* 🟢 Thêm RefreshControl vào ScrollView */}
-          <ScrollView 
+          <ScrollView
             showsVerticalScrollIndicator={false}
             refreshControl={
               <RefreshControl
@@ -358,7 +373,9 @@ export default function HomeScreen() {
               userName={userName}
             />
 
-<View style={{ paddingHorizontal: 18, marginTop: 0, marginBottom: 14 }}>
+            <View
+              style={{ paddingHorizontal: 18, marginTop: 0, marginBottom: 14 }}
+            >
               <LinearGradient
                 colors={["#2979ff", "#00c6ff"]}
                 start={{ x: 0, y: 0 }}
@@ -530,53 +547,94 @@ export default function HomeScreen() {
             animationType="slide"
             onRequestClose={() => setShowUnpaidDialog(false)}
           >
-            <View style={{
-              flex: 1,
-              backgroundColor: "rgba(0,0,0,0.25)",
-              justifyContent: "center",
-              alignItems: "center"
-            }}>
-              <View style={{
-                backgroundColor: "#fff",
-                borderRadius: 16,
-                padding: 24,
-                width: "80%",
+            <View
+              style={{
+                flex: 1,
+                backgroundColor: "rgba(0,0,0,0.25)",
+                justifyContent: "center",
                 alignItems: "center",
-                elevation: 8
-              }}>
-                <Ionicons name="alert-circle" size={48} color="#f55858" style={{ marginBottom: 12 }} />
-                <Text style={{ fontWeight: "bold", fontSize: 16, color: "#f55858", marginBottom: 8 }}>
+              }}
+            >
+              <View
+                style={{
+                  backgroundColor: "#fff",
+                  borderRadius: 16,
+                  padding: 24,
+                  width: "80%",
+                  alignItems: "center",
+                  elevation: 8,
+                }}
+              >
+                <Ionicons
+                  name="alert-circle"
+                  size={48}
+                  color="#f55858"
+                  style={{ marginBottom: 12 }}
+                />
+                <Text
+                  style={{
+                    fontWeight: "bold",
+                    fontSize: 16,
+                    color: "#f55858",
+                    marginBottom: 8,
+                  }}
+                >
                   Bạn có đơn hàng chưa thanh toán!
                 </Text>
-                <Text style={{ fontSize: 15, color: "#333", textAlign: "center", marginBottom: 18 }}>
+                <Text
+                  style={{
+                    fontSize: 15,
+                    color: "#333",
+                    textAlign: "center",
+                    marginBottom: 18,
+                  }}
+                >
                   Vui lòng thanh toán, nếu không đơn sẽ bị hủy sau 10 phút.
                 </Text>
-                <View style={{ flexDirection: "row", justifyContent: "center" }}>
+                <View
+                  style={{ flexDirection: "row", justifyContent: "center" }}
+                >
                   <TouchableOpacity
                     style={{
                       backgroundColor: "#2979ff",
                       borderRadius: 8,
                       paddingHorizontal: 18,
                       paddingVertical: 10,
-                      marginRight: 12
+                      marginRight: 12,
                     }}
                     onPress={() => {
                       setShowUnpaidDialog(false);
                       router.push("/RetryPay");
                     }}
                   >
-                    <Text style={{ color: "#fff", fontWeight: "bold", fontSize: 15 }}>Tiếp tục</Text>
+                    <Text
+                      style={{
+                        color: "#fff",
+                        fontWeight: "bold",
+                        fontSize: 15,
+                      }}
+                    >
+                      Tiếp tục
+                    </Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={{
                       backgroundColor: "#eee",
                       borderRadius: 8,
                       paddingHorizontal: 18,
-                      paddingVertical: 10
+                      paddingVertical: 10,
                     }}
                     onPress={() => setShowUnpaidDialog(false)}
                   >
-                    <Text style={{ color: "#333", fontWeight: "bold", fontSize: 15 }}>Bỏ qua</Text>
+                    <Text
+                      style={{
+                        color: "#333",
+                        fontWeight: "bold",
+                        fontSize: 15,
+                      }}
+                    >
+                      Bỏ qua
+                    </Text>
                   </TouchableOpacity>
                 </View>
               </View>
