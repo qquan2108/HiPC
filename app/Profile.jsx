@@ -4,6 +4,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useNavigation } from '@react-navigation/native';
 import Constants from "expo-constants";
 import { useFocusEffect, useRouter } from "expo-router";
+import * as Updates from "expo-updates";
 import { useCallback, useState } from "react";
 import {
   Alert,
@@ -103,10 +104,16 @@ export default function Profile() {
 
   const handleLogout = async () => {
     await AsyncStorage.multiRemove(["token", "user"]);
-    navigation.reset({
-      index: 0,
-      routes: [{ name: 'LoginScreen' }],
-    });
+    // Reload app để clear mọi state, sau đó vào HomeScreen
+    try {
+      await Updates.reloadAsync();
+    } catch (e) {
+      // Nếu reload lỗi, fallback về HomeScreen
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'HomeScreen' }],
+      });
+    }
   };
 
   return (
