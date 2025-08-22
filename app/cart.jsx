@@ -55,6 +55,8 @@ export default function CartScreen() {
   const [voucherList, setVoucherList] = useState([]);
   const [selectedVoucher, setSelectedVoucher] = useState(null);
   const [showVoucher, setShowVoucher] = useState(false);
+  const [selectedOrderVoucher, setSelectedOrderVoucher] = useState(null);
+  const [selectedShippingVoucher, setSelectedShippingVoucher] = useState(null);
 
   // Load user ID
   useEffect(() => {
@@ -69,33 +71,33 @@ export default function CartScreen() {
   }, []);
 
   // ✅ Thêm useEffect để listen cart changes
-useEffect(() => {
-  const checkCartUpdate = async () => {
-    try {
-      const shouldReload = await AsyncStorage.getItem("shouldReloadCart");
-      const cartUpdated = await AsyncStorage.getItem("cartUpdated");
-      
-      if (shouldReload || cartUpdated) {
-        console.log("🔄 Detected cart update, refreshing...");
-        if (userId) {
-          await fetchCart();
-        }
-        // Clear flags
-        await AsyncStorage.removeItem("shouldReloadCart");
-        await AsyncStorage.removeItem("cartUpdated");
-      }
-    } catch (err) {
-      console.log("Cart update check error:", err);
-    }
-  };
+  useEffect(() => {
+    const checkCartUpdate = async () => {
+      try {
+        const shouldReload = await AsyncStorage.getItem("shouldReloadCart");
+        const cartUpdated = await AsyncStorage.getItem("cartUpdated");
 
-  checkCartUpdate();
-  
-  // Check mỗi 2 giây nếu có update
-  const interval = setInterval(checkCartUpdate, 2000);
-  
-  return () => clearInterval(interval);
-}, [userId, fetchCart]);
+        if (shouldReload || cartUpdated) {
+          console.log("🔄 Detected cart update, refreshing...");
+          if (userId) {
+            await fetchCart();
+          }
+          // Clear flags
+          await AsyncStorage.removeItem("shouldReloadCart");
+          await AsyncStorage.removeItem("cartUpdated");
+        }
+      } catch (err) {
+        console.log("Cart update check error:", err);
+      }
+    };
+
+    checkCartUpdate();
+
+    // Check mỗi 2 giây nếu có update
+    const interval = setInterval(checkCartUpdate, 2000);
+
+    return () => clearInterval(interval);
+  }, [userId, fetchCart]);
 
   // Kiểm tra đăng nhập
   useEffect(() => {
@@ -158,7 +160,7 @@ useEffect(() => {
       let buildIds = [];
       const buildStr = await AsyncStorage.getItem('buildCartItems');
       if (buildStr) {
-        try { buildIds = JSON.parse(buildStr); } catch (e) {}
+        try { buildIds = JSON.parse(buildStr); } catch (e) { }
       }
 
       // 🆕 Xử lý cả product và combo items
@@ -617,8 +619,8 @@ useEffect(() => {
   }
 
   if (loading) {
-  return <SkeletonCart />;
-}
+    return <SkeletonCart />;
+  }
 
   // Xử lý nhấn vào sản phẩm
   const handleProductPress = (item) => {
@@ -652,8 +654,8 @@ useEffect(() => {
         </View>
       </View>
 
-     
-      
+
+
 
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -670,7 +672,7 @@ useEffect(() => {
             selectedIds={selectedIds}
             onToggleSelect={toggleSelect}
             onProductPress={handleProductPress}
-            // Truyền thêm prop này nếu cần
+          // Truyền thêm prop này nếu cần
           />
         ) : (
           <CartEmpty />
