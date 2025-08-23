@@ -44,9 +44,21 @@ const LoginScreen = () => {
     try {
       const res = await axiosInstance.post('/users/login', { email, password });
       console.log("🧩 res.data:", res.data);
+      const user = res.data.user;
+      if (user || user.active === false) {
+        Toast.show({
+          type: 'error',
+          text1: 'Tài khoản đã bị khóa',
+          text2: 'Vui lòng liên hệ quản trị viên để mở khóa.',
+          visibilityTime: 3000,
+          position: 'top',
+          autoHide: true,
+        });
+        setIsLoading(false);
+        return;
+      }
       if (res.data?.token) {
         await AsyncStorage.setItem('token', res.data.token);
-        const user = res.data.user;
         console.log("👤 res.data.user:", user);
         console.log("🆔 user._id:", user?._id);
         await AsyncStorage.setItem('user', JSON.stringify(user));

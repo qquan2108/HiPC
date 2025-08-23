@@ -73,24 +73,24 @@ export default function UngDungLapPC() {
 
   // Enhanced category icons
   const getCategoryIcon = (categoryName) => {
-  const iconMap = {
-    CPU: "🧠",
-    GPU: "🎮", 
-    RAM: "💾",
-    Motherboard: "🔌",
-    Mainboard: "🔌", // THÊM DÒNG NÀY
-    Storage: "💿",
-    PSU: "⚡",
-    Case: "📦",
-    Fan: "❄️",
-    Monitor: "🖥️",
-    Keyboard: "⌨️",
-    Mouse: "🖱️",
-    VGA: "🎮", // THÊM DÒNG NÀY
-    SSD: "💿", // THÊM DÒNG NÀY
+    const iconMap = {
+      CPU: "🧠",
+      GPU: "🎮",
+      RAM: "💾",
+      Motherboard: "🔌",
+      Storage: "💿",
+      PSU: "⚡",
+      Case: "📦",
+      Fan: "❄️",
+      Monitor: "🖥️",
+      Keyboard: "⌨️",
+      Mouse: "🖱️",
+      Mainboard: "🔌",
+      VGA: "🎮",
+      SSD: "💿",
+    };
+    return iconMap[categoryName] || "🔧";
   };
-  return iconMap[categoryName] || "🔧";
-};
 
   // Performance calculation logic
   const calculatePerformanceScores = () => {
@@ -277,9 +277,7 @@ export default function UngDungLapPC() {
     const filtered = products.filter(
       (p) =>
         p.category_id === selectedCategory ||
-      p.category_id._id === selectedCategory ||
-      p.category_id?.key === selectedCategory ||  // THÊM DÒNG NÀY
-      p.category_id?.label === selectedCategory 
+        p.category_id._id === selectedCategory
     );
     setLinhKien(filtered);
   }, [selectedCategory, products]);
@@ -293,10 +291,7 @@ export default function UngDungLapPC() {
   const openProductSelection = (category) => {
     const categoryProducts = products.filter(
       (p) =>
-        p.category_id === category._id || 
-      p.category_id._id === category._id ||
-      p.category_id?.key === category.key ||     // THÊM DÒNG NÀY
-      p.category_id?.label === category.label
+        p.category_id === category._id || p.category_id._id === category._id
     );
     setCurrentCategoryForSelection(category);
     setProductsForSelection(categoryProducts);
@@ -405,110 +400,99 @@ export default function UngDungLapPC() {
 
   // Enhanced category selector with modern design - ĐÂY LÀ PHẦN QUAN TRỌNG
   const CategorySelector = ({ category }) => {
-  const selectedProduct = selectedComponents[category._id];
-  const hasSelected = !!selectedProduct;
-  // SỬA: Ưu tiên name trước, sau đó mới đến key
-  const categoryName = category.name || category.key || category.label;
-  const displayName = category.name || category.label || category.key;
-  const icon = getCategoryIcon(categoryName);
+    const selectedProduct = selectedComponents[category._id];
+    const hasSelected = !!selectedProduct;
+    const icon = getCategoryIcon(category.name);
 
-  // DEBUG LOG - SỬA
-  console.log(`Category ${displayName}:`, {
-    categoryId: category._id,
-    selectedProduct: selectedProduct,
-    hasSelected: hasSelected,
-    categoryName: categoryName,
-    displayName: displayName
-  });
-
-  return (
-    <Animated.View style={{ opacity: fadeAnim }}>
-      <View
-        style={[
-          styles.categoryCard,
-          hasSelected && styles.categoryCardSelected,
-        ]}
-      >
-        <View style={styles.categoryHeader}>
-          <View
-            style={[
-              styles.categoryIconContainer,
-              hasSelected && styles.categoryIconSelected,
-            ]}
-          >
-            {hasSelected ? (
-              <View style={styles.categoryImageWrapper}>
-                <Image
-                  source={selectedProduct.image}
-                  style={styles.categoryProductImage}
-                  resizeMode="cover"
-                />
-                <View style={styles.categorySelectedOverlay}>
-                  <Text style={styles.categorySelectedCheck}>✓</Text>
+    return (
+      <Animated.View style={{ opacity: fadeAnim }}>
+        <View
+          style={[
+            styles.categoryCard,
+            hasSelected && styles.categoryCardSelected,
+          ]}
+        >
+          <View style={styles.categoryHeader}>
+            <View
+              style={[
+                styles.categoryIconContainer,
+                hasSelected && styles.categoryIconSelected,
+              ]}
+            >
+              {hasSelected ? (
+                <View style={styles.categoryImageWrapper}>
+                  <Image
+                    source={selectedProduct.image}
+                    style={styles.categoryProductImage}
+                    resizeMode="cover"
+                  />
+                  <View style={styles.categorySelectedOverlay}>
+                    <Text style={styles.categorySelectedCheck}>✓</Text>
+                  </View>
                 </View>
-              </View>
-            ) : (
-              <Text style={styles.categoryIcon}>{icon}</Text>
-            )}
-          </View>
+              ) : (
+                <Text style={styles.categoryIcon}>{icon}</Text>
+              )}
+            </View>
 
-          <View style={styles.categoryInfo}>
-            <Text style={styles.categoryName}>{displayName}</Text> {/* SỬA TẠI ĐÂY */}
-            {hasSelected ? (
-              <View>
-                <Text style={styles.selectedProductName} numberOfLines={1}>
-                  {selectedProduct.name}
-                </Text>
-                <Text style={styles.selectedProductPrice}>
-                  {formatCurrency(selectedProduct.price)}
-                </Text>
-                <View style={styles.productRatingContainer}>
-                  <Text style={styles.productRating}>
-                    ⭐ {selectedProduct.rating}
+            <View style={styles.categoryInfo}>
+              <Text style={styles.categoryName}>{category.name}</Text>
+              {hasSelected ? (
+                <View>
+                  <Text style={styles.selectedProductName} numberOfLines={1}>
+                    {selectedProduct.name}
                   </Text>
-                  <Text style={styles.productReviews}>
-                    ({selectedProduct.reviews})
+                  <Text style={styles.selectedProductPrice}>
+                    {formatCurrency(selectedProduct.price)}
                   </Text>
+                  <View style={styles.productRatingContainer}>
+                    <Text style={styles.productRating}>
+                      ⭐ {selectedProduct.rating}
+                    </Text>
+                    <Text style={styles.productReviews}>
+                      ({selectedProduct.reviews})
+                    </Text>
+                  </View>
                 </View>
-              </View>
-            ) : (
-              <View>
-                <Text style={styles.categoryPlaceholder}>
-                  Chưa chọn sản phẩm
-                </Text>
-                <Text style={styles.categoryHint}>Nhấn để xem danh sách</Text>
-              </View>
-            )}
-          </View>
+              ) : (
+                <View>
+                  <Text style={styles.categoryPlaceholder}>
+                    Chưa chọn sản phẩm
+                  </Text>
+                  <Text style={styles.categoryHint}>Nhấn để xem danh sách</Text>
+                </View>
+              )}
+            </View>
 
-          <View style={styles.categoryActions}>
-            {hasSelected && (
+            <View style={styles.categoryActions}>
+              {hasSelected && (
+                <TouchableOpacity
+                  style={styles.removeButton}
+                  onPress={() => removeSelectedProduct(category._id)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.removeButtonText}>×</Text>
+                </TouchableOpacity>
+              )}
               <TouchableOpacity
-                style={styles.removeButton}
-                onPress={() => removeSelectedProduct(category._id)}
+                style={[
+                  styles.selectButton,
+                  hasSelected && styles.selectButtonSelected,
+                ]}
+                onPress={() => openProductSelection(category)}
                 activeOpacity={0.8}
               >
-                <Text style={styles.removeButtonText}>×</Text>
+                <Text style={styles.selectButtonText}>
+                  {hasSelected ? "Thay đổi" : "Chọn"}
+                </Text>
               </TouchableOpacity>
-            )}
-            <TouchableOpacity
-              style={[
-                styles.selectButton,
-                hasSelected && styles.selectButtonSelected,
-              ]}
-              onPress={() => openProductSelection(category)}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.selectButtonText}>
-                {hasSelected ? "Thay đổi" : "Chọn"}
-              </Text>
-            </TouchableOpacity>
+            </View>
           </View>
         </View>
-      </View>
-    </Animated.View>
-  );
-};
+      </Animated.View>
+    );
+  };
+
   // Enhanced product modal with better UX
   const ProductSelectionModal = () => {
     const [searchText, setSearchText] = useState("");
@@ -702,16 +686,9 @@ export default function UngDungLapPC() {
 
                     {selectedPreset.components.map((component, idx) => {
                       // Tìm product data từ products array
-                      // Chấp nhận cả dạng lưu product là object hoặc chỉ ID
-      const prodSource = comp.product || comp.productId;
-      const prodId =
-        typeof prodSource === "object" ? prodSource._id || prodSource.id : prodSource;
-
-      // Tìm trong danh sách sản phẩm đã tải, fallback sang dữ liệu từ preset
-      let product = products.find((p) => p.id === prodId);
-      if (!product && typeof prodSource === "object") {
-        product = formatProduct(prodSource);
-      }
+                      const product = products.find(
+                        (p) => p.id === component.productId
+                      );
 
                       if (!product) {
                         // Nếu không tìm thấy trong products array, sử dụng data từ component
@@ -1118,10 +1095,7 @@ export default function UngDungLapPC() {
     // Truyền sản phẩm preset sang selectedComponents (phần linh kiện tự chọn)
     const presetSelected = {};
     (selectedPreset.components || []).forEach((comp) => {
-      // Xử lý productId có thể là object hoặc string
-      const prodSource = comp.product || comp.productId;
-      const prodId = typeof prodSource === "object" ? prodSource._id || prodSource.id : prodSource;
-      const product = products.find((p) => p.id === prodId);
+      const product = products.find((p) => p.id === comp.productId);
       if (product) {
         let selectedProduct = { ...product };
 
@@ -1142,7 +1116,11 @@ export default function UngDungLapPC() {
             selectedProduct.price =
               (selectedProduct.price || 0) + defaultOption.priceDiff;
           }
-        } else if (comp.variant && comp.variant.key && comp.variant.label) {
+        } else if (
+          comp.variant &&
+          comp.variant.key &&
+          comp.variant.label
+        ) {
           selectedProduct.variant = {
             key: comp.variant.key,
             label: comp.variant.label,
@@ -1154,21 +1132,9 @@ export default function UngDungLapPC() {
           }
         }
 
-        // LẤY ĐÚNG categoryId là _id của category trong mảng categories
-        let categoryId = "";
-        // Tìm category theo id, key hoặc label
-        if (typeof product.category_id === "object") {
-          categoryId = product.category_id._id || product.category_id.id;
-        } else {
-          // Nếu là string, tìm trong categories
-          const foundCat = categories.find(
-            (cat) =>
-              cat._id === product.category_id ||
-              cat.key === product.category_id ||
-              cat.label === product.category_id
-          );
-          categoryId = foundCat?._id || product.category_id;
-        }
+        // Đảm bảo lấy đúng category_id để truyền sang selectedComponents
+        const categoryId =
+          comp.categoryId || product.category_id?._id || product.category_id;
         if (categoryId) {
           presetSelected[categoryId] = selectedProduct;
         }
@@ -1479,17 +1445,16 @@ export default function UngDungLapPC() {
             Chọn linh kiện để tùy chỉnh cấu hình của bạn
           </Text>
           {categories.length > 0 ? (
-  categories.map((category) => {
-    console.log('Rendering category:', category); // THÊM LOG NÀY
-    return <CategorySelector key={category._id} category={category} />
-  })
-) : (
-  <View style={styles.noCategoriesContainer}>
-    <Text style={styles.noCategoriesText}>
-      Đang tải danh mục linh kiện...
-    </Text>
-  </View>
-)}
+            categories.map((category) => (
+              <CategorySelector key={category._id} category={category} />
+            ))
+          ) : (
+            <View style={styles.noCategoriesContainer}>
+              <Text style={styles.noCategoriesText}>
+                Đang tải danh mục linh kiện...
+              </Text>
+            </View>
+          )}
         </View>
 
         {/* Action Buttons */}

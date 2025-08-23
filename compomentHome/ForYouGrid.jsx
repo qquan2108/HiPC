@@ -287,7 +287,9 @@ export default function ForYouGrid({
             <View style={styles.ratingContainer}>
               <View style={styles.starWrapper}>
                 <Ionicons name="star" size={12} color="#FFD700" />
-                <Text style={styles.ratingText}>{product.rating || '4.8'}</Text>
+                <Text style={styles.ratingText}>
+                  {product.rating ? Number(product.rating).toFixed(1) : '4.8'}
+                </Text>
               </View>
             </View>
 
@@ -358,7 +360,7 @@ export default function ForYouGrid({
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                 <Ionicons name="star" size={14} color="#FFD700" />
                 <Text style={{ fontSize: 12, fontWeight: '600', color: '#333', marginLeft: 3 }}>
-                  {product.rating || '4.8'}
+                  {product.rating ? Number(product.rating).toFixed(1) : '4.8'}
                 </Text>
               </View>
               <TouchableOpacity style={styles.cartButton} onPress={() => handleAddToCart(product)}>
