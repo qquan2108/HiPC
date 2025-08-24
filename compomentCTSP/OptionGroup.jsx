@@ -39,10 +39,7 @@ export default function OptionGroup({
           return (
             <TouchableOpacity
               key={index}
-              style={[
-                styles.optionCard,
-                isSelected && styles.optionCardSelected,
-              ]}
+              style={[styles.optionCard, isSelected && styles.optionCardSelected]}
               onPress={() => onSelect(option)}
               activeOpacity={0.85}
             >
@@ -58,30 +55,21 @@ export default function OptionGroup({
               {/* Content */}
               <View style={styles.optionContent}>
                 <Text
-                  style={[
-                    styles.optionText,
-                    isSelected && styles.optionTextSelected,
-                  ]}
+                  style={[styles.optionText, isSelected && styles.optionTextSelected]}
                 >
                   {String(displayLabel ?? "")}
                 </Text>
 
-                {typeof option.priceDiff === "number" && (
-                  <Text
-                    style={[
-                      styles.priceDiff,
-                      isSelected && styles.priceDiffSelected,
-                    ]}
-                  >
-                    {option.priceDiff > 0
-                      ? `+${option.priceDiff.toLocaleString("vi-VN")}đ`
-                      : option.priceDiff < 0
-                      ? `-${Math.abs(option.priceDiff).toLocaleString(
-                          "vi-VN"
-                        )}đ`
-                      : "0đ"}
-                  </Text>
-                )}
+                {/* Hiển thị số lượng tồn kho */}
+                <Text
+                  style={[
+                    styles.stockText,
+                    isSelected && styles.stockTextSelected,
+                    option.stock <= 5 && styles.lowStock
+                  ]}
+                >
+                  Còn {option.stock || 0} sản phẩm
+                </Text>
 
                 {isSelected && (
                   <View style={styles.selectionIndicator}>
@@ -91,10 +79,7 @@ export default function OptionGroup({
               </View>
 
               <View
-                style={[
-                  styles.animatedBorder,
-                  isSelected && styles.animatedBorderActive,
-                ]}
+                style={[styles.animatedBorder, isSelected && styles.animatedBorderActive]}
               />
             </TouchableOpacity>
           );
@@ -237,5 +222,19 @@ const styles = StyleSheet.create({
   },
   animatedBorderActive: {
     width: "100%",
+  },
+
+  // Stock Text
+  stockText: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 4,
+  },
+  stockTextSelected: {
+    color: '#fff',
+  },
+  lowStock: {
+    color: '#f44336', // Red color for low stock warning
+    fontWeight: '500',
   },
 });

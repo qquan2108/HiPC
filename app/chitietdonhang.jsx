@@ -62,14 +62,23 @@ export default function OrderDetailScreen() {
         <Text numberOfLines={2} style={styles.productName}>
           {item.productId?.name || "Sản phẩm"}
         </Text>
-        {/* Hiển thị chi tiết biến thể nếu có */}
+
+        {/* Sửa lại cách hiển thị biến thể */}
         {item.variant && (
-          <Text style={styles.variantText}>
-            {Object.entries(item.variant)
-              .map(([k, v]) => `${k}: ${v}`)
-              .join(", ")}
-          </Text>
+          <View style={styles.variantContainer}>
+            {Object.entries(item.variant).map(([key, value]) => {
+              // Bỏ qua các trường không cần hiển thị
+              if (key === "priceDiff" || key === "_id" || key === "stock") return null;
+
+              return (
+                <Text key={key} style={styles.variantText}>
+                  {value}
+                </Text>
+              );
+            })}
+          </View>
         )}
+
         <Text style={styles.productPrice}>
           {formatCurrency(item.productId?.price ?? 0)}
         </Text>
@@ -250,7 +259,7 @@ export default function OrderDetailScreen() {
             <Text style={styles.addressText}>
               {order.shippingAddress?.phoneNumber ||
                 order.phoneNumber ||
-                order.user_id?.phone}
+                order.user_id?.addresses?.phoneNum}
             </Text>
           </View>
           <View
@@ -524,9 +533,18 @@ const styles = StyleSheet.create({
     color: "#6B7280",
     marginLeft: 8,
   },
+  variantContainer: {
+    flexDirection: "column",
+    marginBottom: 4,
+  },
   variantText: {
     fontSize: 13,
     color: "#6366F1",
+    backgroundColor: "#EEF2FF",
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 4,
     marginBottom: 2,
+    alignSelf: "flex-start",
   },
 });

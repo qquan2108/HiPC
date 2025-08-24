@@ -325,15 +325,18 @@ const fetchShippingServices = async (address) => {
 
       setShippingFee(adjustedFee);
     } catch (error) {
-      console.error("Lỗi tính phí vận chuyển:", error);
+      // Thay thế console.error bằng xử lý im lặng
       setShippingFee(0);
       Toast.show({
-        type: "error",
-        text1: "Không thể tính phí vận chuyển",
-        text2: "Đang sử dụng phí mặc định 0₫",
+        type: "info", // Đổi từ error sang info
+        text1: "Đã Áp Dụng Địa Chỉ Giao Hàng",
+        position: "top",
+        visibilityTime: 2000,
       });
     }
   };
+
+  
 
   const getServiceLabel = (service) => {
     if (!service) return "";
@@ -690,9 +693,10 @@ const fetchShippingServices = async (address) => {
         user_id: userId,
         products: productsData,
         total_price: totalBeforeDiscount,
+        phoneNumber: selectedAddress.phoneNum || selectedAddress.phoneNumber || "",
         shippingFee, 
         total,
-        address: selectedAddress?.address || "",
+        address: selectedAddress?.address + " " + wardName + ", " + districtName + ", " + provinceName || "",
         paymentMethod: selectedPayment,
         shippingMethod: selectedService?.service_id || null,
         selectedOrderVoucher,
@@ -786,23 +790,36 @@ const fetchShippingServices = async (address) => {
     } catch (err) {
       console.error("Checkout error:", err);
       if (err.response) {
-        console.error("Checkout error response:", err.response.data);
-        console.error("Checkout error status:", err.response.status);
-        Toast.show({
-          type: "error",
-          text1: "Đặt hàng thất bại!",
-          text2: err.response.data?.error || err.message || "Vui lòng thử lại.",
-        });
+        const errMsg = err.response.data?.error || err.message || "Vui lòng thử lại.";
+        const detail = err.response.data?.detail;
+        if (detail && detail.type === 'variant') {
+          Toast.show({
+            type: "error",
+            text1: "Số lượng tồn kho không đủ",
+            text2: `Biến thể ${detail.name} chỉ còn ${detail.stock} sản phẩm trong kho`,
+            visibilityTime: 4000,
+            position: "top",
+          });
+        } else {
+          Toast.show({
+            type: "error",
+            text1: "Đặt hàng thất bại!",
+            text2: errMsg,
+            visibilityTime: 4000,
+            position: "top",
+          });
+        }
       } else {
         Toast.show({
           type: "error",
           text1: "Đặt hàng thất bại!",
           text2: err.message || "Vui lòng thử lại.",
+          visibilityTime: 4000,
+          position: "top",
         });
       }
-      setPayStatus("fail");
     } finally {
-      setIsOrdering(false); // Kết thúc loading
+      setIsOrdering(false);
       Toast.hide();
     }
   };
@@ -904,13 +921,14 @@ const fetchShippingServices = async (address) => {
             {selectedAddress ? (
               <View style={styles.addressContent}>
                 <View style={styles.addressInfo}>
-                  {/* Số điện thoại in đậm ở dòng đầu */}
-                  <Text style={[styles.addressName, { fontWeight: "bold" }]}>
-                    {selectedAddress.phone || selectedAddress.phoneNumber}
-                  </Text>
+                  
                   {/* Tên địa chỉ (label hoặc recipientName) */}
                   <Text style={styles.addressText}>
                     {selectedAddress.label || selectedAddress.recipientName}
+                  </Text>
+                  {/* Số điện thoại in đậm ở dòng đầu */}
+                  <Text style={[styles.addressName, { fontWeight: "bold" }]}>
+                    {selectedAddress.phoneNum || selectedAddress.phoneNumber}
                   </Text>
                   <Text style={styles.addressText}>
                     {selectedAddress.address}

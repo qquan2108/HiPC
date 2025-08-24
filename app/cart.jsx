@@ -167,14 +167,22 @@ export default function CartScreen() {
       const items = [];
 
       for (const item of products) {
-        // Xử lý regular products
         if (item.productId && typeof item.productId === "object") {
-          const variant = item.variant || {};
+          // Merge detail variant info if available
+          let variant = item.variant || {};
+          if (item.variant && item.variant.detail) {
+            variant = {
+              ...variant,
+              ...item.variant.detail, // merge all fields from VariantProduct (stock, price, _id, ...)
+            };
+          }
+
           const basePrice = item.productId.price || 0;
           const priceDiff = variant.priceDiff || 0;
-          const displayPrice = basePrice + priceDiff;
+          // Nếu variant.price có thì ưu tiên, không thì lấy basePrice + priceDiff
+          const displayPrice = typeof variant.price === "number" ? variant.price : (basePrice + priceDiff);
 
-          // xử lý ảnh
+          // Xử lý ảnh
           let imageUri = require("../assets/images/pc1.png");
           const img = item.productId.image;
           if (img) {
@@ -191,16 +199,14 @@ export default function CartScreen() {
 
           items.push({
             id: item.productId._id,
-            cartItemId: item._id, // <-- Thêm dòng này!
-            name: item.productId.name || "Không có tên",
+            cartItemId: item._id,
+            productId: item.productId,
             price: displayPrice,
-            originalPrice: item.productId.originalPrice,
-            discount: item.productId.discount,
-            stock: item.productId.stock ?? 0,
-            image: imageUri,
             quantity: item.quantity ?? 1,
-            variant,
-            type: buildIds.includes(item.productId._id) ? 'build' : 'product'
+            variant, // đã merge đủ trường
+            stock: typeof variant.stock === "number" ? variant.stock : (item.productId.stock || 99), // Ưu tiên stock của variant
+            type: 'product',
+            image: imageUri
           });
         }
 
@@ -302,7 +308,10 @@ export default function CartScreen() {
     const newQty = Math.max(1, prod.quantity + delta);
 
     // Kiểm tra tồn kho trước khi cập nhật
-    const maxStock = prod.stock || 99;
+    const maxStock = typeof prod.variant?.stock === "number"
+      ? prod.variant.stock
+      : (typeof prod.stock === "number" ? prod.stock : 99);
+
     if (newQty > maxStock) {
       Toast.show({
         type: "error",
@@ -338,19 +347,42 @@ export default function CartScreen() {
       }
       // Không cần fetchCart() ở đây nữa
     } catch (err) {
-      // Nếu lỗi, rollback lại số lượng cũ và báo lỗi
-      setCart((prev) =>
-        prev.map((item) =>
-          item.id === id ? { ...item, quantity: prod.quantity } : item
-        )
-      );
-      console.error("Lỗi khi cập nhật số lượng:", err);
-      Toast.show({
-        type: "error",
-        text1: "Có lỗi khi cập nhật số lượng sản phẩm",
-        position: "top",
-        visibilityTime: 2000,
-      });
+  // Kiểm tra nếu là lỗi vượt quá tồn kho
+  if (err.response?.data?.maxStock !== undefined) {
+    const { maxStock, details } = err.response.data;
+    
+    // Reset về số lượng tối đa có thể
+    setCart((prev) =>
+      prev.map((item) =>
+        item.id === id ? { ...item, quantity: maxStock } : item
+      )
+    );
+
+    // Hiển thị toast thông báo tồn kho
+    Toast.show({
+      type: "info", // Đổi thành info thay vì error
+      text1: "Thông báo số lượng tồn kho",
+      text2: details || `Sản phẩm này chỉ còn ${maxStock} trong kho`,
+      position: "top",
+      visibilityTime: 3000,
+    });
+  } else {
+    // Rollback số lượng cũ nếu là lỗi khác
+    setCart((prev) =>
+      prev.map((item) =>
+        item.id === id ? { ...item, quantity: prod.quantity } : item
+      )
+    );
+    
+    // Hiển thị toast lỗi chung
+    Toast.show({
+      type: "error",
+      text1: "Có lỗi xảy ra",
+      text2: "Vui lòng thử lại sau",
+      position: "top", 
+      visibilityTime: 2000,
+    });
+  }
     }
   };
 
@@ -481,65 +513,60 @@ export default function CartScreen() {
     const prod = cart.find((item) => item.id === id);
     if (!prod) return;
 
-    // Kiểm tra với stock từ server (giả sử bạn có thông tin stock)
-    // Nếu không có stock info, có thể set max là 99
-    const maxStock = prod.stock || 99;
-
-    if (newQuantity > maxStock) {
-      Toast.show({
-        type: "error",
-        text1: "Số lượng vượt quá kho",
-        text2: `Sản phẩm này chỉ còn ${maxStock} trong kho`,
-        position: "top",
-        visibilityTime: 3000,
-      });
-
-      // Reset về số lượng tối đa có thể
-      try {
-        if (prod.type === 'combo') {
-          await axiosInstance.put("/cartt/update-quantity", {
-            user_id: userId,
-            comboId: prod.comboId,
-            quantity: maxStock,
-          });
-        } else {
-          await axiosInstance.put("/cartt/update-quantity", {
-            user_id: userId,
-            productId: prod.id,
-            quantity: maxStock,
-          });
-        }
-        await fetchCart();
-      } catch (err) {
-        console.error("Lỗi khi cập nhật số lượng:", err);
-      }
-      return;
-    }
-
-    // Cập nhật số lượng bình thường
     try {
+      // Gọi API cập nhật số lượng
       if (prod.type === 'combo') {
         await axiosInstance.put("/cartt/update-quantity", {
           user_id: userId,
           comboId: prod.comboId,
-          quantity: Math.max(1, newQuantity),
+          quantity: newQuantity
         });
       } else {
         await axiosInstance.put("/cartt/update-quantity", {
           user_id: userId,
           productId: prod.id,
-          quantity: Math.max(1, newQuantity),
+          variant: prod.variant,
+          quantity: newQuantity
         });
       }
-      await fetchCart();
+
+      // ✅ Cập nhật UI nếu thành công
+      setCart(prev =>
+        prev.map(item =>
+          item.id === id ? { ...item, quantity: newQuantity } : item
+        )
+      );
+
     } catch (err) {
-      console.error("Lỗi khi cập nhật số lượng:", err);
-      Toast.show({
-        type: "error",
-        text1: "Có lỗi khi cập nhật số lượng sản phẩm",
-        position: "top",
-        visibilityTime: 2000,
-      });
+      
+
+      // ✅ Chỉ xử lý khi vượt quá tồn kho
+      if (err.response?.data?.maxStock !== undefined) {
+        const { maxStock, details } = err.response.data;
+        
+        Toast.show({
+          type: "error",
+          text1: "Số lượng vượt quá tồn kho",
+          text2: details,
+          position: "top",
+          visibilityTime: 3000,
+        });
+
+        // Reset về số lượng tối đa
+        setCart(prev =>
+          prev.map(item =>
+            item.id === id ? { ...item, quantity: maxStock } : item
+          )
+        );
+      } else {
+        Toast.show({
+          type: "error",
+          text1: "Có lỗi khi cập nhật số lượng",
+          text2: err.response?.data?.error || err.message,
+          position: "top",
+          visibilityTime: 2000,
+        });
+      }
     }
   };
   // danh sách sản phẩm đã chọn
@@ -630,6 +657,41 @@ export default function CartScreen() {
     }
   };
 
+  // Thêm hàm xử lý đổi variant
+  const handleVariantChange = async (productId, oldVariant, newVariantId) => {
+    try {
+      const response = await axiosInstance.put("/cartt/update-variant", {
+        user_id: userId,
+        productId,
+        oldVariant,
+        newVariantId
+      });
+
+      // Cập nhật UI
+      const updatedCart = response.data.products.map(item => ({
+        ...item,
+        id: item.productId._id,
+        cartItemId: item._id
+      }));
+      setCart(updatedCart);
+
+      Toast.show({
+        type: "success",
+        text1: "Đã cập nhật phiên bản sản phẩm",
+        position: "top",
+        visibilityTime: 2000,
+      });
+    } catch (err) {
+      Toast.show({
+        type: "error", 
+        text1: "Không thể cập nhật phiên bản",
+        text2: err.response?.data?.error || err.message,
+        position: "top",
+        visibilityTime: 2000,
+      });
+    }
+  };
+
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -664,16 +726,16 @@ export default function CartScreen() {
 
         {!isEmpty ? (
           <CartProductList
-            cart={cart}
-            onRemove={handleRemove}
-            onQuantity={handleQuantity}
-            onQuantityInput={handleQuantityInput}
-            formatCurrency={formatCurrency}
-            selectedIds={selectedIds}
-            onToggleSelect={toggleSelect}
-            onProductPress={handleProductPress}
-          // Truyền thêm prop này nếu cần
-          />
+  cart={cart}
+  onRemove={handleRemove}
+  onQuantity={handleQuantity}
+  onQuantityInput={handleQuantityInput}
+  onVariantChange={handleVariantChange}
+  formatCurrency={formatCurrency}
+  selectedIds={selectedIds}
+  onToggleSelect={toggleSelect}
+  onProductPress={handleProductPress}
+/>
         ) : (
           <CartEmpty />
         )}

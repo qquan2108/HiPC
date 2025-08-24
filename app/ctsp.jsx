@@ -248,9 +248,23 @@ export default function CTSP() {
   // Hàm thêm vào giỏ hàng với kiểm tra tồn kho
   const AddToCart = async (prod) => {
     try {
+      // Lấy variantId và kiểm tra tồn kho biến thể
+      let variantId = null;
+      let variantStock = prod.stock ?? 99;
+      if (prod.variants && prod.variants.length > 0) {
+        const group = prod.variants[0];
+        const selected = variantSelections[group.key];
+        if (selected && (selected._id || selected.id)) {
+          variantId = selected._id || selected.id;
+          // Nếu biến thể có trường stock thì kiểm tra tồn kho biến thể
+          if (typeof selected.stock === "number") {
+            variantStock = selected.stock;
+          }
+        }
+      }
+
       // Kiểm tra tồn kho
-      const maxStock = prod.stock ?? 99;
-      if (maxStock < 1) {
+      if (variantStock < 1) {
         Toast.show({
           type: "error",
           text1: "Sản phẩm đã hết hàng!",
@@ -271,49 +285,26 @@ export default function CTSP() {
       const userObj = JSON.parse(userStr);
       const userId = userObj._id || userObj.id;
 
-      // Gộp tất cả lựa chọn biến thể thành một object duy nhất
-      let variantPayload = undefined;
-      if (prod.variants && prod.variants.length > 0) {
-        if (prod.variants.length === 1) {
-          const group = prod.variants[0];
-          const selected = variantSelections[group.key];
-          if (selected && selected.label && group.key) {
-            variantPayload = {
-              key: group.key,
-              label: selected.label,
-              priceDiff: selected.priceDiff || 0,
-            };
-          }
-        } else {
-          const keys = Object.keys(variantSelections);
-          const labels = keys
-            .map((k) => variantSelections[k]?.label)
-            .filter(Boolean);
-          const priceDiffSum = keys.reduce(
-            (sum, k) => sum + (variantSelections[k]?.priceDiff || 0),
-            0
-          );
-          variantPayload = {
-            key: keys.join(" + "),
-            label: labels.join(" + "),
-            priceDiff: priceDiffSum,
-          };
-        }
+      if (!variantId) {
+        Toast.show({
+          type: "error",
+          text1: "Vui lòng chọn biến thể sản phẩm!",
+          position: "top",
+        });
+        return;
       }
 
       await axiosInstance.post("/cartt/add-to-cart", {
         user_id: userId,
-        productId: prod._id || prod.id,
+        productId: prod.id || prod._id,
+        variantId,
         quantity: 1,
-        variant: variantPayload,
       });
 
       Toast.show({
         type: "success",
         text1: "Đã thêm vào giỏ hàng!",
-        text2: variantPayload
-          ? `Cấu hình: ${variantPayload.label}`
-          : "Mặc định",
+        text2: "Thành công",
         position: "bottom",
       });
     } catch (err) {

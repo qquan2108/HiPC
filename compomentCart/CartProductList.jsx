@@ -2,30 +2,29 @@ import { Feather } from "@expo/vector-icons";
 import { useState } from "react";
 import {
   Image,
-  Modal,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View
 } from "react-native";
+import VariantSelectionModal from './VariantSelectionModal';
 
 export default function CartProductList({ 
   cart, 
   onRemove, 
-  onQuantity, 
-  formatCurrency, 
-  onToggleSelect, 
-  selectedIds,
+  onQuantity,
   onQuantityInput,
-  onProductPress,
   onVariantChange,
-  availableVariants
+  formatCurrency,
+  selectedIds = [],
+  onToggleSelect,
+  onProductPress,
+  ...props 
 }) {
   const [editingQuantity, setEditingQuantity] = useState({});
   const [tempQuantity, setTempQuantity] = useState({});
-  const [variantModalVisible, setVariantModalVisible] = useState(false);
+  const [showVariantModal, setShowVariantModal] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
 
   const handleQuantityInputFocus = (itemId, currentQuantity) => {
@@ -50,339 +49,244 @@ export default function CartProductList({
     setTempQuantity(prev => ({ ...prev, [itemId]: numericText }));
   };
 
-  const handleVariantPress = (item) => {
-    if (item.type === 'combo') return;
-    setSelectedProduct(item);
-    setVariantModalVisible(true);
+  // ✅ FIXED: Hàm mở modal chọn variant
+  const handleVariantPress = (product) => {
+    if (product.type === 'combo') return;
+
+    // Lấy danh sách variants từ sản phẩm
+    const productVariants = product.productId?.variants?.[0]?.options || [];
+    
+    if (!productVariants.length) {
+      console.log('Product has no variants');
+      return;
+    }
+
+    // Map variants sang format mới
+    const variants = productVariants.map(option => ({
+      _id: option._id,
+      name: option.label,
+      price: option.price || (product.productId.price + (option.priceDiff || 0)),
+      stock: option.stock || 0,
+      label: option.label
+    }));
+
+    setSelectedProduct({
+      ...product,
+      variants
+    });
+    setShowVariantModal(true);
   };
 
-  const handleVariantSelect = (variantType, variantOption) => {
-    if (onVariantChange && selectedProduct) {
-      onVariantChange(selectedProduct.id, variantType, variantOption);
+  // ✅ FIXED: Hàm xử lý khi chọn variant mới
+  const handleVariantSelect = async (newVariant) => {
+    if (selectedProduct && onVariantChange) {
+      await onVariantChange(
+        selectedProduct.id,
+        selectedProduct.variant,
+        newVariant._id
+      );
     }
-    setVariantModalVisible(false);
+    setShowVariantModal(false);
     setSelectedProduct(null);
   };
 
-  // ✅ FIXED: Render variant info with better logic
+  // ✅ IMPROVED: Render variant info với UI đẹp hơn
   const renderVariantInfo = (item) => {
-    if (!item.variant) return null;
-
-    // Handle old format: { key: "A + B", label: "X + Y" }
-    if (typeof item.variant === 'object' && item.variant.key && item.variant.label) {
-      const { key, label } = item.variant;
-      
-      // Check if both key and label contain "+"
-      if (key.includes(' + ') && label.includes(' + ')) {
-        const keys = key.split(' + ').map(k => k.trim());
-        const labels = label.split(' + ').map(l => l.trim());
-        
-        return (
-          <View style={styles.variantContainer}>
-            {keys.map((k, index) => (
-              <TouchableOpacity
-                key={`${k}_${index}`}
-                style={styles.variantRow}
-                onPress={() => handleVariantPress(item)}
-                disabled={item.type === 'combo'}
-              >
-                <Text style={styles.variantLabel}>{k}:</Text>
-                <Text style={styles.variantValue}>{labels[index] || ''}</Text>
-                {item.type !== 'combo' && (
-                  <Feather name="chevron-down" size={14} color="#999" />
-                )}
-              </TouchableOpacity>
-            ))}
-          </View>
-        );
-      }
-      
-      // Single variant display
-      return (
-        <TouchableOpacity 
-          style={styles.variantRow}
-          onPress={() => handleVariantPress(item)}
-          disabled={item.type === 'combo'}
-        >
-          <Text style={styles.variantLabel}>{key}:</Text>
-          <Text style={styles.variantValue}>{label}</Text>
-          {item.type !== 'combo' && (
-            <Feather name="chevron-down" size={14} color="#999" />
-          )}
-        </TouchableOpacity>
-      );
-    }
-
-    // Handle new format: { "Phiên Bản": "Tray", "Bảo Hành": "3 năm" }
-    if (typeof item.variant === 'object' && Object.keys(item.variant).length > 0) {
-      return (
-        <View style={styles.variantContainer}>
-          {Object.entries(item.variant).map(([variantType, variantValue], idx) => {
-            // Skip key, label, priceDiff properties from old format
-            if (['key', 'label', 'priceDiff'].includes(variantType)) {
-              return null;
-            }
-            
-            const displayValue = typeof variantValue === 'object' && variantValue !== null
-              ? (variantValue.label || variantValue.value || variantValue)
-              : variantValue;
-
-            return (
-              <TouchableOpacity
-                key={`${variantType}_${idx}`}
-                style={styles.variantRow}
-                onPress={() => handleVariantPress(item)}
-                disabled={item.type === 'combo'}
-              >
-                <Text style={styles.variantLabel}>{variantType}:</Text>
-                <Text style={styles.variantValue}>{displayValue}</Text>
-                {item.type !== 'combo' && (
-                  <Feather name="chevron-down" size={14} color="#999" />
-                )}
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      );
-    }
-
-    // Handle string variant
-    if (typeof item.variant === 'string') {
-      return (
-        <TouchableOpacity 
-          style={styles.variantRow}
-          onPress={() => handleVariantPress(item)}
-          disabled={item.type === 'combo'}
-        >
-          <Text style={styles.variantLabel}>Phân loại:</Text>
-          <Text style={styles.variantValue}>{item.variant}</Text>
-          {item.type !== 'combo' && (
-            <Feather name="chevron-down" size={14} color="#999" />
-          )}
-        </TouchableOpacity>
-      );
-    }
-
-    return null;
-  };
-
-  // Modal chọn biến thể
-  const renderVariantModal = () => {
-    if (!selectedProduct || !availableVariants || !availableVariants[selectedProduct.id]) {
-      return null;
-    }
-
-    const productVariants = availableVariants[selectedProduct.id];
+    if (!item.variant || item.type === 'combo') return null;
 
     return (
-      <Modal
-        visible={variantModalVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setVariantModalVisible(false)}
+      <TouchableOpacity
+        style={styles.variantButton}
+        onPress={() => handleVariantPress(item)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Chọn phân loại</Text>
-              <TouchableOpacity 
-                onPress={() => setVariantModalVisible(false)}
-                style={styles.closeButton}
-              >
-                <Feather name="x" size={20} color="#666" />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView style={styles.modalBody}>
-              {Object.entries(productVariants).map(([variantType, options]) => (
-                <View key={variantType} style={styles.variantSection}>
-                  <Text style={styles.variantSectionTitle}>{variantType}</Text>
-                  <View style={styles.variantOptions}>
-                    {options.map((option, index) => {
-                      const isSelected = selectedProduct.variant && 
-                        selectedProduct.variant[variantType] === option.value;
-                      
-                      return (
-                        <TouchableOpacity
-                          key={index}
-                          style={[
-                            styles.variantOption,
-                            isSelected && styles.variantOptionSelected
-                          ]}
-                          onPress={() => handleVariantSelect(variantType, option)}
-                        >
-                          <Text style={[
-                            styles.variantOptionText,
-                            isSelected && styles.variantOptionTextSelected
-                          ]}>
-                            {option.label}
-                          </Text>
-                          {option.priceChange && option.priceChange !== 0 && (
-                            <Text style={[
-                              styles.variantPriceChange,
-                              isSelected && styles.variantPriceChangeSelected
-                            ]}>
-                              {option.priceChange > 0 ? '+' : ''}{formatCurrency(option.priceChange)}
-                            </Text>
-                          )}
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                </View>
-              ))}
-            </ScrollView>
-          </View>
+        <View style={styles.variantContent}>
+          <Text style={styles.variantLabel}>
+            {item.variant.label}
+          </Text>
+          <Text style={styles.variantStock}>
+            Còn {item.variant.stock} sản phẩm
+          </Text>
         </View>
-      </Modal>
+        <Feather name="chevron-down" size={20} color="#666" />
+      </TouchableOpacity>
     );
   };
 
   return (
     <View style={styles.cartBox}>
-      {cart.map(item => (
-        <TouchableOpacity
-          key={item.id}
-          activeOpacity={0.85}
-          onPress={() => onProductPress && onProductPress(item)}
-          disabled={item.type === 'combo'}
-        >
-          <View
-            style={[
-              styles.productCard,
-              item.type === 'combo' && { backgroundColor: '#fef7f0' },
-              item.type === 'build' && { backgroundColor: '#e3f2fd' }
-            ]}
+      {Array.isArray(cart) && cart.map(item => (
+        typeof item === 'object' && item !== null && item.productId && item.productId.name ? (
+          <TouchableOpacity
+            key={item._id || item.productId._id}
+            activeOpacity={0.9}
+            onPress={() => onProductPress && onProductPress(item)}
+            disabled={item.type === 'combo'}
           >
-            {/* Checkbox */}
-            <TouchableOpacity
-              style={[
-                styles.checkbox,
-                selectedIds.includes(item.id) && styles.checkboxSelected
-              ]}
-              onPress={() => onToggleSelect(item.id)}
-              activeOpacity={0.8}
-            >
-              <Feather
-                name={selectedIds.includes(item.id) ? "check" : ""}
-                size={16}
-                color="#fff"
-              />
-            </TouchableOpacity>
-
-            {/* Product Image */}
-            <View style={styles.imageContainer}>
-              <Image source={item.image} style={styles.productImage} />
-              {item.discount && (
-                <View style={styles.discountBadge}>
-                  <Text style={styles.discountText}>-{item.discount}%</Text>
-                </View>
-              )}
-              {item.type === 'combo' && (
-                <View style={styles.comboBadge}>
-                  <Text style={styles.comboBadgeText}>COMBO</Text>
-                </View>
-              )}
-              {item.type === 'build' && (
-                <View style={styles.buildBadge}>
-                  <Text style={styles.buildBadgeText}>BUILD</Text>
-                </View>
-              )}
-            </View>
-
-            {/* Product Info */}
-            <View style={styles.productInfo}>
-              <Text
+            <View style={[
+              styles.productCard,
+              item.type === 'combo' && styles.comboCard,
+              item.type === 'build' && styles.buildCard,
+              selectedIds.includes(item._id || item.productId._id) && styles.selectedCard
+            ]}>
+              {/* Checkbox với animation */}
+              <TouchableOpacity
                 style={[
-                  styles.productName,
-                  item.type === 'combo' && { color: '#ff6b35' }
+                  styles.checkbox,
+                  selectedIds.includes(item._id || item.productId._id) && styles.checkboxSelected
                 ]}
-                numberOfLines={2}
+                onPress={() => onToggleSelect(item._id || item.productId._id)}
+                activeOpacity={0.8}
               >
-                {item.name}
-              </Text>
-              
-              {/* ✅ FIXED: Enhanced Variant Display */}
-              {renderVariantInfo(item)}
+                <View style={styles.checkboxInner}>
+                  {selectedIds.includes(item._id || item.productId._id) && (
+                    <Feather name="check" size={14} color="#fff" />
+                  )}
+                </View>
+              </TouchableOpacity>
 
-              {/* Price section */}
-              <View style={styles.priceSection}>
-                <Text style={styles.currentPrice}>
-                  {formatCurrency(item.price)}
-                </Text>
-                {item.originalPrice && item.originalPrice > item.price && (
-                  <Text style={styles.originalPrice}>
-                    {formatCurrency(item.originalPrice)}
-                  </Text>
+              {/* Product Image Container */}
+              <View style={styles.imageContainer}>
+                <Image 
+                  source={{ uri: item.productId.image }} 
+                  style={styles.productImage}
+                  resizeMode="cover"
+                />
+                
+                {/* Badges */}
+                {item.discount > 0 && (
+                  <View style={styles.discountBadge}>
+                    <Text style={styles.discountText}>-{item.discount}%</Text>
+                  </View>
+                )}
+                
+                {item.type === 'combo' && (
+                  <View style={styles.comboBadge}>
+                    <Feather name="package" size={10} color="#fff" />
+                    <Text style={styles.comboBadgeText}>COMBO</Text>
+                  </View>
+                )}
+                
+                {item.type === 'build' && (
+                  <View style={styles.buildBadge}>
+                    <Feather name="cpu" size={10} color="#fff" />
+                    <Text style={styles.buildBadgeText}>BUILD</Text>
+                  </View>
                 )}
               </View>
 
-              {/* Quantity controls */}
-              <View style={styles.quantityContainer}>
-                <TouchableOpacity 
-                  onPress={() => onQuantity(item.id, -1)} 
-                  style={[styles.quantityBtn, styles.decreaseBtn]}
-                  disabled={item.quantity <= 1}
+              {/* Product Info */}
+              <View style={styles.productInfo}>
+                <Text
+                  style={[
+                    styles.productName,
+                    item.type === 'combo' && styles.comboProductName
+                  ]}
+                  numberOfLines={2}
                 >
-                  <Feather 
-                    name="minus" 
-                    size={14} 
-                    color={item.quantity <= 1 ? "#ccc" : "#666"} 
-                  />
-                </TouchableOpacity>
+                  {item.productId.name}
+                </Text>
+                
+                {/* Variant info */}
+                {renderVariantInfo(item)}
 
-                <View style={styles.quantityInputContainer}>
-                  {editingQuantity[item.id] ? (
-                    <TextInput
-                      style={styles.quantityInput}
-                      value={tempQuantity[item.id] || ''}
-                      onChangeText={(text) => handleQuantityTextChange(item.id, text)}
-                      onBlur={() => handleQuantityInputBlur(item.id)}
-                      keyboardType="numeric"
-                      selectTextOnFocus
-                      maxLength={3}
-                      autoFocus
-                    />
-                  ) : (
-                    <TouchableOpacity 
-                      onPress={() => handleQuantityInputFocus(item.id, item.quantity)}
-                      style={styles.quantityDisplay}
-                    >
-                      <Text style={styles.quantityText}>{item.quantity}</Text>
-                    </TouchableOpacity>
+                {/* Price section với thiết kế mới */}
+                <View style={styles.priceContainer}>
+                  <Text style={styles.currentPrice}>
+                    {formatCurrency(item.price)}
+                  </Text>
+                  {item.originalPrice && item.originalPrice > item.price && (
+                    <Text style={styles.originalPrice}>
+                      {formatCurrency(item.originalPrice)}
+                    </Text>
                   )}
                 </View>
 
-                <TouchableOpacity 
-                  onPress={() => onQuantity(item.id, 1)} 
-                  style={[styles.quantityBtn, styles.increaseBtn]}
-                >
-                  <Feather name="plus" size={14} color="#666" />
-                </TouchableOpacity>
+                {/* Stock warning */}
+                {item.stock && item.stock < 10 && (
+                  <View style={styles.stockWarningContainer}>
+                    <Feather name="alert-triangle" size={12} color="#ff6b35" />
+                    <Text style={styles.stockWarning}>
+                      Chỉ còn {item.stock} sản phẩm
+                    </Text>
+                  </View>
+                )}
               </View>
 
-              {/* Stock warning */}
-              {item.stock && item.stock < 10 && (
-                <Text style={styles.stockWarning}>
-                  Chỉ còn {item.stock} sản phẩm
-                </Text>
-              )}
-            </View>
+              {/* Right Actions */}
+              <View style={styles.rightActions}>
+                {/* Remove button */}
+                <TouchableOpacity
+                  onPress={() => onRemove(item.id)}
+                  style={styles.removeButton}
+                  activeOpacity={0.7}
+                >
+                  <Feather name="trash-2" size={16} color="#ff4757" />
+                </TouchableOpacity>
 
-            {/* Remove button */}
-            <TouchableOpacity
-              onPress={() => onRemove(item.id)}
-              style={styles.removeButton}
-              activeOpacity={0.7}
-            >
-              <Feather name="trash-2" size={18} color="#ff4757" />
-            </TouchableOpacity>
-          </View>
-        </TouchableOpacity>
+                {/* Quantity controls */}
+                <View style={styles.quantityContainer}>
+                  <TouchableOpacity 
+                    onPress={() => onQuantity(item.id, -1)} 
+                    style={[styles.quantityBtn, styles.decreaseBtn]}
+                    disabled={item.quantity <= 1}
+                    activeOpacity={0.7}
+                  >
+                    <Feather 
+                      name="minus" 
+                      size={12} 
+                      color={item.quantity <= 1 ? "#ccc" : "#666"} 
+                    />
+                  </TouchableOpacity>
+
+                  <View style={styles.quantityInputContainer}>
+                    {editingQuantity[item.id] ? (
+                      <TextInput
+                        style={styles.quantityInput}
+                        value={tempQuantity[item.id] || ''}
+                        onChangeText={(text) => handleQuantityTextChange(item.id, text)}
+                        onBlur={() => handleQuantityInputBlur(item.id)}
+                        keyboardType="numeric"
+                        selectTextOnFocus
+                        maxLength={3}
+                        autoFocus
+                      />
+                    ) : (
+                      <TouchableOpacity 
+                        onPress={() => handleQuantityInputFocus(item.id, item.quantity)}
+                        style={styles.quantityDisplay}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={styles.quantityText}>{item.quantity}</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+
+                  <TouchableOpacity 
+                    onPress={() => onQuantity(item.id, 1)} 
+                    style={[styles.quantityBtn, styles.increaseBtn]}
+                    activeOpacity={0.7}
+                  >
+                    <Feather name="plus" size={12} color="#666" />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </TouchableOpacity>
+        ) : null
       ))}
 
       {/* Variant Selection Modal */}
-      {renderVariantModal()}
+      <VariantSelectionModal
+        visible={showVariantModal}
+        onClose={() => {
+          setShowVariantModal(false);
+          setSelectedProduct(null);
+        }}
+        variants={selectedProduct?.variants || []}
+        selectedVariant={selectedProduct?.variant}
+        onSelect={handleVariantSelect}
+        formatCurrency={formatCurrency}
+      />
     </View>
   );
 }
@@ -390,53 +294,84 @@ export default function CartProductList({
 const styles = StyleSheet.create({
   cartBox: {
     paddingHorizontal: 16,
+    paddingTop: 8,
   },
   productCard: {
     flexDirection: 'row',
     backgroundColor: '#fff',
-    borderRadius: 12,
+    borderRadius: 16,
     marginBottom: 12,
-    padding: 12,
+    padding: 16,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 3,
-    borderWidth: 0.5,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 4,
+    borderWidth: 1,
     borderColor: '#f0f0f0',
+    position: 'relative',
+    minHeight: 120,
+  },
+  selectedCard: {
+    borderColor: '#2979ff',
+    borderWidth: 2,
+    shadowColor: '#2979ff',
+    shadowOpacity: 0.15,
+  },
+  comboCard: {
+    backgroundColor: '#fef9f5',
+    borderColor: '#ff6b35',
+    borderWidth: 1,
+  },
+  buildCard: {
+    backgroundColor: '#f0f8ff',
+    borderColor: '#2979ff',
+    borderWidth: 1,
   },
   checkbox: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+    position: 'absolute',
+    left: 12,
+    top: 12,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     borderWidth: 2,
     borderColor: '#ddd',
-    marginRight: 12,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#fff',
+    zIndex: 10,
   },
   checkboxSelected: {
-    backgroundColor: '#ee4d2d',
-    borderColor: '#ee4d2d',
+    backgroundColor: '#2979ff',
+    borderColor: '#2979ff',
+  },
+  checkboxInner: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   imageContainer: {
+    width: 88,
+    height: 88,
+    marginRight: 16,
     position: 'relative',
-    marginRight: 12,
+    marginLeft: 12, // Space for checkbox
   },
   productImage: {
-    width: 80,
-    height: 80,
-    borderRadius: 8,
-    backgroundColor: '#f8f8f8',
+    width: '100%',
+    height: '100%',
+    borderRadius: 12,
+    backgroundColor: '#f8f9fa',
   },
   discountBadge: {
     position: 'absolute',
     top: -4,
     right: -4,
-    backgroundColor: '#ff424e',
+    backgroundColor: '#ff4757',
     borderRadius: 8,
-    paddingHorizontal: 4,
+    paddingHorizontal: 6,
     paddingVertical: 2,
   },
   discountText: {
@@ -446,72 +381,78 @@ const styles = StyleSheet.create({
   },
   comboBadge: {
     position: 'absolute',
-    left: 0,
-    bottom: 0,
+    bottom: -2,
+    left: -2,
     backgroundColor: '#ff6b35',
     borderRadius: 6,
-    paddingHorizontal: 6,
+    paddingHorizontal: 4,
     paddingVertical: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   comboBadgeText: {
     color: '#fff',
-    fontSize: 10,
+    fontSize: 8,
     fontWeight: 'bold',
+    marginLeft: 2,
   },
   buildBadge: {
     position: 'absolute',
-    left: 0,
-    bottom: 0,
+    bottom: -2,
+    left: -2,
     backgroundColor: '#2979ff',
     borderRadius: 6,
-    paddingHorizontal: 6,
+    paddingHorizontal: 4,
     paddingVertical: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   buildBadgeText: {
     color: '#fff',
-    fontSize: 10,
+    fontSize: 8,
     fontWeight: 'bold',
+    marginLeft: 2,
   },
   productInfo: {
     flex: 1,
     justifyContent: 'space-between',
+    paddingVertical: 4,
   },
   productName: {
+    fontSize: 15,
+    color: '#333',
+    fontWeight: '600',
+    marginBottom: 8,
+    lineHeight: 20,
+  },
+  comboProductName: {
+    color: '#ff6b35',
+  },
+  variantButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#f8f9fa',
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: '#eee',
+  },
+  variantContent: {
+    flex: 1,
+  },
+  variantLabel: {
     fontSize: 14,
     color: '#333',
     fontWeight: '500',
-    lineHeight: 18,
-    marginBottom: 8,
-  },
-  // ✅ IMPROVED: Enhanced Variant Styles
-  variantContainer: {
-    marginBottom: 8,
-  },
-  variantRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f8f9fa',
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 6,
     marginBottom: 4,
-    borderWidth: 1,
-    borderColor: '#e9ecef',
   },
-  variantLabel: {
+  variantStock: {
     fontSize: 12,
     color: '#666',
-    fontWeight: '500',
-    minWidth: 70, // ✅ Increased width for better alignment
   },
-  variantValue: {
-    fontSize: 12,
-    color: '#e53935',
-    fontWeight: '600',
-    flex: 1,
-    marginLeft: 4,
-  },
-  priceSection: {
+  priceContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 8,
@@ -527,46 +468,71 @@ const styles = StyleSheet.create({
     textDecorationLine: 'line-through',
     marginLeft: 8,
   },
+  stockWarningContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  stockWarning: {
+    fontSize: 11,
+    color: '#ff6b35',
+    fontWeight: '500',
+    marginLeft: 4,
+  },
+  rightActions: {
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    paddingVertical: 4,
+    minHeight: 80,
+  },
+  removeButton: {
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: '#fff5f5',
+  },
   quantityContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 8,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e9ecef',
+    overflow: 'hidden',
   },
   quantityBtn: {
-    width: 28,
-    height: 28,
-    borderRadius: 4,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
+    width: 32,
+    height: 32,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#fff',
   },
   decreaseBtn: {
-    borderTopRightRadius: 0,
-    borderBottomRightRadius: 0,
+    borderTopLeftRadius: 7,
+    borderBottomLeftRadius: 7,
+    borderRightWidth: 1,
+    borderRightColor: '#e9ecef',
   },
   increaseBtn: {
-    borderTopLeftRadius: 0,
-    borderBottomLeftRadius: 0,
+    borderTopRightRadius: 7,
+    borderBottomRightRadius: 7,
+    borderLeftWidth: 1,
+    borderLeftColor: '#e9ecef',
   },
   quantityInputContainer: {
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: '#e0e0e0',
-    backgroundColor: '#fff',
-    minWidth: 40,
-    height: 28,
-    alignItems: 'center',
+    width: 36,
+    height: 32,
     justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#fff',
   },
   quantityInput: {
-    fontSize: 14,
-    textAlign: 'center',
-    padding: 0,
     width: '100%',
     height: '100%',
+    textAlign: 'center',
+    fontSize: 14,
+    fontWeight: '600',
     color: '#333',
+    padding: 0,
   },
   quantityDisplay: {
     width: '100%',
@@ -577,96 +543,7 @@ const styles = StyleSheet.create({
   quantityText: {
     fontSize: 14,
     color: '#333',
-    fontWeight: '500',
-  },
-  stockWarning: {
-    fontSize: 11,
-    color: '#ff6b35',
-    marginTop: 4,
-    fontStyle: 'italic',
-  },
-  removeButton: {
-    padding: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: 8,
-  },
-  // Modal Styles
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: '80%',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  modalTitle: {
-    fontSize: 18,
     fontWeight: '600',
-    color: '#333',
-  },
-  closeButton: {
-    padding: 4,
-  },
-  modalBody: {
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-  },
-  variantSection: {
-    marginBottom: 24,
-  },
-  variantSectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 12,
-  },
-  variantOptions: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  variantOption: {
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    backgroundColor: '#fff',
-    minWidth: 80,
-    alignItems: 'center',
-  },
-  variantOptionSelected: {
-    borderColor: '#ee4d2d',
-    backgroundColor: '#fff5f5',
-  },
-  variantOptionText: {
-    fontSize: 14,
-    color: '#333',
-    fontWeight: '500',
-  },
-  variantOptionTextSelected: {
-    color: '#ee4d2d',
-    fontWeight: '600',
-  },
-  variantPriceChange: {
-    fontSize: 12,
-    color: '#666',
-    marginTop: 2,
-  },
-  variantPriceChangeSelected: {
-    color: '#ee4d2d',
+    textAlign: 'center',
   },
 });

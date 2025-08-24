@@ -77,7 +77,7 @@ export default function AddressModal({
             id: 'user-default', // id duy nhất
             label: 'Địa chỉ của tôi',
             address: user.address,
-            phone: user.phone || '',
+            phone: user.phoneNum || '',
             isUserDefault: true,
             isDefault: true,
             provinceId: user.provinceId?.toString(),
@@ -164,7 +164,7 @@ export default function AddressModal({
       const user = JSON.parse(userStr);
       const res = await axiosInstance.post(
         `/users/${user.id || user._id}/addresses`,
-        { label: label.trim(), address: address.trim(), provinceId, districtId, wardCode, phone: phone.trim() }
+        { label: label.trim(), address: address.trim(), provinceId, districtId, wardCode, phoneNum: phone.trim() }
       );
       const newAddress = res.data;
 

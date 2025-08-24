@@ -528,32 +528,71 @@ export default function UngDungLapPC() {
             <Text style={styles.productName} numberOfLines={2}>
               {item.name}
             </Text>
+            
             <Text style={styles.productBrand}>
               {getBrandName(item.brand_id)}
             </Text>
+            
             <View style={styles.productRatingRow}>
               <Text style={styles.productRating}>⭐ {item.rating}</Text>
               <Text style={styles.productReviews}>
                 ({item.reviews} đánh giá)
               </Text>
             </View>
-            <Text style={styles.productPrice}>
-              {formatCurrency(item.price)}
+
+            {/* Giá cơ bản */}
+            <Text style={styles.productBasePrice}>
+              Giá từ: {formatCurrency(item.price)}
             </Text>
+
+            {/* Phần variants */}
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <View style={styles.variantsContainer}>
+                {item.variants && item.variants.map((variant, vidx) => (
+                  <TouchableOpacity 
+                    key={variant._id || vidx}
+                    style={[
+                      styles.variantOption,
+                      selectedVariant === variant && styles.variantOptionSelected
+                    ]}
+                    onPress={() => {
+                      setSelectedVariant(variant);
+                      selectProduct({
+                        ...item,
+                        variant: variant,
+                        price: variant.price || item.price
+                      });
+                    }}
+                  >
+                    <Text style={[
+                      styles.variantLabel,
+                      selectedVariant === variant && styles.variantLabelSelected
+                    ]}>
+                      {variant.name}
+                    </Text>
+                    <Text style={[
+                      styles.variantPrice,
+                      selectedVariant === variant && styles.variantPriceSelected  
+                    ]}>
+                      {formatCurrency(variant.price || item.price)}
+                    </Text>
+                    <Text style={[
+                      styles.variantStock,
+                      selectedVariant === variant && styles.variantStockSelected,
+                      variant.stock <= 5 && styles.variantStockLow
+                    ]}>
+                      Còn {variant.stock} sản phẩm
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </ScrollView>
+
             {item.specs[0] && (
               <Text style={styles.productSpecs} numberOfLines={1}>
                 {item.specs[0].label}: {item.specs[0].value}
               </Text>
             )}
-          </View>
-
-          <View style={styles.productActionContainer}>
-            <TouchableOpacity
-              style={styles.productSelectButton}
-              onPress={() => selectProduct(item)} // <-- GỌI ĐÚNG HÀM NÀY
-            >
-              <Text style={styles.productSelectButtonText}>Chọn</Text>
-            </TouchableOpacity>
           </View>
         </View>
       </Animated.View>
@@ -2376,6 +2415,58 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: "#667eea",
     marginBottom: 6,
+  },
+  productBasePrice: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 8
+  },
+  variantsContainer: {
+    flexDirection: 'row',
+    marginBottom: 8
+  },
+  variantOption: {
+    backgroundColor: '#f8f9fa',
+    borderRadius: 8,
+    padding: 8,
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: '#e9ecef',
+    minWidth: 120
+  },
+  variantOptionSelected: {
+    backgroundColor: '#eef2ff',
+    borderColor: '#667eea'
+  },
+  variantLabel: {
+    fontSize: 13,
+    color: '#2c3e50',
+    fontWeight: '500',
+    marginBottom: 4
+  },
+  variantLabelSelected: {
+    color: '#667eea',
+    fontWeight: 'bold'
+  },
+  variantPrice: {
+    fontSize: 14,
+    color: '#28a745',
+    fontWeight: 'bold',
+    marginBottom: 2
+  },
+  variantPriceSelected: {
+    color: '#667eea'
+  },
+  variantStock: {
+    fontSize: 12,
+    color: '#6c757d'
+  },
+  variantStockSelected: {
+    color: '#667eea'
+  },
+  variantStockLow: {
+    color: '#dc3545',
+    fontWeight: '500'
   },
   productSpecs: {
     fontSize: 12,
