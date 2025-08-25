@@ -115,6 +115,7 @@ export default function ForYouGrid({
         setQuantity(limit);
         return { ok: false, max: limit, serverQty: limit };
       }
+
       setQtyError(null);
       return { ok: true, max: limit, serverQty: qty };
     } finally {
@@ -124,6 +125,7 @@ export default function ForYouGrid({
 
   const openOptionDialog = (product) => {
     setSelectedProduct(product);
+
     setQuantity(1);
     setSelectedVariant(null);
     setVariantSelections({});
@@ -190,6 +192,7 @@ export default function ForYouGrid({
       });
     }
 
+
     const check = await apiValidateQuantity(quantity);
     if (!check?.ok) {
       return Toast.show({
@@ -198,6 +201,7 @@ export default function ForYouGrid({
         text2: `Vui lòng giảm số lượng (tối đa ${check?.max ?? ''}).`,
         position: 'top'
       });
+
     }
 
     try {
@@ -210,9 +214,11 @@ export default function ForYouGrid({
 
       await axiosInstance.post('/cartt/add-to-cart', {
         user_id: userId,
+
         productId: getProductId(selectedProduct),
         variantId: getVariantId(selectedVariant),
         quantity,
+
       });
 
       setShowOptionDialog(false);
@@ -478,6 +484,7 @@ export default function ForYouGrid({
                   </View>
                 </View>
 
+
                 {selectedProduct?.variants?.map((group) => (
                   <View key={group.key} style={{ marginBottom: 12 }}>
                     <Text style={styles.sectionLabel}>Chọn {group.key}:</Text>
@@ -485,6 +492,7 @@ export default function ForYouGrid({
                       horizontal
                       showsHorizontalScrollIndicator={false}
                       style={styles.optionsContainer}
+
                     >
                       {group.options.map((option, idx) => (
                         <TouchableOpacity
@@ -552,6 +560,7 @@ export default function ForYouGrid({
                     style={styles.quantityInput}
                     keyboardType="numeric"
                     value={quantity.toString()}
+
                     onChangeText={(txt) => {
                       const val = parseInt(txt.replace(/[^0-9]/g, "")) || 1;
                       const key = selectedProduct?.variants?.[0]?.key;
@@ -563,16 +572,19 @@ export default function ForYouGrid({
                         () => apiValidateQuantity(next),
                         400
                       );
+
                     }}
                     textAlign="center"
                   />
                   <TouchableOpacity
                     onPress={() => {
+
                       const key = selectedProduct?.variants?.[0]?.key;
                       const max = Number(variantSelections[key]?.stock ?? 99);
                       const next = Math.min(max, quantity + 1);
                       setQuantity(next);
                       apiValidateQuantity(next);
+
                     }}
                     style={styles.quantityButton}
                   >

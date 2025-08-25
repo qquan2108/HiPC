@@ -162,8 +162,10 @@ export default function NewProducts({
     </LinearGradient>
   );
 
+
   const handleAddToCart = async (product, event) => {
     event?.stopPropagation();
+
     if (!isLoggedIn) return onRequireLogin();
     if (product?.variants?.length > 0) {
       openOptionDialog(product);
@@ -203,6 +205,7 @@ export default function NewProducts({
         text2: `Vui lòng giảm số lượng (tối đa ${check?.max ?? ''}).`,
         position: 'top',
       });
+
     }
 
     try {
@@ -215,9 +218,11 @@ export default function NewProducts({
 
       await axiosInstance.post('/cartt/add-to-cart', {
         user_id: userId,
+
         productId: getProductId(selectedProduct),
         variantId: getVariantId(selectedVariant),
         quantity,
+
       });
 
       setShowOptionDialog(false);
@@ -444,7 +449,9 @@ export default function NewProducts({
                   </View>
                 </View>
 
+
                 {selectedProduct?.variants?.map((group) => (
+
                   <View key={group.key} style={{ marginBottom: 12 }}>
                     <Text style={styles.sectionLabel}>Chọn {group.key}:</Text>
                     <ScrollView
@@ -518,6 +525,7 @@ export default function NewProducts({
                     style={styles.quantityInput}
                     keyboardType="numeric"
                     value={quantity.toString()}
+
                     onChangeText={(txt) => {
                       const val = parseInt(txt.replace(/[^0-9]/g, "")) || 1;
                       const key = selectedProduct?.variants?.[0]?.key;
@@ -529,16 +537,19 @@ export default function NewProducts({
                         () => apiValidateQuantity(next),
                         400
                       );
+
                     }}
                     textAlign="center"
                   />
                   <TouchableOpacity
                     onPress={() => {
+
                       const key = selectedProduct?.variants?.[0]?.key;
                       const max = Number(variantSelections[key]?.stock ?? 99);
                       const next = Math.min(max, quantity + 1);
                       setQuantity(next);
                       apiValidateQuantity(next);
+
                     }}
                     style={styles.quantityButton}
                   >
