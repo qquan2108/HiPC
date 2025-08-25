@@ -74,6 +74,7 @@ export default function ForYouGrid({
       }
     });
     setVariantSelections(defaults);
+    setSelectedOption(Object.values(defaults)[0] || null);
     setQuantity(1);
     setShowOptionDialog(true);
     return;
@@ -107,25 +108,14 @@ export default function ForYouGrid({
       }
     }
 
-    let variantPayload;
-    if (groups.length === 1) {
-      const group = groups[0];
-      const selected = variantSelections[group.key];
-      variantPayload = {
-        key: group.key,
-        label: selected.label,
-        priceDiff: selected.priceDiff || 0
-      };
-    } else {
-      const keys = Object.keys(variantSelections);
-      const labels = keys.map(k => variantSelections[k]?.label).filter(Boolean);
-      const priceDiffSum = keys.reduce((sum, k) => sum + (variantSelections[k]?.priceDiff || 0), 0);
-
-      variantPayload = {
-        key: keys.join(' + '),
-        label: labels.join(' + '),
-        priceDiff: priceDiffSum
-      };
+    // Lấy option được chọn của nhóm đầu tiên (giống FlashSale)
+    const firstGroup = groups[0];
+    const selectedOpt = variantSelections[firstGroup.key];
+    const variantId = selectedOpt?._id || selectedOpt?.id;
+    const stock = Number(selectedOpt?.stock ?? 0);
+    if (quantity > stock) {
+      setQuantity(stock);
+      return Toast.show({ type: 'error', text1: `Chỉ còn ${stock} sản phẩm` });
     }
 
     if (!isLoggedIn) return onRequireLogin();
@@ -141,8 +131,8 @@ export default function ForYouGrid({
       await axiosInstance.post('/cartt/add-to-cart', {
         user_id: userId,
         productId: selectedProduct.id || selectedProduct._id,
-        quantity,
-        variant: variantPayload
+        variantId,
+        quantity
       });
       setShowOptionDialog(false);
       Toast.show({ type: 'success', text1: 'Đã thêm vào giỏ hàng!', position: 'bottom' });
@@ -413,7 +403,11 @@ export default function ForYouGrid({
                   {selectedProduct.variants[0]?.options?.map((option, idx) => (
                     <TouchableOpacity
                       key={idx}
-                      onPress={() => setSelectedOption(option)}
+                      onPress={() => {
+                        const key = selectedProduct.variants[0]?.key;
+                        setSelectedOption(option);
+                        if (key) setVariantSelections(prev => ({ ...prev, [key]: option }));
+                      }}
                       style={[
                         styles.optionButton,
                         selectedOption === option && styles.optionButtonSelected
@@ -500,12 +494,18 @@ export default function ForYouGrid({
                     value={quantity.toString()}
                     onChangeText={txt => {
                       const val = parseInt(txt.replace(/[^0-9]/g, '')) || 1;
-                      setQuantity(val);
+                      const key = selectedProduct.variants[0]?.key;
+                      const max = Number(variantSelections[key]?.stock ?? 99);
+                      setQuantity(Math.min(val, max));
                     }}
                     textAlign="center"
                   />
                   <TouchableOpacity
-                    onPress={() => setQuantity(q => q + 1)}
+                    onPress={() => {
+                      const key = selectedProduct.variants[0]?.key;
+                      const max = Number(variantSelections[key]?.stock ?? 99);
+                      setQuantity(q => Math.min(max, q + 1));
+                    }}
                     style={styles.quantityButton}
                   >
                     <Ionicons name="add" size={20} color="#667eea" />
