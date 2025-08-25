@@ -52,15 +52,30 @@ export default function OptionGroup({
                 />
               )}
 
-              {/* Content */}
               <View style={styles.optionContent}>
-                <Text
-                  style={[styles.optionText, isSelected && styles.optionTextSelected]}
-                >
-                  {String(displayLabel ?? "")}
-                </Text>
+                <View style={styles.mainInfo}>
+                  <Text
+                    style={[
+                      styles.optionText,
+                      isSelected && styles.optionTextSelected
+                    ]}
+                    numberOfLines={2}
+                  >
+                    {String(displayLabel ?? "")}
+                  </Text>
+                  
+                  {/* Show actual price instead of price difference */}
+                  <Text
+                    style={[
+                      styles.priceText,
+                      isSelected && styles.priceTextSelected
+                    ]}
+                  >
+                    {option.price?.toLocaleString()}đ
+                  </Text>
+                </View>
 
-                {/* Hiển thị số lượng tồn kho */}
+                {/* Stock display */}
                 <Text
                   style={[
                     styles.stockText,
@@ -79,7 +94,10 @@ export default function OptionGroup({
               </View>
 
               <View
-                style={[styles.animatedBorder, isSelected && styles.animatedBorderActive]}
+                style={[
+                  styles.animatedBorder,
+                  isSelected && styles.animatedBorderActive
+                ]}
               />
             </TouchableOpacity>
           );
@@ -125,20 +143,18 @@ const styles = StyleSheet.create({
 
   // Options Grid
   optionGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
+    flexDirection: "column", // Changed to column for vertical layout
+    gap: 12, // Use gap for consistent spacing
   },
 
   // Option Card
   optionCard: {
-    minWidth: "47%",
-    marginBottom: 12,
-    borderRadius: 16,
+    width: "100%", // Full width for each card
+    marginBottom: 0, // Remove margin bottom as we're using gap
+    borderRadius: 12,
     backgroundColor: "#ffffff",
     position: "relative",
     overflow: "hidden",
-    // Subtle shadow
     elevation: 3,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
@@ -168,43 +184,51 @@ const styles = StyleSheet.create({
 
   // Content
   optionContent: {
-    paddingVertical: 16,
+    paddingVertical: 12,
     paddingHorizontal: 16,
+    flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    minHeight: 70,
-    position: "relative",
+    justifyContent: "space-between",
+    minHeight: 60,
+  },
+  mainInfo: {
+    flex: 1,
+    marginRight: 12,
   },
   optionText: {
     fontSize: 15,
     color: "#2d3436",
     fontWeight: "600",
-    textAlign: "center",
     marginBottom: 4,
   },
-  optionTextSelected: {
-    color: "#ffffff",
+  priceText: {
+    fontSize: 14,
+    color: "#FF6B6B",
     fontWeight: "700",
   },
-  priceDiff: {
-    color: "#74b9ff",
-    fontSize: 12,
-    fontWeight: "600",
-    backgroundColor: "rgba(116, 185, 255, 0.1)",
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 8,
-  },
-  priceDiffSelected: {
+  priceTextSelected: {
     color: "#ffffff",
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
+  },
+  stockText: {
+    fontSize: 13,
+    color: '#666',
+    textAlign: 'right',
+    minWidth: 100, // Minimum width for stock text
+  },
+  stockTextSelected: {
+    color: '#fff',
+  },
+  lowStock: {
+    color: '#f44336', // Red color for low stock warning
+    fontWeight: '500',
   },
 
   // Selection Indicator
   selectionIndicator: {
-    position: "absolute",
-    top: 8,
-    right: 8,
+    position: 'absolute',
+    right: 12,
+    top: '50%',
+    transform: [{ translateY: -10 }],
     backgroundColor: "rgba(255, 255, 255, 0.3)",
     borderRadius: 12,
     padding: 4,
@@ -222,19 +246,5 @@ const styles = StyleSheet.create({
   },
   animatedBorderActive: {
     width: "100%",
-  },
-
-  // Stock Text
-  stockText: {
-    fontSize: 12,
-    color: '#666',
-    marginTop: 4,
-  },
-  stockTextSelected: {
-    color: '#fff',
-  },
-  lowStock: {
-    color: '#f44336', // Red color for low stock warning
-    fontWeight: '500',
   },
 });

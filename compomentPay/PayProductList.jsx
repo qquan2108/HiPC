@@ -5,6 +5,16 @@ export default function PayProductList({ products, formatCurrency }) {
   const renderVariantInfo = (item) => {
     if (!item.variant) return null;
 
+    // Handle variant object from FlashSale
+    if (item.variant._id) {
+      return (
+        <Text style={styles.variantText}>
+          {item.variant.key}: {item.variant.label}
+        </Text>
+      );
+    }
+
+    // Rest of your existing variant handling...
     // Kiểu cũ: { key: "A + B", label: "X + Y" }
     if (typeof item.variant === 'object' && item.variant.key && item.variant.label) {
       const { key, label } = item.variant;

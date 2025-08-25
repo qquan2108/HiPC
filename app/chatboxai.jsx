@@ -18,8 +18,38 @@ import {
   TouchableOpacity,
   Vibration,
   View,
+  Modal,
+ Image,
 } from "react-native";
+import Toast from "react-native-toast-message";
 import axiosInstance from '../utils/AxiosInstance';
+
+// --- Helpers: giống FlashSale ---
+const getUserId = async () => {
+  const userStr = await AsyncStorage.getItem("user");
+  if (!userStr) return null;
+  const u = JSON.parse(userStr);
+  return u?._id || u?.id || null;
+};
+
+const getProductId = (p) => p?._id || p?.id;
+const getVariantId = (v) => v?._id || v?.id;
+
+const extractVariantOptions = (product) => {
+  const v = product?.variants || [];
+  if (!Array.isArray(v) || v.length === 0) return []; // giữ rỗng để không ép gửi variantId
+  if (v[0]?.options && Array.isArray(v[0].options)) return v[0].options; // dạng group
+  return v; // dạng phẳng
+};
+
+// Ưu tiên option.price; nếu không có thì base + priceDiff
+const getDisplayPrice = (product, option) => {
+  const base = Number(product?.price || 0);
+  if (!option) return base;
+  if (typeof option.price === "number") return option.price;
+  return base + Number(option.priceDiff || 0);
+};
+
 
 const { width, height } = Dimensions.get('window');
 
@@ -83,6 +113,7 @@ KIẾN THỨC CẬP NHẬT:
 HÃY TRẢ LỜI NGẮN GỌN NHƯNG ĐỦ THÔNG TIN, LUÔN HƯỚNG ĐẾN GIẢI PHÁP THỰC TẾ.`;
 
 export default function PCChatBoxAI() {
+
   const router = useRouter();
   const [messages, setMessages] = useState([
     { 
@@ -104,16 +135,24 @@ export default function PCChatBoxAI() {
   const [productsByMessage, setProductsByMessage] = useState({});
   const [conversationHistory, setConversationHistory] = useState([]);
   const [showVariantDialog, setShowVariantDialog] = useState(false);
-  const [selectedProduct, setSelectedProduct] = useState(null);
-  const [selectedVariant, setSelectedVariant] = useState(null);
-  const [variantQuantity, setVariantQuantity] = useState(1);
-  const [pendingAction, setPendingAction] = useState(""); // "cart" hoặc "buy"
-  const [buyNowInfo, setBuyNowInfo] = useState({ address: '', paymentMethod: '', shippingMethod: '', voucher: '' });
+const [selectedProduct, setSelectedProduct] = useState(null);
+const [selectedVariant, setSelectedVariant] = useState(null);
+const [variantQuantity, setVariantQuantity] = useState(1);
+const [variantSelections, setVariantSelections] = useState({});
+const [pendingAction, setPendingAction] = useState(''); // 'cart' | 'buy'
+
   const flatListRef = useRef();
   const inputRef = useRef();
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
-  const [variantSelections, setVariantSelections] = useState({});
+  
+
+  const mustLogin = async () => {
+  const token = await AsyncStorage.getItem("token");
+  const userStr = await AsyncStorage.getItem("user");
+  const user = userStr && userStr !== "undefined" ? JSON.parse(userStr) : null;
+  return !(token && (user?._id || user?.id));
+};
 
   useEffect(() => {
     loadDailyCount();
@@ -461,123 +500,125 @@ export default function PCChatBoxAI() {
     }
   };
 
-  const handleAddToCart = async (product) => {
-  if (product.variants && product.variants.length > 0) {
-    setSelectedProduct(product);
-    // Khởi tạo lựa chọn mặc định cho từng nhóm
-    const defaults = {};
-    product.variants.forEach(group => {
-      if (group.options && group.options.length > 0) {
-        defaults[group.key] = group.options[0];
-      }
-    });
-    setVariantSelections(defaults);
-    setQuantity(1);
-    setShowOptionDialog(true);
-    return;
+const handleAddToCart = async (product) => {
+  if (await mustLogin()) {
+    Toast.show({ type:'error', text1:'Vui lòng đăng nhập để mua hàng!', position:'top' });
+    return router.push('/LoginScreen');
+  }
+   // LUÔN mở dialog như FlashSale
+ setSelectedProduct(product);
+ setPendingAction('cart');
+ setShowVariantDialog(true);
+ const opts = extractVariantOptions(product);
+ const first = (opts && opts.find(o => (o?.stock ?? 1) > 0)) || (opts && opts[0]) || null;
+ setSelectedVariant(first);
+ setVariantQuantity(1);
+
+  
+  
+};
+
+const handleBuyNow = async (product) => {
+  if (await mustLogin()) {
+    Toast.show({ type:'error', text1:'Vui lòng đăng nhập để mua hàng!', position:'top' });
+    return router.push('/LoginScreen');
   }
 
-  if (!isLoggedIn) return onRequireLogin();
+   // LUÔN mở dialog như FlashSale
+ setSelectedProduct(product);
+ setPendingAction('buy');
+ setShowVariantDialog(true);
+ const opts = extractVariantOptions(product);
+ const first = (opts && opts.find(o => (o?.stock ?? 1) > 0)) || (opts && opts[0]) || null;
+ setSelectedVariant(first);
+ setVariantQuantity(1);
+  };
+
+
+const handleVariantSelect = (variant) => {
+  setSelectedVariant(variant);
+  const key = selectedProduct?.variants?.[0]?.key;
+  if (key) setVariantSelections({ [key]: variant });
+  const max = Number(variant?.stock ?? 99);
+  setVariantQuantity(q => Math.min(Math.max(1, q), max));
+};
+
+
+
+  // Update handleConfirmVariant in chatboxai.jsx
+const handleConfirmVariant = async () => {
+  if (!selectedProduct || !selectedVariant) {
+    return Toast.show({ type:'error', text1:'Vui lòng chọn biến thể sản phẩm', position:'top' });
+  }
+
   try {
-    const userStr = await AsyncStorage.getItem('user');
-    if (!userStr) {
+    if (pendingAction === 'buy') {
+      const priceShown = getDisplayPrice(selectedProduct, selectedVariant);
+      const payload = [{
+        id: getProductId(selectedProduct),
+        name: selectedProduct.name,
+        image: typeof selectedProduct.image === 'string'
+          ? selectedProduct.image
+          : selectedProduct.image?.uri || selectedProduct.image,
+        quantity: variantQuantity,
+        price: priceShown, // base/price + priceDiff (nếu có)
+        variant: {
+          _id: getVariantId(selectedVariant),
+          key: selectedProduct?.variants?.[0]?.key || 'Phiên bản',
+          label: selectedVariant.label || selectedVariant.name,
+          price: priceShown,
+          stock: selectedVariant.stock
+        }
+      }];
+
+      setShowVariantDialog(false);
+      setSelectedProduct(null);
+      setSelectedVariant(null);
+      setPendingAction('');
+      setVariantQuantity(1);
+
+      return router.push({
+        pathname: '/pay',
+        params: { selectedProducts: JSON.stringify(payload) }
+      });
+    }
+
+    // Thêm vào giỏ
+    const userId = await getUserId();
+    if (!userId) {
+      setShowVariantDialog(false);
       Toast.show({ type:'error', text1:'Vui lòng đăng nhập để mua hàng!', position:'top' });
       return router.push('/LoginScreen');
     }
-    const userObj = JSON.parse(userStr);
-    const userId = userObj._id || userObj.id;
-    await axiosInstance.post('/cartt/add-to-cart', { user_id: userId, productId: product.id, quantity: 1 });
-    Toast.show({ type:'success', text1:'Đã thêm vào giỏ hàng!', position:'bottom' });
-  } catch {
-    Toast.show({ type:'error', text1:'Thêm giỏ hàng thất bại!', position:'top' });
-  }
-};
 
-  const handleBuyNow = (product) => {
-    if (product.variants && product.variants.length > 0 && product.variants[0]?.options?.length > 0) {
-      setSelectedProduct(product);
-      setPendingAction("buy");
-      setShowVariantDialog(true);
-      setSelectedVariant(null);
-      setVariantQuantity(1);
-      return;
-    }
-    // Chuyển sang trang pay luôn nếu không có biến thể
-    buyNow(product, null, 1);
-  };
+   // Xây payload an toàn: chỉ gửi variantId khi có
+    const payload = {
+      user_id: userId,
+      productId: getProductId(selectedProduct),
+      quantity: variantQuantity
+    };
+    const vId = getVariantId(selectedVariant);
+    if (vId) payload.variantId = vId;
 
-  // Khi xác nhận dialog chọn biến thể
-  const handleConfirmVariant = async () => {
-    if (!selectedVariant) {
-      Alert.alert("Vui lòng chọn phiên bản/cấu hình!");
-      return;
-    }
-    if (pendingAction === "cart") {
-      await addToCart(selectedProduct, selectedVariant, variantQuantity);
-    } else if (pendingAction === "buy") {
-      await buyNow(selectedProduct, selectedVariant, variantQuantity);
-    }
+    await axiosInstance.post('/cartt/add-to-cart', payload);
+
     setShowVariantDialog(false);
     setSelectedProduct(null);
     setSelectedVariant(null);
-    setPendingAction("");
+    setPendingAction('');
     setVariantQuantity(1);
-  };
 
-  const handleConfirmOption = async () => {
-    // Kiểm tra đã chọn đủ biến thể
-    const groups = selectedProduct.variants || [];
-    for (const group of groups) {
-      if (!variantSelections[group.key]) {
-        Toast.show({ type: 'info', text1: `Vui lòng chọn ${group.key}!` });
-        return;
-      }
-    }
+    Toast.show({ type:'success', text1:'Đã thêm vào giỏ hàng!', position:'bottom' });
+  } catch (err) {
+    Toast.show({
+      type:'error',
+      text1: pendingAction === 'buy' ? 'Mua ngay thất bại!' : 'Thêm giỏ hàng thất bại!',
+      text2: err?.response?.data?.error || err.message,
+      position:'top'
+    });
+  }
+};
 
-    let variantPayload;
-    if (groups.length === 1) {
-      const group = groups[0];
-      const selected = variantSelections[group.key];
-      variantPayload = {
-        key: group.key,
-        label: selected.label,
-        priceDiff: selected.priceDiff || 0
-      };
-    } else {
-      const keys = Object.keys(variantSelections);
-      const labels = keys.map(k => variantSelections[k]?.label).filter(Boolean);
-      const priceDiffSum = keys.reduce((sum, k) => sum + (variantSelections[k]?.priceDiff || 0), 0);
-
-      variantPayload = {
-        key: keys.join(' + '),
-        label: labels.join(' + '),
-        priceDiff: priceDiffSum
-      };
-    }
-
-    if (!isLoggedIn) return onRequireLogin();
-    try {
-      const userStr = await AsyncStorage.getItem('user');
-      if (!userStr) {
-        Toast.show({ type: 'error', text1: 'Vui lòng đăng nhập để mua hàng!', position: 'top' });
-        setShowOptionDialog(false);
-        return router.push('/LoginScreen');
-      }
-      const userObj = JSON.parse(userStr);
-      const userId = userObj._id || userObj.id;
-      await axiosInstance.post('/cartt/add-to-cart', {
-        user_id: userId,
-        productId: selectedProduct.id || selectedProduct._id,
-        quantity,
-        variant: variantPayload
-      });
-      setShowOptionDialog(false);
-      Toast.show({ type: 'success', text1: 'Đã thêm vào giỏ hàng!', position: 'bottom' });
-    } catch (err) {
-      Toast.show({ type: 'error', text1: 'Thêm giỏ hàng thất bại!', position: 'top' });
-      console.error('add-to-cart error:', err?.response?.data || err);
-    }
-  };
 
   const renderProductCards = (msgId) => {
     const products = productsByMessage[msgId];
@@ -759,6 +800,7 @@ export default function PCChatBoxAI() {
     </ScrollView>
   );
 
+
   // Show login dialog if needed
   if (loginLoading) {
     return (
@@ -927,161 +969,151 @@ export default function PCChatBoxAI() {
 
       {/* Thêm dialog chọn biến thể vào cuối file, trước return */}
       {showVariantDialog && selectedProduct && (
-        <View style={{
-          position: 'absolute', left: 0, right: 0, top: 0, bottom: 0,
-          backgroundColor: 'rgba(0,0,0,0.25)', justifyContent: 'center', alignItems: 'center', zIndex: 99
-        }}>
-          <View style={{
-            backgroundColor: '#fff', borderRadius: 12, padding: 20, width: 320, maxWidth: '90%'
-          }}>
-            <Text style={{ fontWeight: 'bold', fontSize: 16, marginBottom: 12 }}>
-              Chọn phiên bản/cấu hình
-            </Text>
-            {/* Hiển thị tất cả nhóm biến thể */}
-            {selectedProduct.variants?.map(group => (
-              <View key={group.key} style={{ marginBottom: 12 }}>
-                <Text style={{ fontWeight: '600', marginBottom: 6 }}>{group.key}:</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                  {group.options.map((option, idx) => (
-                    <TouchableOpacity
-                      key={idx}
-                      style={{
-                        padding: 10,
-                        borderRadius: 8,
-                        backgroundColor: variantSelections[group.key]?.label === option.label ? '#eef2ff' : '#f8faf0',
-                        marginRight: 8,
-                        borderWidth: variantSelections[group.key]?.label === option.label ? 2 : 1,
-                        borderColor: variantSelections[group.key]?.label === option.label ? '#667eea' : '#e2e8f0'
-                      }}
-                      onPress={() => setVariantSelections(prev => ({
-                        ...prev,
-                        [group.key]: option
-                      }))}
-                    >
-                      <Text style={{ fontWeight: '600', color: '#2d3748' }}>
-                        {option.label || option.value || option.key}
-                      </Text>
-                      {option.priceDiff ? (
-                        <Text style={{ color: '#e53e3e', fontSize: 12, marginTop: 2 }}>
-                          +{Number(option.priceDiff).toLocaleString('vi-VN')}đ
-                        </Text>
-                      ) : null}
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </View>
-            ))}
-            {/* Số lượng */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
-              <Text style={{ fontWeight: '600', marginRight: 8 }}>Số lượng:</Text>
-              <TouchableOpacity
-                onPress={() => setVariantQuantity(q => Math.max(1, q - 1))}
-                disabled={variantQuantity <= 1}
-                style={{
-                  padding: 6,
-                  borderRadius: 8,
-                  backgroundColor: variantQuantity <= 1 ? '#eee' : '#eef2ff',
-                  marginRight: 6
-                }}
-              >
-                <MaterialIcons name="remove" size={18} color={variantQuantity <= 1 ? "#ccc" : "#667eea"} />
-              </TouchableOpacity>
-              <Text style={{ fontWeight: '700', fontSize: 16 }}>{variantQuantity}</Text>
-              <TouchableOpacity
-                onPress={() => setVariantQuantity(q => q + 1)}
-                style={{
-                  padding: 6,
-                  borderRadius: 8,
-                  backgroundColor: '#eef2ff',
-                  marginLeft: 6
-                }}
-              >
-                <MaterialIcons name="add" size={18} color="#667eea" />
-              </TouchableOpacity>
-            </View>
-            {/* Tính tổng giá */}
-            <View style={{ marginTop: 16, alignItems: 'flex-end' }}>
-              <Text style={{ fontWeight: 'bold', fontSize: 16, color: '#e53e3e' }}>
-                Tổng: {(() => {
-                  const basePrice = typeof selectedProduct.price === 'number'
-                    ? selectedProduct.price
-                    : Number(String(selectedProduct.price).replace(/[^\d]/g, ''));
-                  const variantTotal = Object.values(variantSelections).reduce(
-                    (sum, v) => sum + (v?.priceDiff || 0), 0
-                  );
-                  return ((basePrice + variantTotal) * variantQuantity).toLocaleString('vi-VN') + 'đ';
-                })()}
-              </Text>
-            </View>
-            {/* Nút xác nhận/hủy */}
-            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 12 }}>
-              <TouchableOpacity
-                onPress={() => setShowVariantDialog(false)}
-                style={{ marginRight: 12 }}
-              >
-                <Text style={{ color: '#718096', fontWeight: '600' }}>Huỷ</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={async () => {
-                  // Kiểm tra đã chọn đủ biến thể
-                  const groups = selectedProduct.variants || [];
-                  for (const group of groups) {
-                    if (!variantSelections[group.key]) {
-                      Alert.alert(`Vui lòng chọn ${group.key}!`);
-                      return;
-                    }
-                  }
-                  // Tạo payload biến thể
-                  let variantPayload;
-                  if (groups.length === 1) {
-                    const group = groups[0];
-                    const selected = variantSelections[group.key];
-                    variantPayload = {
-                      key: group.key,
-                      label: selected.label,
-                      priceDiff: selected.priceDiff || 0
-                    };
-                  } else {
-                    const keys = Object.keys(variantSelections);
-                    const labels = keys.map(k => variantSelections[k]?.label).filter(Boolean);
-                    const priceDiffSum = keys.reduce((sum, k) => sum + (variantSelections[k]?.priceDiff || 0), 0);
+  <Modal
+    visible={showVariantDialog}
+    transparent
+    animationType="slide"
+    onRequestClose={() => {
+      setShowVariantDialog(false);
+      setSelectedVariant(null);
+      setVariantSelections({});
+    }}
+  >
+    <View style={styles.modalOverlay}>
+      <View style={styles.modalContent}>
+        {/* Header */}
+        <View style={styles.modalHeader}>
+          <Text style={styles.modalTitle}>Chọn phiên bản</Text>
+          <TouchableOpacity onPress={() => setShowVariantDialog(false)}>
+            <Ionicons name="close" size={24} color="#666" />
+          </TouchableOpacity>
+        </View>
 
-                    variantPayload = {
-                      key: keys.join(' + '),
-                      label: labels.join(' + '),
-                      priceDiff: priceDiffSum
-                    };
-                  }
-                  // Thêm vào giỏ hoặc mua ngay
-                  if (pendingAction === "cart") {
-                    await addToCart(selectedProduct, variantPayload, variantQuantity);
-                  } else if (pendingAction === "buy") {
-                    await buyNow(selectedProduct, variantPayload, variantQuantity);
-                  }
-                  setShowVariantDialog(false);
-                  setSelectedProduct(null);
-                  setVariantSelections({});
-                  setPendingAction("");
-                  setVariantQuantity(1);
-                }}
-                style={{
-                  backgroundColor: '#667eea',
-                  paddingHorizontal: 18,
-                  paddingVertical: 8,
-                  borderRadius: 8
-                }}
-              >
-                <Text style={{ color: '#fff', fontWeight: 'bold' }}>
-                  Xác nhận
-                </Text>
-              </TouchableOpacity>
-            </View>
+        {/* Product Preview */}
+        <View style={styles.productPreview}>
+          <Image
+            source={
+              typeof selectedProduct?.image === "string"
+                ? { uri: selectedProduct.image }
+                : selectedProduct?.image || require("../assets/images/pc1.png")
+            }
+            style={styles.modalProductImage}
+            resizeMode="contain"
+          />
+          <View style={styles.productInfo}>
+            <Text style={styles.modalProductName} numberOfLines={2}>
+              {selectedProduct?.name}
+            </Text>
+            <Text style={styles.modalProductPrice}>
+              {(getDisplayPrice(selectedProduct, selectedVariant)).toLocaleString('vi-VN')}đ
+            </Text>
+            {selectedVariant && (
+              <Text style={styles.stockInfo}>
+                Còn {Number(selectedVariant?.stock ?? 0)} sản phẩm
+              </Text>
+            )}
           </View>
         </View>
-      )}
+
+        {/* Variants List */}
+        <Text style={styles.sectionLabel}>Phiên bản:</Text>
+        <ScrollView style={styles.variantList}>
+          {extractVariantOptions(selectedProduct).map((opt) => {
+            const isSelected = getVariantId(selectedVariant) === getVariantId(opt);
+            const priceShown = getDisplayPrice(selectedProduct, opt);
+            const stock = Number(opt?.stock ?? 0);
+            const label = opt?.label || opt?.name || "Tuỳ chọn";
+
+            return (
+              <TouchableOpacity
+                key={getVariantId(opt)}
+                style={[
+                  styles.variantItem,
+                  isSelected && styles.selectedVariant,
+                  stock <= 0 && styles.disabledVariant,
+                ]}
+                onPress={() => handleVariantSelect(opt)}
+                disabled={stock <= 0}
+              >
+                <View style={styles.variantInfo}>
+                  <Text style={[styles.variantLabel, isSelected && styles.selectedVariantText]}>
+                    {label}
+                  </Text>
+                  <Text style={[styles.variantStock, isSelected && styles.selectedVariantText]}>
+                    {stock <= 0 ? "Hết hàng" : `Còn ${stock} sản phẩm`}
+                  </Text>
+                </View>
+                <View style={styles.variantPrice}>
+                  <Text style={[styles.priceText, isSelected && styles.selectedVariantText]}>
+                    {priceShown.toLocaleString('vi-VN')}đ
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+
+        {/* Quantity */}
+        <View style={styles.quantitySection}>
+          <Text style={styles.quantityLabel}>Số lượng:</Text>
+          <View style={styles.quantityControls}>
+            <TouchableOpacity
+              style={[styles.quantityButton, variantQuantity <= 1 && styles.quantityButtonDisabled]}
+              onPress={() => setVariantQuantity(q => Math.max(1, q - 1))}
+              disabled={variantQuantity <= 1}
+            >
+              <Ionicons name="remove" size={20} color={variantQuantity <= 1 ? "#ccc" : "#666"} />
+            </TouchableOpacity>
+
+            <TextInput
+              value={String(variantQuantity)}
+              onChangeText={(t) => {
+                const num = Math.max(1, parseInt((t || "").replace(/[^\d]/g, ""), 10) || 1);
+                const limit = Number(selectedVariant?.stock ?? 99);
+                setVariantQuantity(Math.min(num, limit));
+              }}
+              keyboardType="number-pad"
+              style={styles.quantityInput}
+              maxLength={4}
+            />
+
+            <TouchableOpacity
+              style={[
+                styles.quantityButton,
+                variantQuantity >= (selectedVariant?.stock ?? 99) && styles.quantityButtonDisabled,
+              ]}
+              onPress={() => setVariantQuantity(q => Math.min((selectedVariant?.stock ?? 99), q + 1))}
+              disabled={variantQuantity >= (selectedVariant?.stock ?? 99)}
+            >
+              <Ionicons name="add" size={20} color={variantQuantity >= (selectedVariant?.stock ?? 99) ? "#ccc" : "#666"} />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Confirm */}
+        <TouchableOpacity
+          style={[
+            styles.confirmButton,
+            (!selectedVariant || selectedVariant.stock <= 0) && styles.disabledButton,
+          ]}
+          onPress={handleConfirmVariant}
+          disabled={!selectedVariant || selectedVariant.stock <= 0}
+        >
+          <LinearGradient colors={["#FF6B6B", "#FF5252"]} style={styles.confirmButtonGradient}>
+            <Text style={styles.confirmButtonText}>
+              {pendingAction === "buy" ? "Mua ngay" : "Thêm vào giỏ hàng"}
+            </Text>
+          </LinearGradient>
+        </TouchableOpacity>
+      </View>
+    </View>
+  </Modal>
+)}
+
     </KeyboardAvoidingView>
   );
 }
+
 
 const styles = StyleSheet.create({
   container: {
@@ -1547,4 +1579,65 @@ const styles = StyleSheet.create({
     top: 8,
     right: 8,
   },
+ modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    padding: 16,
+    maxHeight: height * 0.85,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  modalTitle: { fontSize: 16, fontWeight: '700', color: '#1f2937' },
+  productPreview: { flexDirection: 'row', gap: 12, marginBottom: 12, alignItems: 'center' },
+  modalProductImage: { width: 72, height: 72, borderRadius: 8, backgroundColor: '#f1f5f9' },
+  productInfo: { flex: 1 },
+  modalProductName: { fontSize: 14, fontWeight: '600', color: '#111827' },
+  modalProductPrice: { marginTop: 4, fontSize: 16, fontWeight: '700', color: '#e11d48' },
+  stockInfo: { marginTop: 2, fontSize: 12, color: '#6b7280' },
+  variantList: { maxHeight: height * 0.35, marginBottom: 8 },
+  variantItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderRadius: 10,
+    marginBottom: 8,
+  },
+  selectedVariant: { borderColor: '#667eea', backgroundColor: '#f5f7ff' },
+  disabledVariant: { opacity: 0.5 },
+  variantInfo: { flex: 1, paddingRight: 8 },
+  variantLabel: { fontSize: 14, color: '#111827', fontWeight: '600' },
+  variantStock: { fontSize: 12, color: '#6b7280', marginTop: 2 },
+  variantPrice: { alignItems: 'flex-end' },
+  priceText: { fontSize: 14, fontWeight: '700', color: '#e11d48' },
+  selectedVariantText: { color: '#374151' },
+  quantitySection: { marginTop: 6, marginBottom: 12 },
+  quantityLabel: { fontSize: 14, fontWeight: '600', color: '#1f2937', marginBottom: 8 },
+  quantityControls: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  quantityButton: {
+    width: 36, height: 36, borderRadius: 18,
+    borderWidth: 1, borderColor: '#e5e7eb', justifyContent: 'center', alignItems: 'center'
+  },
+  quantityButtonDisabled: { opacity: 0.5 },
+  quantityInput: {
+    minWidth: 56, textAlign: 'center', borderWidth: 1, borderColor: '#e5e7eb',
+    borderRadius: 8, paddingVertical: 6, paddingHorizontal: 8, color: '#111827'
+  },
+  confirmButton: { borderRadius: 12, overflow: 'hidden', marginTop: 8 },
+  disabledButton: { opacity: 0.6 },
+  confirmButtonGradient: { paddingVertical: 12, borderRadius: 12, alignItems: 'center' },
+  confirmButtonText: { color: '#fff', fontSize: 16, fontWeight: '700' },
 });

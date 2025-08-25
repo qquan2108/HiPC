@@ -112,12 +112,20 @@ export default function CartProductList({
     );
   };
 
+  // Create a unique item ID function
+  const getItemUniqueId = (item) => {
+    return item.variant?._id 
+      ? `${item.productId._id}-${item.variant._id}`
+      : item.productId._id;
+  };
+
   return (
     <View style={styles.cartBox}>
       {Array.isArray(cart) && cart.map(item => (
         typeof item === 'object' && item !== null && item.productId && item.productId.name ? (
           <TouchableOpacity
-            key={item._id || item.productId._id}
+            // Create unique key combining product ID, variant ID and timestamp if exists
+            key={getItemUniqueId(item)}
             activeOpacity={0.9}
             onPress={() => onProductPress && onProductPress(item)}
             disabled={item.type === 'combo'}
@@ -126,19 +134,19 @@ export default function CartProductList({
               styles.productCard,
               item.type === 'combo' && styles.comboCard,
               item.type === 'build' && styles.buildCard,
-              selectedIds.includes(item._id || item.productId._id) && styles.selectedCard
+              selectedIds.includes(getItemUniqueId(item)) && styles.selectedCard
             ]}>
               {/* Checkbox với animation */}
               <TouchableOpacity
                 style={[
                   styles.checkbox,
-                  selectedIds.includes(item._id || item.productId._id) && styles.checkboxSelected
+                  selectedIds.includes(getItemUniqueId(item)) && styles.checkboxSelected
                 ]}
-                onPress={() => onToggleSelect(item._id || item.productId._id)}
+                onPress={() => onToggleSelect(getItemUniqueId(item))}
                 activeOpacity={0.8}
               >
                 <View style={styles.checkboxInner}>
-                  {selectedIds.includes(item._id || item.productId._id) && (
+                  {selectedIds.includes(getItemUniqueId(item)) && (
                     <Feather name="check" size={14} color="#fff" />
                   )}
                 </View>
