@@ -502,37 +502,45 @@ const [pendingAction, setPendingAction] = useState(''); // 'cart' | 'buy'
 
 const handleAddToCart = async (product) => {
   if (await mustLogin()) {
-    Toast.show({ type:'error', text1:'Vui lòng đăng nhập để mua hàng!', position:'top' });
+    Toast.show({ type: 'error', text1: 'Vui lòng đăng nhập để mua hàng!', position: 'top' });
     return router.push('/LoginScreen');
   }
-   // LUÔN mở dialog như FlashSale
- setSelectedProduct(product);
- setPendingAction('cart');
- setShowVariantDialog(true);
- const opts = extractVariantOptions(product);
- const first = (opts && opts.find(o => (o?.stock ?? 1) > 0)) || (opts && opts[0]) || null;
- setSelectedVariant(first);
- setVariantQuantity(1);
 
-  
-  
+  // Chỉ mở dialog nếu sản phẩm có biến thể
+  if (product?.variants && product.variants.length > 0) {
+    setSelectedProduct(product);
+    setPendingAction('cart');
+    setShowVariantDialog(true);
+    const opts = extractVariantOptions(product);
+    const first = (opts && opts.find(o => (o?.stock ?? 1) > 0)) || (opts && opts[0]) || null;
+    setSelectedVariant(first);
+    setVariantQuantity(1);
+    return;
+  }
+
+  Toast.show({ type: 'error', text1: 'Vui lòng chọn biến thể sản phẩm', position: 'top' });
 };
 
 const handleBuyNow = async (product) => {
   if (await mustLogin()) {
-    Toast.show({ type:'error', text1:'Vui lòng đăng nhập để mua hàng!', position:'top' });
+    Toast.show({ type: 'error', text1: 'Vui lòng đăng nhập để mua hàng!', position: 'top' });
     return router.push('/LoginScreen');
   }
 
-   // LUÔN mở dialog như FlashSale
- setSelectedProduct(product);
- setPendingAction('buy');
- setShowVariantDialog(true);
- const opts = extractVariantOptions(product);
- const first = (opts && opts.find(o => (o?.stock ?? 1) > 0)) || (opts && opts[0]) || null;
- setSelectedVariant(first);
- setVariantQuantity(1);
-  };
+  // Chỉ mở dialog nếu sản phẩm có biến thể
+  if (product?.variants && product.variants.length > 0) {
+    setSelectedProduct(product);
+    setPendingAction('buy');
+    setShowVariantDialog(true);
+    const opts = extractVariantOptions(product);
+    const first = (opts && opts.find(o => (o?.stock ?? 1) > 0)) || (opts && opts[0]) || null;
+    setSelectedVariant(first);
+    setVariantQuantity(1);
+    return;
+  }
+
+  Toast.show({ type: 'error', text1: 'Vui lòng chọn biến thể sản phẩm', position: 'top' });
+};
 
 
 const handleVariantSelect = (variant) => {
@@ -551,6 +559,13 @@ const handleConfirmVariant = async () => {
     return Toast.show({ type:'error', text1:'Vui lòng chọn biến thể sản phẩm', position:'top' });
   }
 
+  // Kiểm tra tồn kho
+  const stock = Number(selectedVariant?.stock ?? 0);
+  if (variantQuantity > stock) {
+    setVariantQuantity(stock);
+    return Toast.show({ type: 'error', text1: `Chỉ còn ${stock} sản phẩm`, position: 'top' });
+  }
+
   try {
     if (pendingAction === 'buy') {
       const priceShown = getDisplayPrice(selectedProduct, selectedVariant);
@@ -561,7 +576,7 @@ const handleConfirmVariant = async () => {
           ? selectedProduct.image
           : selectedProduct.image?.uri || selectedProduct.image,
         quantity: variantQuantity,
-        price: priceShown, // base/price + priceDiff (nếu có)
+        price: priceShown,
         variant: {
           _id: getVariantId(selectedVariant),
           key: selectedProduct?.variants?.[0]?.key || 'Phiên bản',

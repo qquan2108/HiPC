@@ -1,7 +1,7 @@
 import { AntDesign, Ionicons, MaterialIcons } from "@expo/vector-icons";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useState } from "react";
+import { useState, useRef } from "react";
 import {
   Dimensions,
   Image,
@@ -29,9 +29,101 @@ export default function NewProducts({
   const { wishlist, addToWishlist, removeFromWishlist } = useWishlist();
   const [showOptionDialog, setShowOptionDialog] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
-  const [selectedOption, setSelectedOption] = useState(null);
+  const [selectedVariant, setSelectedVariant] = useState(null);
   const [quantity, setQuantity] = useState(1);
   const [variantSelections, setVariantSelections] = useState({});
+  const [qtyError, setQtyError] = useState(null);
+  const [validatingQty, setValidatingQty] = useState(false);
+  const qtyDebounceRef = useRef(null);
+
+  const getUserId = async () => {
+    const userStr = await AsyncStorage.getItem('user');
+    if (!userStr) return null;
+    const u = JSON.parse(userStr);
+    return u?._id || u?.id || null;
+  };
+
+  const getProductId = (p) => p?._id || p?.id;
+  const getVariantId = (v) => v?._id || v?.id;
+
+  const extractVariantOptions = (product) => {
+    const v = product?.variants || [];
+    if (!Array.isArray(v) || v.length === 0) return [];
+    if (v[0]?.options && Array.isArray(v[0].options)) return v[0].options;
+    return v;
+  };
+
+  const apiValidateQuantity = async (qty) => {
+    if (!selectedProduct || !selectedVariant) return { ok: true };
+    try {
+      setValidatingQty(true);
+      const userStr = await AsyncStorage.getItem('user');
+      const userId = userStr ? JSON.parse(userStr)?._id : null;
+
+      const payload = {
+        user_id: userId,
+        productId: getProductId(selectedProduct),
+        variantId: getVariantId(selectedVariant),
+        quantity: qty,
+        checkOnly: true,
+      };
+
+      const res = await axiosInstance.post('/cartt/update-quantity', payload);
+      const { allowed, max, quantity: serverQty, message } = res.data || {};
+
+      if (allowed === false) {
+        const limit = Number(max ?? selectedVariant?.stock ?? qty);
+        setQtyError(message || `Tối đa ${limit} sản phẩm`);
+        setQuantity((q) => Math.min(q, limit));
+        return { ok: false, max: limit, serverQty };
+      }
+
+      setQtyError(null);
+      return { ok: true, max, serverQty };
+    } catch (e) {
+      const limit = Number(selectedVariant?.stock ?? 99);
+      if (qty > limit) {
+        setQtyError(`Tối đa ${limit} sản phẩm`);
+        setQuantity(limit);
+        return { ok: false, max: limit, serverQty: limit };
+      }
+      setQtyError(null);
+      return { ok: true, max: limit, serverQty: qty };
+    } finally {
+      setValidatingQty(false);
+    }
+  };
+
+  const openOptionDialog = (product) => {
+    setSelectedProduct(product);
+    setQuantity(1);
+    setSelectedVariant(null);
+    setVariantSelections({});
+
+    const options = extractVariantOptions(product);
+    const firstAvailable = options.find((o) => (o?.stock ?? 1) > 0) || options[0];
+    if (firstAvailable) {
+      setSelectedVariant(firstAvailable);
+      const key = product?.variants?.[0]?.key;
+      if (key) setVariantSelections({ [key]: firstAvailable });
+    }
+
+    setShowOptionDialog(true);
+  };
+
+  const handleVariantSelect = (option, key) => {
+    setVariantSelections((prev) => ({ ...prev, [key]: option }));
+    if (selectedProduct?.variants?.[0]?.key === key) {
+      setSelectedVariant(option);
+      const max = Number(option?.stock ?? 99);
+      setQtyError(null);
+      setQuantity((q) => {
+        const next = Math.min(Math.max(1, q), max);
+        apiValidateQuantity(next);
+        return next;
+      });
+    }
+  };
 
   // Enhanced default badge components
   const defaultNewBadge = () => (
@@ -70,94 +162,68 @@ export default function NewProducts({
     </LinearGradient>
   );
 
-  const handleAddToCart = async (product) => {
-  if (product.variants && product.variants.length > 0) {
-    setSelectedProduct(product);
-    // Khởi tạo lựa chọn mặc định cho từng nhóm
-    const defaults = {};
-    product.variants.forEach(group => {
-      if (group.options && group.options.length > 0) {
-        defaults[group.key] = group.options[0];
-      }
-    });
-    setVariantSelections(defaults);
-    setQuantity(1);
-    setShowOptionDialog(true);
-    return;
-  }
-
+  const handleAddToCart = async (product, event) => {
+    event?.stopPropagation();
     if (!isLoggedIn) return onRequireLogin();
+    if (product?.variants?.length > 0) {
+      openOptionDialog(product);
+      return;
+    }
+
     try {
-      const userStr = await AsyncStorage.getItem('user');
-      if (!userStr) {
+      const userId = await getUserId();
+      if (!userId) {
         Toast.show({ type: 'error', text1: 'Vui lòng đăng nhập để mua hàng!', position: 'top' });
         return router.push('/LoginScreen');
       }
-      const userObj = JSON.parse(userStr);
-      const userId = userObj._id || userObj.id;
       await axiosInstance.post('/cartt/add-to-cart', {
         user_id: userId,
-        productId: product.id || product._id,           // use the function arg here
-        quantity,
+        productId: getProductId(product),
+        quantity: 1,
       });
-
       Toast.show({ type: 'success', text1: 'Đã thêm vào giỏ hàng!', position: 'bottom' });
     } catch {
       Toast.show({ type: 'error', text1: 'Thêm giỏ hàng thất bại!', position: 'top' });
     }
   };
   const handleConfirmOption = async () => {
-    // Kiểm tra đã chọn đủ biến thể
-    const groups = selectedProduct.variants || [];
-    for (const group of groups) {
-      if (!variantSelections[group.key]) {
-        Toast.show({ type: 'info', text1: `Vui lòng chọn ${group.key}!` });
-        return;
-      }
+    if (!selectedProduct || !selectedVariant) {
+      return Toast.show({
+        type: 'error',
+        text1: 'Vui lòng chọn biến thể sản phẩm',
+        position: 'top',
+      });
     }
 
-    let variantPayload;
-    if (groups.length === 1) {
-      const group = groups[0];
-      const selected = variantSelections[group.key];
-      variantPayload = {
-        key: group.key,
-        label: selected.label,
-        priceDiff: selected.priceDiff || 0
-      };
-    } else {
-      const keys = Object.keys(variantSelections);
-      const labels = keys.map(k => variantSelections[k]?.label).filter(Boolean);
-      const priceDiffSum = keys.reduce((sum, k) => sum + (variantSelections[k]?.priceDiff || 0), 0);
-
-      variantPayload = {
-        key: keys.join(' + '),
-        label: labels.join(' + '),
-        priceDiff: priceDiffSum
-      };
+    const check = await apiValidateQuantity(quantity);
+    if (!check?.ok) {
+      return Toast.show({
+        type: 'error',
+        text1: 'Số lượng vượt tồn kho',
+        text2: `Vui lòng giảm số lượng (tối đa ${check?.max ?? ''}).`,
+        position: 'top',
+      });
     }
 
-    if (!isLoggedIn) return onRequireLogin();
     try {
-      const userStr = await AsyncStorage.getItem('user');
-      if (!userStr) {
-        Toast.show({ type: 'error', text1: 'Vui lòng đăng nhập để mua hàng!', position: 'top' });
+      const userId = await getUserId();
+      if (!userId) {
         setShowOptionDialog(false);
+        Toast.show({ type: 'error', text1: 'Vui lòng đăng nhập để mua hàng!', position: 'top' });
         return router.push('/LoginScreen');
       }
-      const userObj = JSON.parse(userStr);
-      const userId = userObj._id || userObj.id;
+
       await axiosInstance.post('/cartt/add-to-cart', {
         user_id: userId,
-        productId: selectedProduct.id || selectedProduct._id,
+        productId: getProductId(selectedProduct),
+        variantId: getVariantId(selectedVariant),
         quantity,
-        variant: variantPayload
       });
+
       setShowOptionDialog(false);
       Toast.show({ type: 'success', text1: 'Đã thêm vào giỏ hàng!', position: 'bottom' });
     } catch (err) {
       Toast.show({ type: 'error', text1: 'Thêm giỏ hàng thất bại!', position: 'top' });
-      console.error('add-to-cart error:', err);
     }
   };
 
@@ -378,69 +444,42 @@ export default function NewProducts({
                   </View>
                 </View>
 
-                <Text style={styles.sectionLabel}>Chọn phiên bản:</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.optionsContainer}>
-                  {selectedProduct.variants[0]?.options?.map((option, idx) => (
-                    <TouchableOpacity
-                      key={idx}
-                      onPress={() => setSelectedOption(option)}
-                      style={[
-                        styles.optionButton,
-                        selectedOption === option && styles.optionButtonSelected
-                      ]}
-                      activeOpacity={0.8}
-                    >
-                      <Text style={[
-                        styles.optionText,
-                        selectedOption === option && styles.optionTextSelected
-                      ]}>
-                        {option.label || option}
-                      </Text>
-                      {option.priceDiff ? (
-                        <Text style={[
-                          styles.priceDiffText,
-                          selectedOption === option && styles.priceDiffTextSelected
-                        ]}>
-                          +{option.priceDiff.toLocaleString('vi-VN')}₫
-                        </Text>
-                      ) : null}
-                      {selectedOption === option && (
-                        <View style={styles.selectedIndicator}>
-                          <Ionicons name="checkmark" size={16} color="#fff" />
-                        </View>
-                      )}
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-
-                {selectedProduct?.variants?.map(group => (
+                {selectedProduct?.variants?.map((group) => (
                   <View key={group.key} style={{ marginBottom: 12 }}>
                     <Text style={styles.sectionLabel}>Chọn {group.key}:</Text>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.optionsContainer}>
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      style={styles.optionsContainer}
+                    >
                       {group.options.map((option, idx) => (
                         <TouchableOpacity
                           key={idx}
-                          onPress={() => setVariantSelections(prev => ({
-                            ...prev,
-                            [group.key]: option
-                          }))}
+                          onPress={() => handleVariantSelect(option, group.key)}
                           style={[
                             styles.optionButton,
-                            variantSelections[group.key] === option && styles.optionButtonSelected
+                            variantSelections[group.key] === option &&
+                              styles.optionButtonSelected,
                           ]}
                           activeOpacity={0.8}
                         >
-                          <Text style={[
-                            styles.optionText,
-                            variantSelections[group.key] === option && styles.optionTextSelected
-                          ]}>
-                            {option.label || option}
+                          <Text
+                            style={[
+                              styles.optionText,
+                              variantSelections[group.key] === option &&
+                                styles.optionTextSelected,
+                            ]}
+                          >
+                            {option.label || option.name || option}
                           </Text>
                           {option.priceDiff ? (
-                            <Text style={[
-                              styles.priceDiffText,
-                              variantSelections[group.key] === option && styles.priceDiffTextSelected
-                            ]}>
+                            <Text
+                              style={[
+                                styles.priceDiffText,
+                                variantSelections[group.key] === option &&
+                                  styles.priceDiffTextSelected,
+                              ]}
+                            >
                               +{option.priceDiff.toLocaleString('vi-VN')}₫
                             </Text>
                           ) : null}
@@ -458,29 +497,55 @@ export default function NewProducts({
                 <Text style={styles.sectionLabel}>Số lượng:</Text>
                 <View style={styles.quantityContainer}>
                   <TouchableOpacity
-                    onPress={() => setQuantity(q => Math.max(1, q - 1))}
+                    onPress={() => {
+                      const next = Math.max(1, quantity - 1);
+                      setQuantity(next);
+                      apiValidateQuantity(next);
+                    }}
                     disabled={quantity <= 1}
-                    style={[styles.quantityButton, quantity <= 1 && styles.quantityButtonDisabled]}
+                    style={[
+                      styles.quantityButton,
+                      quantity <= 1 && styles.quantityButtonDisabled,
+                    ]}
                   >
-                    <Ionicons name="remove" size={20} color={quantity <= 1 ? "#ccc" : "#667eea"} />
+                    <Ionicons
+                      name="remove"
+                      size={20}
+                      color={quantity <= 1 ? "#ccc" : "#667eea"}
+                    />
                   </TouchableOpacity>
                   <TextInput
                     style={styles.quantityInput}
                     keyboardType="numeric"
                     value={quantity.toString()}
-                    onChangeText={txt => {
-                      const val = parseInt(txt.replace(/[^0-9]/g, '')) || 1;
-                      setQuantity(val);
+                    onChangeText={(txt) => {
+                      const val = parseInt(txt.replace(/[^0-9]/g, "")) || 1;
+                      const key = selectedProduct?.variants?.[0]?.key;
+                      const max = Number(variantSelections[key]?.stock ?? 99);
+                      const next = Math.min(val, max);
+                      setQuantity(next);
+                      clearTimeout(qtyDebounceRef.current);
+                      qtyDebounceRef.current = setTimeout(
+                        () => apiValidateQuantity(next),
+                        400
+                      );
                     }}
                     textAlign="center"
                   />
                   <TouchableOpacity
-                    onPress={() => setQuantity(q => q + 1)}
+                    onPress={() => {
+                      const key = selectedProduct?.variants?.[0]?.key;
+                      const max = Number(variantSelections[key]?.stock ?? 99);
+                      const next = Math.min(max, quantity + 1);
+                      setQuantity(next);
+                      apiValidateQuantity(next);
+                    }}
                     style={styles.quantityButton}
                   >
                     <Ionicons name="add" size={20} color="#667eea" />
                   </TouchableOpacity>
                 </View>
+                {qtyError && <Text style={styles.errorText}>{qtyError}</Text>}
 
                 <View style={styles.modalActions}>
                   <TouchableOpacity
@@ -978,5 +1043,11 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '800',
     fontSize: 16,
+  },
+  errorText: {
+    color: '#ff4d4f',
+    fontSize: 12,
+    marginTop: 4,
+    textAlign: 'center',
   },
 });
