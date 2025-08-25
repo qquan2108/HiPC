@@ -496,12 +496,12 @@ export default function HomeScreen() {
             {/* Sản phẩm mới */}
             <NewProducts
               products={products}
-              renderNewBadge={renderNewBadge}
-              renderHotBadge={renderHotBadge}
-              renderDiscountBadge={renderDiscountBadge}
               isLoggedIn={isLoggedIn}
               onRequireLogin={requireLogin}
               router={router}
+              renderNewBadge={renderNewBadge}
+              renderHotBadge={renderHotBadge}
+              renderDiscountBadge={renderDiscountBadge}
             />
 
             {/* Dành riêng cho bạn */}

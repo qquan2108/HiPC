@@ -19,7 +19,6 @@ WebBrowser.maybeCompleteAuthSession();
 
 const socialIcons = {
   Google: require("../assets/images/Google.png"),
-  Apple: require("../assets/images/apple.png"),
   Facebook: require("../assets/images/Facebook.png"),
 };
 

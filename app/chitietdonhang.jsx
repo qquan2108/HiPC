@@ -87,6 +87,102 @@ export default function OrderDetailScreen() {
     </View>
   );
 
+  // Update the renderComboProducts function
+  const renderComboProducts = (combo) => (
+    <View style={styles.comboContainer}>
+      {/* Combo Header */}
+      <View style={styles.comboHeader}>
+        <Image
+          source={
+            combo.comboId?.image
+              ? { uri: combo.comboId.image }
+              : require("../assets/images/pc1.png")
+          }
+          style={styles.comboImage}
+        />
+        <View style={styles.comboInfo}>
+          <Text style={styles.comboName}>
+            🎁 {combo.comboId?.name || "Combo Gaming"}
+          </Text>
+          <Text style={styles.comboPrice}>
+            {formatCurrency(combo.price)}
+          </Text>
+        </View>
+        <Text style={styles.comboQuantity}>×{combo.quantity || 1}</Text>
+      </View>
+
+      {/* Combo Products */}
+      <View style={styles.comboProducts}>
+        {combo.comboDetails?.products?.map((product, index) => {
+          // Get all variant details
+          const variants = product.variants || [];
+          const selectedVariant = product.selectedVariant;
+          const defaultVariant = variants[0]; // First variant as default if needed
+          
+          // Get the display variant info
+          const variantInfo = selectedVariant || defaultVariant;
+          const variantDisplay = variantInfo ? {
+            name: variantInfo.name,
+            price: variantInfo.price,
+            priceDiff: variantInfo.priceDiff || 0
+          } : null;
+
+          return (
+            <View key={product._id} style={styles.comboProductItem}>
+              <View style={styles.productIndex}>
+                <Text style={styles.productIndexText}>{index + 1}</Text>
+              </View>
+
+              <Image
+                source={
+                  product.image
+                    ? { uri: product.image }
+                    : require("../assets/images/pc1.png")
+                }
+                style={styles.productThumb}
+              />
+
+              <View style={styles.productDetails}>
+                <View style={styles.productHeader}>
+                  <Text style={styles.productTitle} numberOfLines={2}>
+                    {product.name}
+                  </Text>
+                  
+                  <View style={styles.productMeta}>
+                    <Text style={styles.productCategory}>
+                      {product.category_id?.name} | {product.brand_id?.name}
+                    </Text>
+                    
+                    {variantDisplay && (
+                      <Text style={styles.variantPrice}>
+                        {formatCurrency(variantDisplay.price)}
+                      </Text>
+                    )}
+                  </View>
+                </View>
+
+                {/* Always show variant info */}
+                <View style={[
+                  styles.variantBadge,
+                  !variantDisplay && styles.variantBadgeOutlined
+                ]}>
+                  <Text style={[
+                    styles.variantText,
+                    !variantDisplay && styles.variantTextNormal
+                  ]}>
+                    {variantDisplay?.name || `${product.name} Cơ bản`}
+                    {variantDisplay?.priceDiff > 0 && ` (+${formatCurrency(variantDisplay.priceDiff)})`}
+                    {variantDisplay?.priceDiff < 0 && ` (-${formatCurrency(Math.abs(variantDisplay.priceDiff))})`}
+                  </Text>
+                </View>
+              </View>
+            </View>
+          );
+        })}
+      </View>
+    </View>
+  );
+
   if (loading) {
     return (
       <View style={styles.center}>
@@ -283,7 +379,8 @@ export default function OrderDetailScreen() {
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Sản phẩm</Text>
-          {/* Hiển thị sản phẩm lẻ */}
+          
+          {/* Regular Products */}
           <FlatList
             data={order.products || []}
             keyExtractor={(item) => item._id}
@@ -291,76 +388,13 @@ export default function OrderDetailScreen() {
             scrollEnabled={false}
             contentContainerStyle={{ paddingVertical: 4 }}
           />
-          {/* Hiển thị combo nếu có */}
-          {order.combos && order.combos.length > 0 && (
-            <View style={{ marginTop: 12 }}>
-              {order.combos.map((combo, idx) => (
-                <View
-                  key={combo._id || idx}
-                  style={{
-                    flexDirection: "row",
-                    alignItems: "center",
-                    marginVertical: 8,
-                    backgroundColor: "#fef7f0",
-                    borderRadius: 10,
-                    padding: 10,
-                  }}
-                >
-                  <Image
-                    source={
-                      combo.comboId?.image
-                        ? { uri: combo.comboId.image }
-                        : require("../assets/images/pc1.png")
-                    }
-                    style={{
-                      width: 56,
-                      height: 56,
-                      borderRadius: 12,
-                      backgroundColor: "#F3F4F6",
-                      marginRight: 12,
-                    }}
-                  />
-                  <View style={{ flex: 1 }}>
-                    <Text
-                      style={{
-                        fontSize: 14,
-                        fontWeight: "600",
-                        color: "#ff6b35",
-                        marginBottom: 4,
-                      }}
-                      numberOfLines={2}
-                    >
-                      🎁 {combo.comboId?.name || "Combo sản phẩm"}
-                    </Text>
-                    <Text
-                      style={{
-                        fontSize: 13,
-                        color: "#374151",
-                        marginBottom: 2,
-                      }}
-                    >
-                      {combo.comboId?.productIds?.length || 0} sản phẩm trong
-                      combo
-                    </Text>
-                    <Text
-                      style={{
-                        fontSize: 14,
-                        color: "#DC2626",
-                        fontWeight: "600",
-                      }}
-                    >
-                      {formatCurrency(combo.price)}
-                    </Text>
-                  </View>
-                  <Text
-                    style={{ fontSize: 14, color: "#6B7280", marginLeft: 8 }}
-                  >
-                    x{combo.quantity}
-                  </Text>
-                </View>
-              ))}
+
+          {/* Combo Products */}
+          {order.combos?.map((combo) => (
+            <View key={combo._id} style={{ marginTop: 12 }}>
+              {renderComboProducts(combo)}
             </View>
-          )}
+          ))}
         </View>
 
         {order.status === "delivered" && order.products?.length > 0 && (
@@ -547,4 +581,141 @@ const styles = StyleSheet.create({
     marginBottom: 2,
     alignSelf: "flex-start",
   },
+  comboContainer: {
+    backgroundColor: '#fff8f3',
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#ffe4d6',
+  },
+
+  comboHeader: {
+    flexDirection: 'row',
+    padding: 12,
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: '#ffe4d6',
+  },
+
+  comboImage: {
+    width: 60,
+    height: 60,
+    borderRadius: 8,
+    backgroundColor: '#F3F4F6',
+  },
+
+  comboInfo: {
+    flex: 1,
+    marginLeft: 12,
+  },
+
+  comboName: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#ff6b35',
+    marginBottom: 4,
+  },
+
+  comboPrice: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#dc2626',
+  },
+
+  comboQuantity: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginLeft: 8,
+  },
+
+  comboProducts: {
+    padding: 12,
+  },
+
+  comboProductItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f3f4f6',
+  },
+
+  productIndex: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#fff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: '#ff6b35',
+  },
+
+  productIndexText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#ff6b35',
+  },
+
+  productThumb: {
+    width: 48,
+    height: 48,
+    borderRadius: 8,
+    backgroundColor: '#F3F4F6',
+    marginRight: 12,
+  },
+
+  productDetails: {
+    flex: 1,
+  },
+
+  productHeader: {
+    marginBottom: 4,
+  },
+
+  productTitle: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#1f2937',
+    marginBottom: 4,
+    lineHeight: 18,
+  },
+
+  productCategory: {
+    fontSize: 12,
+    color: '#6b7280',
+  },
+
+  variantBadge: {
+    backgroundColor: '#eef2ff',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+    marginTop: 6,
+  },
+
+  variantBadgeOutlined: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+
+  variantPrice: {
+    fontSize: 13,
+    color: '#dc2626',
+    fontWeight: '600',
+  },
+
+  variantText: {
+    fontSize: 12,
+    color: '#4f46e5',
+    fontWeight: '500',
+  },
+
+  variantTextNormal: {
+    color: '#6b7280',
+  }
 });

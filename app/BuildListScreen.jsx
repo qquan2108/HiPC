@@ -1,24 +1,23 @@
-import React, { useEffect, useState, useCallback } from "react";
-import { 
-  View, 
-  Text, 
-  FlatList, 
-  TouchableOpacity, 
-  ActivityIndicator, 
-  StyleSheet, 
-  Alert,
-  RefreshControl,
-  Modal,
-  TextInput,
-  Dimensions,
-  SafeAreaView
-} from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import axiosInstance from "../utils/AxiosInstance";
-import { useRouter } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
+import { LinearGradient } from "expo-linear-gradient";
+import { useRouter } from "expo-router";
+import { useCallback, useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  Dimensions,
+  FlatList,
+  Modal,
+  RefreshControl,
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
+} from "react-native";
+import axiosInstance from "../utils/AxiosInstance";
 
 const { width } = Dimensions.get('window');
 
@@ -435,7 +434,8 @@ export default function BuildListScreen() {
               style={styles.modalOption}
               onPress={() => {
                 setShowCreateModal(false);
-                router.push('/BuildCreationScreen');
+                // Change from BuildCreationScreen to buildpc
+                router.push('/buildpc');
               }}
             >
               <MaterialIcons name="build" size={24} color="#2979ff" />

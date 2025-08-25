@@ -49,11 +49,10 @@ export default function CartProductList({
     setTempQuantity(prev => ({ ...prev, [itemId]: numericText }));
   };
 
-  // ✅ FIXED: Hàm mở modal chọn variant
+  // Fixed: Open variant selection modal
   const handleVariantPress = (product) => {
     if (product.type === 'combo') return;
 
-    // Lấy danh sách variants từ sản phẩm
     const productVariants = product.productId?.variants?.[0]?.options || [];
     
     if (!productVariants.length) {
@@ -61,7 +60,6 @@ export default function CartProductList({
       return;
     }
 
-    // Map variants sang format mới
     const variants = productVariants.map(option => ({
       _id: option._id,
       name: option.label,
@@ -77,7 +75,7 @@ export default function CartProductList({
     setShowVariantModal(true);
   };
 
-  // ✅ FIXED: Hàm xử lý khi chọn variant mới
+  // Fixed: Handle variant selection
   const handleVariantSelect = async (newVariant) => {
     if (selectedProduct && onVariantChange) {
       await onVariantChange(
@@ -90,7 +88,7 @@ export default function CartProductList({
     setSelectedProduct(null);
   };
 
-  // ✅ IMPROVED: Render variant info với UI đẹp hơn
+  // Fixed: Render variant info
   const renderVariantInfo = (item) => {
     if (!item.variant || item.type === 'combo') return null;
 
@@ -100,32 +98,142 @@ export default function CartProductList({
         onPress={() => handleVariantPress(item)}
       >
         <View style={styles.variantContent}>
-          <Text style={styles.variantLabel}>
-            {item.variant.label}
-          </Text>
-          <Text style={styles.variantStock}>
-            Còn {item.variant.stock} sản phẩm
-          </Text>
+          <View style={styles.variantDetails}>
+            <Text style={styles.variantLabel}>
+              Phiên bản: {item.variant.label}
+            </Text>
+            <Feather name="edit-2" size={14} color="#2979ff" />
+          </View>
         </View>
-        <Feather name="chevron-down" size={20} color="#666" />
       </TouchableOpacity>
     );
   };
 
-  // Create a unique item ID function
+  // ENHANCED: Render combo products with improved spacing and layout
+  const renderComboProducts = (item) => {
+    if (item.type !== 'combo') return null;
+
+    const cd = item.comboDetails;
+    const productList = Array.isArray(cd?.products) ? cd.products : [];
+
+    if (!productList.length) {
+      return (
+        <View style={styles.comboProductsWrap}>
+          <View style={styles.comboHeaderRow}>
+            <View style={styles.comboHeaderContent}>
+              <Feather name="package" size={14} />
+              <Text style={styles.comboHeaderText}>
+                🎮 {cd?.name || 'Combo'}
+              </Text>
+            </View>
+          </View>
+          <Text style={styles.comboEmptyText}>Đang tải thông tin combo...</Text>
+        </View>
+      );
+    }
+
+    // Map products with just name, variant and image
+    const lineItems = productList.map((p) => {
+      const v = p?._displayVariant || p?.selectedVariant;
+      const variantLabel = v?.name || null;
+      const image = p?.image || p?.productId?.image || item.image || '';
+
+      return {
+        _id: p?._id || p?.productId?._id || p?.productId || Math.random().toString(36).slice(2),
+        name: p?.name || p?.productId?.name || 'Sản phẩm',
+        variantLabel,
+        image,
+      };
+    });
+
+    return (
+      <View style={styles.comboProductsWrap}>
+        <View style={styles.comboHeaderRow}>
+          <View style={styles.comboHeaderContent}>
+            <Feather name="package" size={14} />
+            <Text style={styles.comboHeaderText}>
+              🎮 {cd?.name || 'Combo'}
+            </Text>
+          </View>
+          <Text style={styles.comboPriceText}>
+            {formatCurrency ? formatCurrency(item.price) : `${item.price.toLocaleString()} đ`}
+          </Text>
+        </View>
+
+        {lineItems.map((row, index) => (
+          <View key={row._id} style={styles.comboLine}>
+            <View style={styles.productIndex}>
+              <Text style={styles.productIndexText}>{index + 1}</Text>
+            </View>
+
+            <Image
+              source={typeof row.image === 'string' && row.image ? { uri: row.image } : require('../assets/images/pc1.png')}
+              style={styles.comboThumb}
+            />
+            
+            <View style={styles.comboLineContent}>
+              {/* Product name with better spacing */}
+              <Text style={styles.comboProdName}>
+                {row.name}
+              </Text>
+
+              {/* Variant display with improved layout */}
+              {row.variantLabel ? (
+                <View style={styles.variantBadgeWrap}>
+                  <Text style={styles.variantBadge}>
+                    {row.variantLabel}
+                  </Text>
+                </View>
+              ) : (
+                <View style={styles.variantBadgeWrap}>
+                  <Text style={styles.variantBadgeMuted}>Chưa có biến thể</Text>
+                </View>
+              )}
+            </View>
+          </View>
+        ))}
+      </View>
+    );
+  };
+
+  // Fixed: Get unique item ID
   const getItemUniqueId = (item) => {
+    if (item.type === 'combo') {
+      return `combo_${item.comboId?._id || item.comboId}`;
+    }
     return item.variant?._id 
-      ? `${item.productId._id}-${item.variant._id}`
-      : item.productId._id;
+      ? `${item.productId?._id || item.productId}-${item.variant._id}`
+      : item.productId?._id || item.productId;
+  };
+
+  // ✅ Update image handling with priority order
+  const getProductImage = (item) => {
+    if (item.type === 'combo') {
+      const cd = item.comboDetails;
+      if (cd?.image) return cd.image;
+      const firstImg = cd?.products?.[0]?.image || item.productIds?.[0]?.image;
+      return firstImg || item.image || '';
+    }
+    return item.productId?.image || item.image || '';
+  };
+
+  // ✅ Update combo name handling
+  const getProductName = (item) => {
+    if (item.type === 'combo') {
+      return item.comboDetails?.name || item.name || `Combo ${item.comboId}`;
+    }
+    return item.productId?.name || item.name || 'Sản phẩm';
   };
 
   return (
     <View style={styles.cartBox}>
-      {Array.isArray(cart) && cart.map(item => (
-        typeof item === 'object' && item !== null && item.productId && item.productId.name ? (
+      {Array.isArray(cart) && cart.map(item => {
+        const uniqueId = getItemUniqueId(item);
+        const isSelected = selectedIds.includes(uniqueId);
+        
+        return (
           <TouchableOpacity
-            // Create unique key combining product ID, variant ID and timestamp if exists
-            key={getItemUniqueId(item)}
+            key={uniqueId}
             activeOpacity={0.9}
             onPress={() => onProductPress && onProductPress(item)}
             disabled={item.type === 'combo'}
@@ -133,145 +241,97 @@ export default function CartProductList({
             <View style={[
               styles.productCard,
               item.type === 'combo' && styles.comboCard,
-              item.type === 'build' && styles.buildCard,
-              selectedIds.includes(getItemUniqueId(item)) && styles.selectedCard
+              isSelected && styles.selectedCard
             ]}>
-              {/* Checkbox với animation */}
+              {/* Checkbox */}
               <TouchableOpacity
                 style={[
                   styles.checkbox,
-                  selectedIds.includes(getItemUniqueId(item)) && styles.checkboxSelected
+                  isSelected && styles.checkboxSelected
                 ]}
-                onPress={() => onToggleSelect(getItemUniqueId(item))}
+                onPress={() => onToggleSelect && onToggleSelect(uniqueId)}
                 activeOpacity={0.8}
               >
                 <View style={styles.checkboxInner}>
-                  {selectedIds.includes(getItemUniqueId(item)) && (
+                  {isSelected && (
                     <Feather name="check" size={14} color="#fff" />
                   )}
                 </View>
               </TouchableOpacity>
 
-              {/* Product Image Container */}
+              {/* Product Image */}
               <View style={styles.imageContainer}>
                 <Image 
-                  source={{ uri: item.productId.image }} 
+                  source={{ uri: getProductImage(item) }} 
                   style={styles.productImage}
                   resizeMode="cover"
                 />
                 
-                {/* Badges */}
-                {item.discount > 0 && (
-                  <View style={styles.discountBadge}>
-                    <Text style={styles.discountText}>-{item.discount}%</Text>
-                  </View>
-                )}
-                
+                {/* Combo badge */}
                 {item.type === 'combo' && (
                   <View style={styles.comboBadge}>
                     <Feather name="package" size={10} color="#fff" />
                     <Text style={styles.comboBadgeText}>COMBO</Text>
                   </View>
                 )}
-                
-                {item.type === 'build' && (
-                  <View style={styles.buildBadge}>
-                    <Feather name="cpu" size={10} color="#fff" />
-                    <Text style={styles.buildBadgeText}>BUILD</Text>
-                  </View>
-                )}
               </View>
 
               {/* Product Info */}
               <View style={styles.productInfo}>
-                <Text
-                  style={[
-                    styles.productName,
-                    item.type === 'combo' && styles.comboProductName
-                  ]}
-                  numberOfLines={2}
-                >
-                  {item.productId.name}
+                {/* Product Name */}
+                <Text style={[
+                  styles.productName, 
+                  item.type === 'combo' && styles.comboName
+                ]} numberOfLines={2}>
+                  {item.type === 'combo' ? '🎮 ' : ''}{getProductName(item)}
                 </Text>
-                
-                {/* Variant info */}
+
+                {/* Variant Info for regular products */}
                 {renderVariantInfo(item)}
 
-                {/* Price section với thiết kế mới */}
+                {/* Combo Products List */}
+                {renderComboProducts(item)}
+
+                {/* Price section */}
                 <View style={styles.priceContainer}>
                   <Text style={styles.currentPrice}>
-                    {formatCurrency(item.price)}
+                    {formatCurrency ? formatCurrency(item.price) : `${item.price}đ`}
                   </Text>
-                  {item.originalPrice && item.originalPrice > item.price && (
-                    <Text style={styles.originalPrice}>
-                      {formatCurrency(item.originalPrice)}
-                    </Text>
-                  )}
                 </View>
-
-                {/* Stock warning */}
-                {item.stock && item.stock < 10 && (
-                  <View style={styles.stockWarningContainer}>
-                    <Feather name="alert-triangle" size={12} color="#ff6b35" />
-                    <Text style={styles.stockWarning}>
-                      Chỉ còn {item.stock} sản phẩm
-                    </Text>
-                  </View>
-                )}
               </View>
 
-              {/* Right Actions */}
+              {/* Quantity controls */}
               <View style={styles.rightActions}>
                 {/* Remove button */}
                 <TouchableOpacity
-                  onPress={() => onRemove(item.id)}
+                  onPress={() => onRemove && onRemove(uniqueId)}
                   style={styles.removeButton}
                   activeOpacity={0.7}
                 >
                   <Feather name="trash-2" size={16} color="#ff4757" />
                 </TouchableOpacity>
 
-                {/* Quantity controls */}
                 <View style={styles.quantityContainer}>
                   <TouchableOpacity 
-                    onPress={() => onQuantity(item.id, -1)} 
-                    style={[styles.quantityBtn, styles.decreaseBtn]}
+                    onPress={() => onQuantity && onQuantity(uniqueId, -1)} 
+                    style={styles.quantityBtn}
                     disabled={item.quantity <= 1}
                     activeOpacity={0.7}
                   >
-                    <Feather 
-                      name="minus" 
-                      size={12} 
-                      color={item.quantity <= 1 ? "#ccc" : "#666"} 
-                    />
+                    <Feather name="minus" size={12} color="#666" />
                   </TouchableOpacity>
 
-                  <View style={styles.quantityInputContainer}>
-                    {editingQuantity[item.id] ? (
-                      <TextInput
-                        style={styles.quantityInput}
-                        value={tempQuantity[item.id] || ''}
-                        onChangeText={(text) => handleQuantityTextChange(item.id, text)}
-                        onBlur={() => handleQuantityInputBlur(item.id)}
-                        keyboardType="numeric"
-                        selectTextOnFocus
-                        maxLength={3}
-                        autoFocus
-                      />
-                    ) : (
-                      <TouchableOpacity 
-                        onPress={() => handleQuantityInputFocus(item.id, item.quantity)}
-                        style={styles.quantityDisplay}
-                        activeOpacity={0.7}
-                      >
-                        <Text style={styles.quantityText}>{item.quantity}</Text>
-                      </TouchableOpacity>
-                    )}
-                  </View>
+                  <TextInput
+                    style={styles.quantityInput}
+                    value={String(item.quantity || 1)}
+                    onChangeText={(text) => handleQuantityTextChange(uniqueId, text)}
+                    keyboardType="numeric"
+                    maxLength={3}
+                  />
 
                   <TouchableOpacity 
-                    onPress={() => onQuantity(item.id, 1)} 
-                    style={[styles.quantityBtn, styles.increaseBtn]}
+                    onPress={() => onQuantity && onQuantity(uniqueId, 1)} 
+                    style={styles.quantityBtn}
                     activeOpacity={0.7}
                   >
                     <Feather name="plus" size={12} color="#666" />
@@ -280,21 +340,23 @@ export default function CartProductList({
               </View>
             </View>
           </TouchableOpacity>
-        ) : null
-      ))}
+        );
+      })}
 
       {/* Variant Selection Modal */}
-      <VariantSelectionModal
-        visible={showVariantModal}
-        onClose={() => {
-          setShowVariantModal(false);
-          setSelectedProduct(null);
-        }}
-        variants={selectedProduct?.variants || []}
-        selectedVariant={selectedProduct?.variant}
-        onSelect={handleVariantSelect}
-        formatCurrency={formatCurrency}
-      />
+      {selectedProduct && (
+        <VariantSelectionModal
+          visible={showVariantModal}
+          onClose={() => {
+            setShowVariantModal(false);
+            setSelectedProduct(null);
+          }}
+          variants={selectedProduct.variants || []}
+          selectedVariant={selectedProduct.variant}
+          onSelect={handleVariantSelect}
+          formatCurrency={formatCurrency}
+        />
+      )}
     </View>
   );
 }
@@ -327,14 +389,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.15,
   },
   comboCard: {
-    backgroundColor: '#fef9f5',
-    borderColor: '#ff6b35',
+    backgroundColor: '#fff',
+    borderColor: '#ff6b3520',
     borderWidth: 1,
-  },
-  buildCard: {
-    backgroundColor: '#f0f8ff',
-    borderColor: '#2979ff',
-    borderWidth: 1,
+    minHeight: 300, // Increased for better combo display
   },
   checkbox: {
     position: 'absolute',
@@ -365,7 +423,7 @@ const styles = StyleSheet.create({
     height: 88,
     marginRight: 16,
     position: 'relative',
-    marginLeft: 12, // Space for checkbox
+    marginLeft: 12,
   },
   productImage: {
     width: '100%',
@@ -373,57 +431,26 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     backgroundColor: '#f8f9fa',
   },
-  discountBadge: {
+  comboBadge: {
     position: 'absolute',
     top: -4,
     right: -4,
-    backgroundColor: '#ff4757',
+    backgroundColor: '#ff6b35',
     borderRadius: 8,
     paddingHorizontal: 6,
     paddingVertical: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
-  discountText: {
-    color: '#fff',
+  comboBadgeText: {
+    color: '#fff', 
     fontSize: 10,
     fontWeight: 'bold',
   },
-  comboBadge: {
-    position: 'absolute',
-    bottom: -2,
-    left: -2,
-    backgroundColor: '#ff6b35',
-    borderRadius: 6,
-    paddingHorizontal: 4,
-    paddingVertical: 2,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  comboBadgeText: {
-    color: '#fff',
-    fontSize: 8,
-    fontWeight: 'bold',
-    marginLeft: 2,
-  },
-  buildBadge: {
-    position: 'absolute',
-    bottom: -2,
-    left: -2,
-    backgroundColor: '#2979ff',
-    borderRadius: 6,
-    paddingHorizontal: 4,
-    paddingVertical: 2,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  buildBadgeText: {
-    color: '#fff',
-    fontSize: 8,
-    fontWeight: 'bold',
-    marginLeft: 2,
-  },
   productInfo: {
     flex: 1,
-    justifyContent: 'space-between',
+    justifyContent: 'flex-start',
     paddingVertical: 4,
   },
   productName: {
@@ -433,59 +460,43 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     lineHeight: 20,
   },
-  comboProductName: {
+  comboName: {
+    fontSize: 16,
+    fontWeight: '600',
     color: '#ff6b35',
+    marginBottom: 8,
   },
   variantButton: {
+    backgroundColor: '#f8f9fa',
+    borderRadius: 8,
+    padding: 8,
+    marginVertical: 4,
+    borderWidth: 1,
+    borderColor: '#e9ecef',
+  },
+  variantContent: {
+    gap: 4,
+  },
+  variantDetails: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#f8f9fa',
-    borderRadius: 8,
-    padding: 12,
-    marginTop: 8,
-    borderWidth: 1,
-    borderColor: '#eee',
-  },
-  variantContent: {
-    flex: 1,
   },
   variantLabel: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#333',
     fontWeight: '500',
-    marginBottom: 4,
-  },
-  variantStock: {
-    fontSize: 12,
-    color: '#666',
   },
   priceContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginTop: 'auto',
     marginBottom: 8,
   },
   currentPrice: {
     fontSize: 16,
     fontWeight: 'bold',
     color: '#ee4d2d',
-  },
-  originalPrice: {
-    fontSize: 12,
-    color: '#999',
-    textDecorationLine: 'line-through',
-    marginLeft: 8,
-  },
-  stockWarningContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  stockWarning: {
-    fontSize: 11,
-    color: '#ff6b35',
-    fontWeight: '500',
-    marginLeft: 4,
   },
   rightActions: {
     alignItems: 'flex-end',
@@ -514,44 +525,130 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#fff',
   },
-  decreaseBtn: {
-    borderTopLeftRadius: 7,
-    borderBottomLeftRadius: 7,
-    borderRightWidth: 1,
-    borderRightColor: '#e9ecef',
-  },
-  increaseBtn: {
-    borderTopRightRadius: 7,
-    borderBottomRightRadius: 7,
-    borderLeftWidth: 1,
-    borderLeftColor: '#e9ecef',
-  },
-  quantityInputContainer: {
+  quantityInput: {
     width: 36,
     height: 32,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-  },
-  quantityInput: {
-    width: '100%',
-    height: '100%',
     textAlign: 'center',
     fontSize: 14,
     fontWeight: '600',
     color: '#333',
     padding: 0,
+    backgroundColor: '#fff',
   },
-  quantityDisplay: {
-    width: '100%',
-    height: '100%',
+  // ENHANCED: Improved Combo styles for better spacing
+  comboProductsWrap: {
+    marginTop: 8,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#ff6b3520',
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  comboHeaderRow: {
+    padding: 12,
+    backgroundColor: '#fff8f3',
+    borderBottomWidth: 1,
+    borderBottomColor: '#ffe4d6',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  comboHeaderContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flex: 1,
+  },
+  comboHeaderText: {
+    fontSize: 13,
+    color: '#ff6b35',
+    fontWeight: '600',
+    flex: 1,
+  },
+  comboPriceText: {
+    fontSize: 13,
+    color: '#ee4d2d',
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+  comboLine: {
+    flexDirection: 'row',
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f3f4f6',
+    alignItems: 'flex-start',
+    minHeight: 70, // Ensure minimum height for proper spacing
+  },
+  comboLineContent: {
+    flex: 1,
+    marginRight: 8,
+    justifyContent: 'flex-start',
+  },
+  comboProdName: {
+    fontSize: 13,
+    color: '#333',
+    fontWeight: '500',
+    marginBottom: 6,
+    lineHeight: 18, // Better line height for readability
+    flexWrap: 'wrap',
+  },
+  variantBadgeWrap: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginTop: 4,
+  },
+  variantBadge: {
+    fontSize: 12,
+    color: '#2979ff',
+    backgroundColor: '#e3f2fd',
+    paddingHorizontal: 8,
+    paddingVertical: 4, // Increased vertical padding
+    borderRadius: 12,
+    lineHeight: 16, // Better line height
+    textAlign: 'left',
+    flexShrink: 1,
+  },
+  variantBadgeMuted: {
+    fontSize: 12,
+    color: '#666',
+    backgroundColor: '#f5f5f5',
+    paddingHorizontal: 8,
+    paddingVertical: 4, // Increased vertical padding
+    borderRadius: 12,
+    fontStyle: 'italic',
+    lineHeight: 16, // Better line height
+    textAlign: 'left',
+    flexShrink: 1,
+  },
+  comboThumb: {
+    width: 48,
+    height: 48,
+    borderRadius: 8,
+    backgroundColor: '#f5f7fa',
+    marginRight: 12,
+    flexShrink: 0,
+  },
+  productIndex: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#e9ecef',
     alignItems: 'center',
     justifyContent: 'center',
+    marginRight: 12,
+    flexShrink: 0,
+    marginTop: 2, // Slight top margin to align with text
   },
-  quantityText: {
-    fontSize: 14,
-    color: '#333',
-    fontWeight: '600',
+  productIndexText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#666',
+  },
+  comboEmptyText: {
+    padding: 16,
     textAlign: 'center',
+    color: '#999',
+    fontStyle: 'italic',
   },
 });

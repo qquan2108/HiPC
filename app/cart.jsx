@@ -212,56 +212,97 @@ export default function CartScreen() {
 
         // 🆕 Xử lý combo items
         else if (item.comboId) {
-          try {
-            // Fetch combo details
-            const comboRes = await axiosInstance.get(`/combo/${item.comboId}`);
-            const combo = comboRes.data;
+          const comboIdStr = typeof item.comboId === 'string'
+            ? item.comboId
+            : (item.comboId?._id || '');
 
-            if (combo) {
-              let imageUri = require("../assets/images/pc1.png");
+          // Dùng comboDetails nếu có sẵn từ cart API
+          let combo = item.comboDetails || null;
 
-              // Xử lý ảnh combo
-              if (combo.image) {
-                if (typeof combo.image === "string") {
-                  imageUri = { uri: combo.image.startsWith("http") ? combo.image : `${base}${combo.image}` };
-                }
-              } else if (combo.productIds && combo.productIds.length > 0 && combo.productIds[0].image) {
-                const firstProductImage = combo.productIds[0].image;
-                imageUri = { uri: firstProductImage.startsWith("http") ? firstProductImage : `${base}${firstProductImage}` };
-              }
-
-              items.push({
-                id: `combo_${item.comboId}`, // 🆕 Unique ID for combo
-                cartItemId: item._id, // <-- Thêm dòng này!
-                comboId: item.comboId, // 🆕 Keep original comboId
-                name: `🎁 ${combo.name}` || "Combo không có tên",
-                price: item.price || combo.price || 0,
-                originalPrice: combo.originalPrice,
-                discount: combo.discount,
-                stock: 99, // Combos usually don't have stock limit
-                image: imageUri,
-                quantity: item.quantity ?? 1,
-                variant: item.variant || {},
-                type: 'combo', // 🆕 Mark as combo
-                productCount: combo.productIds ? combo.productIds.length : 0 // 🆕 Show product count
-              });
+          // Chỉ fetch khi chưa có comboDetails và comboId hợp lệ
+          if (!combo && /^[a-f0-9]{24}$/i.test(comboIdStr)) {
+            try {
+              const comboRes = await axiosInstance.get(`/combo/${comboIdStr}`);
+              combo = comboRes.data || null;
+            } catch (comboErr) {
+              console.error('Error fetching combo details:', comboErr);
             }
-          } catch (comboErr) {
-            console.error('Error fetching combo details:', comboErr);
-            // Fallback: add basic combo info
-            items.push({
-              id: `combo_${item.comboId}`,
-              cartItemId: item._id, // <-- Thêm dòng này!
-              comboId: item.comboId,
-              name: "🎁 Combo sản phẩm",
-              price: item.price || 0,
-              stock: 99,
-              image: require("../assets/images/pc1.png"),
-              quantity: item.quantity ?? 1,
-              variant: item.variant || {},
-              type: 'combo'
-            });
           }
+
+          // Normalize variant helper functions
+          const normalizeVariant = (prod) => {
+            // Các cách đặt tên có thể có từ server hoặc client
+            const v = prod?.selectedVariant || prod?.variant;
+
+            // Nếu có object variant đầy đủ thì trả luôn
+            if (v && (v.name || v.key || v.option || v.priceDiff !== undefined)) return v;
+
+            // Nếu chỉ có variantId & có danh sách variants để tra cứu
+            const vId = prod?.variantId || prod?.selectedVariantId || prod?.variant?._id;
+            const variantsList = prod?.variants || [];  // nếu server có nhét sẵn
+            const found = Array.isArray(variantsList) ? variantsList.find(x =>
+              (x?._id === vId) || (x?.id === vId)
+            ) : null;
+            if (found) return found;
+
+            // Không có gì ⇒ trả null
+            return null;
+          };
+
+          const withDisplayVariant = (p) => {
+            const v = normalizeVariant(p);
+            // Hiển thị label & priceDiff an toàn
+            const displayName =
+              v?.label || v?.name || (v?.key && v?.option ? `${v.key}: ${v.option}` : undefined);
+
+            const priceDiff = Number(v?.priceDiff ?? v?.diff ?? 0);
+
+            return {
+              ...p,
+              _displayVariant: {
+                id: v?._id || v?.id || p?.variantId || p?.selectedVariantId || null,
+                name: displayName || null,
+                priceDiff
+              }
+            };
+          };
+
+          // Chuẩn hoá danh sách products bên trong combo
+          const comboProducts = Array.isArray(combo?.products) ? combo.products.map(withDisplayVariant)
+                          : Array.isArray(combo?.productIds) ? combo.productIds.map(withDisplayVariant)
+                          : [];
+
+          // Gán lại vào comboDetails để UI dùng trực tiếp
+          const comboNormalized = { ...combo, products: comboProducts };
+
+          // Xử lý ảnh combo
+          let imageUri = require("../assets/images/pc1.png");
+          const cImg = combo?.image;
+          if (typeof cImg === "string" && cImg.length) {
+            imageUri = { uri: cImg.startsWith("http") ? cImg : `${base}${cImg}` };
+          } else {
+            const firstImg = comboProducts[0]?.image || combo?.productIds?.[0]?.image;
+            if (typeof firstImg === "string" && firstImg.length) {
+              imageUri = { uri: firstImg.startsWith("http") ? firstImg : `${base}${firstImg}` };
+            }
+          }
+
+          items.push({
+            id: `combo_${comboIdStr || 'unknown'}`,
+            cartItemId: item._id,
+            comboId: comboIdStr,
+            name: combo?.name ? `🎁 ${combo.name}` : "🎁 Combo sản phẩm",
+            price: item.price ?? combo?.price ?? 0,
+            originalPrice: combo?.originalPrice,
+            discount: combo?.discount,
+            stock: 99,
+            image: imageUri,
+            quantity: item.quantity ?? 1,
+            variant: item.variant || {},
+            type: 'combo',
+            productCount: comboProducts.length,
+            comboDetails: comboNormalized,  // 🆕 đã kèm _displayVariant cho từng product
+          });
         } else {
           console.log('Filtered out item with invalid productId/comboId:', item);
         }
@@ -307,7 +348,7 @@ export default function CartScreen() {
 
     const newQty = Math.max(1, prod.quantity + delta);
 
-    // Kiểm tra tồn kho trước khi cập nhật
+    // Check stock before updating
     const maxStock = typeof prod.variant?.stock === "number"
       ? prod.variant.stock
       : (typeof prod.stock === "number" ? prod.stock : 99);
@@ -332,9 +373,14 @@ export default function CartScreen() {
 
     try {
       if (prod.type === 'combo') {
+        // Ensure comboId is string
+        const comboIdStr = typeof prod.comboId === 'string' 
+          ? prod.comboId 
+          : (prod.comboId?._id || '');
+
         await axiosInstance.put("/cartt/update-quantity", {
           user_id: userId,
-          comboId: prod.comboId,
+          comboId: comboIdStr,
           quantity: newQty
         });
       } else {
@@ -345,44 +391,41 @@ export default function CartScreen() {
           quantity: newQty
         });
       }
-      // Không cần fetchCart() ở đây nữa
     } catch (err) {
-  // Kiểm tra nếu là lỗi vượt quá tồn kho
-  if (err.response?.data?.maxStock !== undefined) {
-    const { maxStock, details } = err.response.data;
-    
-    // Reset về số lượng tối đa có thể
-    setCart((prev) =>
-      prev.map((item) =>
-        item.id === id ? { ...item, quantity: maxStock } : item
-      )
-    );
+      // Handle stock limit error
+      if (err.response?.data?.maxStock !== undefined) {
+        const { maxStock, details } = err.response.data;
+        
+        // Reset to maximum available quantity
+        setCart((prev) =>
+          prev.map((item) =>
+            item.id === id ? { ...item, quantity: maxStock } : item
+          )
+        );
 
-    // Hiển thị toast thông báo tồn kho
-    Toast.show({
-      type: "info", // Đổi thành info thay vì error
-      text1: "Thông báo số lượng tồn kho",
-      text2: details || `Sản phẩm này chỉ còn ${maxStock} trong kho`,
-      position: "top",
-      visibilityTime: 3000,
-    });
-  } else {
-    // Rollback số lượng cũ nếu là lỗi khác
-    setCart((prev) =>
-      prev.map((item) =>
-        item.id === id ? { ...item, quantity: prod.quantity } : item
-      )
-    );
-    
-    // Hiển thị toast lỗi chung
-    Toast.show({
-      type: "error",
-      text1: "Có lỗi xảy ra",
-      text2: "Vui lòng thử lại sau",
-      position: "top", 
-      visibilityTime: 2000,
-    });
-  }
+        Toast.show({
+          type: "info",
+          text1: "Thông báo số lượng tồn kho",
+          text2: details || `Sản phẩm này chỉ còn ${maxStock} trong kho`,
+          position: "top",
+          visibilityTime: 3000,
+        });
+      } else {
+        // Rollback on other errors
+        setCart((prev) =>
+          prev.map((item) =>
+            item.id === id ? { ...item, quantity: prod.quantity } : item
+          )
+        );
+        
+        Toast.show({
+          type: "error",
+          text1: "Có lỗi xảy ra",
+          text2: "Vui lòng thử lại sau",
+          position: "top", 
+          visibilityTime: 2000,
+        });
+      }
     }
   };
 

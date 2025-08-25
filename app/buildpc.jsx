@@ -328,19 +328,33 @@ export default function UngDungLapPC() {
       Alert.alert("Vui lòng chọn phiên bản/biến thể!");
       return;
     }
+
     setSelectedComponents((prev) => ({
       ...prev,
       [currentCategoryForSelection._id]: {
         ...variantProduct,
-        variant: {
-          key: variantProduct.variants[0]?.key || "Phiên bản",
+        variant: selectedVariant ? {
+          _id: selectedVariant._id, // Add variant ID if available
+          name: selectedVariant.name,
+          label: selectedVariant.label || selectedVariant.name,
+          key: selectedVariant.key || "Option",
+          price: selectedVariant.price,
+          stock: selectedVariant.stock,
+          priceDiff: selectedVariant.priceDiff
+        } : {
+          // Fallback if only label/priceDiff available
           label: selectedVariant.label,
-          priceDiff: selectedVariant.priceDiff || 0,
+          key: "Option",
+          priceDiff: selectedVariant.priceDiff || 0
         },
-      },
+        price: typeof selectedVariant.price === 'number' 
+          ? selectedVariant.price
+          : (variantProduct.price || 0) + (selectedVariant.priceDiff || 0)
+      }
     }));
-    setShowVariantDialog(false); // Đóng dialog variant
-    // KHÔNG gọi lại setShowProductModal(true) hoặc openProductSelection ở đây!
+
+    setShowVariantDialog(false);
+    
     setTimeout(() => {
       const issues = checkCompatibility();
       if (issues.length > 0) setShowCompatibilityAlert(true);
@@ -1268,6 +1282,7 @@ export default function UngDungLapPC() {
   const addAllToCartAndGoCart = async () => {
     try {
       setIsBuilding(true);
+      
       const userId = await getUserId();
       if (!userId) {
         Alert.alert("Tài khoản không hợp lệ! Vui lòng đăng nhập lại.");
@@ -1275,29 +1290,47 @@ export default function UngDungLapPC() {
         return;
       }
 
-      // Thêm các linh kiện preset (nếu có)
-      for (const comp of presetComponents) {
-        await axiosInstance.post("/cartt/add-to-cart", {
+      // Add preset components
+      const preset = Object.values(presetComponents).filter(Boolean);
+      for (const comp of preset) {
+        const payload = {
           user_id: userId,
           productId: comp.productId,
           quantity: comp.quantity || 1,
-        });
-      }
-
-      // Thêm các linh kiện đã chọn
-      for (const comp of Object.values(selectedComponents)) {
-        const payload = {
-          user_id: userId,
-          productId: comp.id,
-          quantity: 1,
         };
-        if (comp.variant && comp.variant.key && comp.variant.label) {
+
+        if (comp.variant?._id) {
+          payload.variantId = comp.variant._id;
+        } else if (comp.variant?.label || comp.variant?.name) {
           payload.variant = {
-            key: comp.variant.key,
-            label: comp.variant.label,
-            priceDiff: comp.variant.priceDiff || 0,
+            key: comp.variant.key || "Option",
+            label: comp.variant.label || comp.variant.name,
+            name: comp.variant.name || comp.variant.label
           };
         }
+
+        await axiosInstance.post("/cartt/add-to-cart", payload);
+      }
+
+      // Add selected components
+      const list = Object.values(selectedComponents).filter(Boolean);
+      for (const comp of list) {
+        const payload = {
+          user_id: userId,
+          productId: comp.id || comp._id,
+          quantity: comp.quantity || 1,
+        };
+
+        if (comp.variant?._id) {
+          payload.variantId = comp.variant._id;
+        } else if (comp.variant?.label || comp.variant?.name) {
+          payload.variant = {
+            key: comp.variant.key || "Option", 
+            label: comp.variant.label || comp.variant.name,
+            name: comp.variant.name || comp.variant.label
+          };
+        }
+
         await axiosInstance.post("/cartt/add-to-cart", payload);
       }
 
@@ -1306,6 +1339,7 @@ export default function UngDungLapPC() {
         "Chuyển đến giỏ hàng để thanh toán.",
         [{ text: "OK", onPress: () => router.push("/cart") }]
       );
+
     } catch (e) {
       Alert.alert("Lỗi", e.message || "Không thể thêm vào giỏ hàng");
     } finally {
@@ -2433,6 +2467,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#e9ecef',
     minWidth: 120
+
   },
   variantOptionSelected: {
     backgroundColor: '#eef2ff',

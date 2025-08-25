@@ -2,7 +2,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Video } from "expo-av";
-import { LinearGradient } from 'expo-linear-gradient';
+import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
@@ -16,10 +16,9 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   TouchableWithoutFeedback,
-  View
+  View,
 } from "react-native";
 import axiosInstance from "../utils/AxiosInstance";
 import SkeletonLiveVideo from "./SkeletonLiveVideo";
@@ -38,6 +37,7 @@ export default function VideoFeed() {
   const [selectedCombo, setSelectedCombo] = useState(null);
   const [comboModalVisible, setComboModalVisible] = useState(false);
   const router = useRouter();
+ 
 
   // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -92,12 +92,12 @@ export default function VideoFeed() {
   }, []);
 
   useEffect(() => {
-  const checkUserId = async () => {
-    const userId = await AsyncStorage.getItem("user_id");
-    console.log("📦 Đang có user_id trong AsyncStorage:", userId);
-  };
-  checkUserId();
-}, []);
+    const checkUserId = async () => {
+      const userId = await AsyncStorage.getItem("user_id");
+      console.log("📦 Đang có user_id trong AsyncStorage:", userId);
+    };
+    checkUserId();
+  }, []);
 
   const viewConfig = { viewAreaCoveragePercentThreshold: 80 };
   const onViewableItemsChanged = useRef(({ viewableItems }) => {
@@ -113,35 +113,39 @@ export default function VideoFeed() {
     }
   };
 
-const handleAddToCart = async (comboId) => {
-  if (!comboId) {
-    console.warn("comboId không hợp lệ:", comboId);
-    return Alert.alert("Lỗi", "Combo không hợp lệ");
-  }
-
-  try {
-    const userId = await AsyncStorage.getItem("user_id");
-    console.log("✅ user_id lấy từ AsyncStorage:", userId);
-    if (!userId) {
-      console.warn("Chưa đăng nhập hoặc thiếu user_id");
-      return Alert.alert("Lỗi", "Vui lòng đăng nhập để thêm vào giỏ hàng");
+  const handleAddToCart = async (comboId) => {
+    if (!comboId) {
+      console.warn("comboId không hợp lệ:", comboId);
+      return Alert.alert("Lỗi", "Combo không hợp lệ");
     }
 
-    // 🆕 Sử dụng API mới cho combo
-    const res = await axiosInstance.post("cartt/add-combo", {
-      user_id: userId,
-      comboId: comboId,
-      quantity: 1
-    });
+    try {
+      const userId = await AsyncStorage.getItem("user_id");
+      console.log("✅ user_id lấy từ AsyncStorage:", userId);
+      if (!userId) {
+        console.warn("Chưa đăng nhập hoặc thiếu user_id");
+        return Alert.alert("Lỗi", "Vui lòng đăng nhập để thêm vào giỏ hàng");
+      }
 
-    console.log("✅ Combo added successfully:", res.data);
-    Alert.alert("Thành công", "Combo đã được thêm vào giỏ hàng");
-  } catch (err) {
-    console.error("Lỗi khi thêm combo:", err.response?.data || err.message);
-    Alert.alert("Lỗi", err.response?.data?.error || err.response?.data?.message || "Không thể thêm combo vào giỏ hàng");
-  }
-};
+      // 🆕 Sử dụng API mới cho combo
+      const res = await axiosInstance.post("cartt/add-combo", {
+        user_id: userId,
+        comboId: comboId,
+        quantity: 1,
+      });
 
+      console.log("✅ Combo added successfully:", res.data);
+      Alert.alert("Thành công", "Combo đã được thêm vào giỏ hàng");
+    } catch (err) {
+      console.error("Lỗi khi thêm combo:", err.response?.data || err.message);
+      Alert.alert(
+        "Lỗi",
+        err.response?.data?.error ||
+          err.response?.data?.message ||
+          "Không thể thêm combo vào giỏ hàng"
+      );
+    }
+  };
 
   const handleComboPress = (combo) => {
     setSelectedCombo(combo);
@@ -194,7 +198,6 @@ const handleAddToCart = async (comboId) => {
       </View> */}
 
       {/* Thêm dòng chữ đơn giản cho combo */}
-      
 
       {/* Combo Section giữ nguyên */}
       {item.comboIds && item.comboIds.length > 0 && (
@@ -207,7 +210,6 @@ const handleAddToCart = async (comboId) => {
         />
       )}
 
-      
       {/* Combo Detail Modal */}
       <Modal visible={comboModalVisible} animationType="slide" transparent>
         <SafeAreaView style={styles.modalContainer}>
@@ -231,18 +233,20 @@ const handleAddToCart = async (comboId) => {
   return (
     <>
       {/* Nút back ở góc trên bên trái */}
-      <View style={{
-        position: 'absolute',
-        top: 40,
-        left: 16,
-        zIndex: 100,
-        backgroundColor: 'rgba(0,0,0,0.35)',
-        borderRadius: 20,
-        width: 40,
-        height: 40,
-        justifyContent: 'center',
-        alignItems: 'center',
-      }}>
+      <View
+        style={{
+          position: "absolute",
+          top: 40,
+          left: 16,
+          zIndex: 100,
+          backgroundColor: "rgba(0,0,0,0.35)",
+          borderRadius: 20,
+          width: 40,
+          height: 40,
+          justifyContent: "center",
+          alignItems: "center",
+        }}
+      >
         <TouchableOpacity onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={24} color="#fff" />
         </TouchableOpacity>
@@ -267,7 +271,13 @@ function formatPrice(price) {
   }).format(price || 0);
 }
 
-function EnhancedComboSection({ comboList, onAddToCart, onSelectCombo, fadeAnim, slideAnim }) {
+function EnhancedComboSection({
+  comboList,
+  onAddToCart,
+  onSelectCombo,
+  fadeAnim,
+  slideAnim,
+}) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const flatListRef = useRef(null);
 
@@ -278,7 +288,7 @@ function EnhancedComboSection({ comboList, onAddToCart, onSelectCombo, fadeAnim,
   };
 
   return (
-    <Animated.View 
+    <Animated.View
       style={[
         styles.comboSection,
         {
@@ -288,7 +298,7 @@ function EnhancedComboSection({ comboList, onAddToCart, onSelectCombo, fadeAnim,
       ]}
     >
       <LinearGradient
-        colors={['rgba(0,0,0,0.8)', 'rgba(0,0,0,0.2)']}
+        colors={["rgba(0,0,0,0.8)", "rgba(0,0,0,0.2)"]}
         style={styles.gradientBackground}
       >
         <View style={styles.comboHeader}>
@@ -297,9 +307,7 @@ function EnhancedComboSection({ comboList, onAddToCart, onSelectCombo, fadeAnim,
               <View style={styles.liveIndicator} />
               <Text style={styles.liveText}>Hot combo </Text>
             </View>
-            
           </View>
-          
         </View>
 
         <FlatList
@@ -330,14 +338,21 @@ function EnhancedComboSection({ comboList, onAddToCart, onSelectCombo, fadeAnim,
               key={index}
               style={[
                 styles.paginationDot,
-                { backgroundColor: index === currentIndex ? '#FF6B6B' : 'rgba(255,255,255,0.3)' },
+                {
+                  backgroundColor:
+                    index === currentIndex
+                      ? "#FF6B6B"
+                      : "rgba(255,255,255,0.3)",
+                },
               ]}
             />
           ))}
         </View>
 
         <View style={styles.shoppingFooter}>
-          <Text style={styles.footerText}>💰 Giá đặc biệt chỉ có trong Live</Text>
+          <Text style={styles.footerText}>
+            💰 Giá đặc biệt chỉ có trong Live
+          </Text>
           <Text style={styles.footerSubtext}>⏰ Ưu đãi có hạn</Text>
         </View>
       </LinearGradient>
@@ -358,26 +373,28 @@ function ComboCard({ combo, onPress, onAddToCart, index, currentIndex }) {
   }, [currentIndex, index]);
 
   const discountPercent = Math.floor(Math.random() * 30) + 10; // Random discount 10-40%
-  const originalPrice = combo.price * (1 + discountPercent / 100);
-
+ const originalPrice = combo?.price ? combo.price * (1 + discountPercent / 100) : 0;
   return (
-    <Animated.View style={[styles.comboCard, { transform: [{ scale: scaleAnim }] }]}>
+    <Animated.View
+      style={[styles.comboCard, { transform: [{ scale: scaleAnim }] }]}
+    >
       <TouchableOpacity onPress={onPress} style={styles.cardContent}>
         <View style={styles.imageContainer}>
-<Image
-  source={{
-    uri:
-      (combo.image && combo.image.startsWith('http'))
-        ? combo.image
-        : combo.image
-          ? `${axiosInstance.defaults.baseURL}${combo.image}`
-          : (combo.productIds?.[0]?.image?.startsWith('http')
-              ? combo.productIds[0].image
-              : `${axiosInstance.defaults.baseURL}${combo.productIds?.[0]?.image || ''}`
-            )
-  }}
-  style={styles.comboImage}
-/>
+          <Image
+            source={{
+              uri:
+                combo.image && combo.image.startsWith("http")
+                  ? combo.image
+                  : combo.image
+                  ? `${axiosInstance.defaults.baseURL}${combo.image}`
+                  : combo.productIds?.[0]?.image?.startsWith("http")
+                  ? combo.productIds[0].image
+                  : `${axiosInstance.defaults.baseURL}${
+                      combo.productIds?.[0]?.image || ""
+                    }`,
+            }}
+            style={styles.comboImage}
+          />
 
           <View style={styles.discountBadge}>
             <Text style={styles.discountText}>-{discountPercent}%</Text>
@@ -388,10 +405,14 @@ function ComboCard({ combo, onPress, onAddToCart, index, currentIndex }) {
         </View>
 
         <View style={styles.cardInfo}>
-          <Text style={styles.comboName} numberOfLines={2}>{combo.name}</Text>
-          
+          <Text style={styles.comboName} numberOfLines={2}>
+            {combo.name}
+          </Text>
+
           <View style={styles.priceRow}>
-            <Text style={styles.originalPrice}>{formatPrice(originalPrice)}</Text>
+            <Text style={styles.originalPrice}>
+              {formatPrice(originalPrice)}
+            </Text>
             <Text style={styles.currentPrice}>{formatPrice(combo.price)}</Text>
           </View>
 
@@ -402,35 +423,54 @@ function ComboCard({ combo, onPress, onAddToCart, index, currentIndex }) {
               ))}
             </View>
             <Text style={styles.ratingText}>4.9</Text>
-            <Text style={styles.soldText}>({Math.floor(Math.random() * 500) + 100} đã bán)</Text>
+            <Text style={styles.soldText}>
+              ({Math.floor(Math.random() * 500) + 100} đã bán)
+            </Text>
           </View>
 
           <View style={styles.productPreview}>
-            <Text style={styles.previewTitle}>Gồm {combo.productIds?.length || 0} sản phẩm:</Text>
+            <Text style={styles.previewTitle}>
+              Gồm {combo.productIds?.length || 0} sản phẩm:
+            </Text>
             <View style={styles.miniProducts}>
               {combo.productIds?.slice(0, 3).map((product, idx) => (
                 <TouchableOpacity
                   key={product._id}
                   style={styles.miniProduct}
-                  onPress={() => router.push({ pathname: '/ctsp', params: { id: product._id } })}
+                  onPress={() =>
+                    router.push({
+                      pathname: "/ctsp",
+                      params: { id: product._id },
+                    })
+                  }
                 >
-<Image
-  source={{
-              uri: combo.image
-                ? combo.image.startsWith('http')
-                  ? combo.image
-                  : `${axiosInstance.defaults.baseURL}${combo.image}`
-                : (combo.productIds?.[0]?.image && combo.productIds[0].image.startsWith('http'))
-                  ? combo.productIds[0].image
-                  : `${axiosInstance.defaults.baseURL}${combo.productIds?.[0]?.image || ''}`
-  }}
-  style={styles.comboImage}
-/>
+                  <Image
+                    source={{
+                      uri: combo.image
+                        ? combo.image.startsWith("http")
+                          ? combo.image
+                          : `${axiosInstance.defaults.baseURL}${combo.image}`
+                        : combo.productIds?.[0]?.image &&
+                          combo.productIds[0].image.startsWith("http")
+                        ? combo.productIds[0].image
+                        : `${axiosInstance.defaults.baseURL}${
+                            combo.productIds?.[0]?.image || ""
+                          }`,
+                    }}
+                    style={styles.comboImage}
+                  />
+                  {product.selectedVariant && (
+     <Text style={{ fontSize: 9, color: '#333' }} numberOfLines={1}>
+       {product.selectedVariant.name}
+     </Text>
+   )}
                 </TouchableOpacity>
               ))}
               {combo.productIds?.length > 3 && (
                 <View style={styles.moreIndicator}>
-                  <Text style={styles.moreText}>+{combo.productIds.length - 3}</Text>
+                  <Text style={styles.moreText}>
+                    +{combo.productIds.length - 3}
+                  </Text>
                 </View>
               )}
             </View>
@@ -445,7 +485,7 @@ function ComboCard({ combo, onPress, onAddToCart, index, currentIndex }) {
           }}
         >
           <LinearGradient
-            colors={['#FF6B6B', '#FF8E8E']}
+            colors={["#FF6B6B", "#FF8E8E"]}
             style={styles.gradientButton}
           >
             <Ionicons name="cart" size={16} color="#fff" />
@@ -462,6 +502,41 @@ function ComboDetailView({ combo, onClose, onAddToCart }) {
   const discountPercent = Math.floor(Math.random() * 30) + 10;
   const originalPrice = combo.price * (1 + discountPercent / 100);
 
+  // Add state for expanded product
+  // State nội bộ cho UI trong modal
+ const [expandedProduct, setExpandedProduct] = useState(null);
+ const [localCombo, setLocalCombo] = useState(combo || null);
+ // Đồng bộ mỗi khi mở modal combo khác
+ useEffect(() => {
+   if (!combo) return;
+   // set default selectedVariant nếu chưa có
+   const withDefault = {
+     ...combo,
+     productIds: (combo.productIds || []).map(p => {
+       if (p.selectedVariant) return p;
+       if (Array.isArray(p.variants) && p.variants.length > 0) {
+         return { ...p, selectedVariant: p.variants[0] };
+       }
+       return p;
+     })
+   };
+   setLocalCombo(withDefault);
+   setExpandedProduct(null);
+ }, [combo]);
+
+  // Handle variant selection
+ const handleVariantSelect = (productId, variant) => {
+   setLocalCombo(prev => {
+     if (!prev) return prev;
+     return {
+       ...prev,
+       productIds: (prev.productIds || []).map(product =>
+         product._id === productId ? { ...product, selectedVariant: variant } : product
+       )
+     };
+   });
+ };
+
   return (
     <View style={styles.detailContainer}>
       <View style={styles.detailHeader}>
@@ -475,28 +550,39 @@ function ComboDetailView({ combo, onClose, onAddToCart }) {
         <View style={styles.detailImageContainer}>
           <Image
             source={{
-             uri: combo.image
-                ? combo.image.startsWith('http')
+              uri: combo.image
+                ? combo.image.startsWith("http")
                   ? combo.image
                   : `${axiosInstance.defaults.baseURL}${combo.image}`
-                : (combo.productIds?.[0]?.image && combo.productIds[0].image.startsWith('http'))
-                  ? combo.productIds[0].image
-                  : `${axiosInstance.defaults.baseURL}${combo.productIds?.[0]?.image || ''}`
+                : combo.productIds?.[0]?.image &&
+                  combo.productIds[0].image.startsWith("http")
+                ? combo.productIds[0].image
+                : `${axiosInstance.defaults.baseURL}${
+                    combo.productIds?.[0]?.image || ""
+                  }`,
             }}
             style={styles.detailImage}
           />
           <View style={styles.detailDiscountBadge}>
-            <Text style={styles.detailDiscountText}>Giảm {discountPercent}%</Text>
+            <Text style={styles.detailDiscountText}>
+              Giảm {discountPercent}%
+            </Text>
           </View>
         </View>
 
         <View style={styles.detailInfo}>
           <Text style={styles.detailName}>{combo.name}</Text>
-          
+
           <View style={styles.detailPriceRow}>
-            <Text style={styles.detailOriginalPrice}>{formatPrice(originalPrice)}</Text>
-            <Text style={styles.detailCurrentPrice}>{formatPrice(combo.price)}</Text>
-            <Text style={styles.detailSaving}>Tiết kiệm {formatPrice(originalPrice - combo.price)}</Text>
+            <Text style={styles.detailOriginalPrice}>
+              {formatPrice(originalPrice)}
+            </Text>
+            <Text style={styles.detailCurrentPrice}>
+              {formatPrice(combo.price)}
+            </Text>
+            <Text style={styles.detailSaving}>
+              Tiết kiệm {formatPrice(originalPrice - combo.price)}
+            </Text>
           </View>
 
           <View style={styles.detailRating}>
@@ -510,24 +596,115 @@ function ComboDetailView({ combo, onClose, onAddToCart }) {
 
           <Text style={styles.productsHeader}>Sản phẩm trong combo:</Text>
           {combo.productIds?.map((product, index) => (
-            <TouchableOpacity
-              key={product._id}
-              style={styles.productDetailItem}
-              onPress={() => router.push({ pathname: '/ctsp', params: { id: product._id } })}
-            >
-              <Image
-                source={{
-                  uri: (product.image && product.image.startsWith('http'))
-                    ? product.image
-                    : `${axiosInstance.defaults.baseURL}${product.image || ''}`
-                }}
-                style={styles.productDetailImage}
-              />
-              <View style={styles.productDetailInfo}>
-                <Text style={styles.productDetailName}>{product.name}</Text>
-                <Text style={styles.productDetailPrice}>{formatPrice(product.price)}</Text>
-              </View>
-            </TouchableOpacity>
+            <View key={product._id} style={styles.productDetailContainer}>
+              <TouchableOpacity
+                style={styles.productDetailItem}
+                onPress={() =>
+                  setExpandedProduct(expandedProduct === index ? null : index)
+                }
+              >
+                <Image
+                  source={{
+                    uri:
+                      product.image && product.image.startsWith("http")
+                        ? product.image
+                        : `${axiosInstance.defaults.baseURL}${
+                            product.image || ""
+                          }`,
+                  }}
+                  style={styles.productDetailImage}
+                />
+                <View style={styles.productDetailInfo}>
+                  <Text style={styles.productDetailName}>{product.name}</Text>
+                  <Text style={styles.productDetailPrice}>
+                    {formatPrice(
+                      product.selectedVariant?.price || product.price
+                    )}
+                  </Text>
+
+                  {/* Show selected variant if exists */}
+                  {product.selectedVariant && (
+  <Text style={styles.selectedVariantText}>
+    Phiên bản: {product.selectedVariant.name}
+  </Text>
+)}
+
+
+                  <View style={styles.variantIndicator}>
+                    <Text style={styles.variantCount}>
+                      {product.variants?.length || 0} phiên bản
+                    </Text>
+                    <Ionicons
+                      name={
+                        expandedProduct === index
+                          ? "chevron-up"
+                          : "chevron-down"
+                      }
+                      size={16}
+                      color="#666"
+                    />
+                  </View>
+                </View>
+              </TouchableOpacity>
+
+              {/* Variant list expansion */}
+              {expandedProduct === index && (
+                <View style={styles.variantsList}>
+                  {/* Use product.variants directly */}
+                  {product.variants?.map((variant) => (
+                    <TouchableOpacity
+                      key={variant._id}
+                      style={[
+                        styles.variantItem,
+                        product.selectedVariant?._id === variant._id &&
+                          styles.variantItemSelected,
+                      ]}
+                      onPress={() => handleVariantSelect(product._id, variant)}
+                    >
+                      <View style={styles.variantMainInfo}>
+                        <Text
+                          style={[
+                            styles.variantName,
+                            product.selectedVariant?._id === variant._id &&
+                              styles.selectedText,
+                          ]}
+                        >
+                          {variant.name}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.variantPrice,
+                            product.selectedVariant?._id === variant._id &&
+                              styles.selectedText,
+                          ]}
+                        >
+                          {formatPrice(variant.price)}
+                        </Text>
+                      </View>
+
+                      <Text
+                        style={[
+                          styles.variantStock,
+                          variant.stock <= 5 && styles.lowStock,
+                          product.selectedVariant?._id === variant._id &&
+                            styles.selectedText,
+                        ]}
+                      >
+                        {variant.stock <= 0
+                          ? "Hết hàng"
+                          : `Còn ${variant.stock} sản phẩm`}
+                      </Text>
+
+                      {product.selectedVariant?._id === variant._id && (
+                        <View style={styles.selectedBadge}>
+                          <Text style={styles.selectedBadgeText}>Đã chọn</Text>
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            </View>
           ))}
         </View>
       </ScrollView>
@@ -545,7 +722,7 @@ function ComboDetailView({ combo, onClose, onAddToCart }) {
           }}
         >
           <LinearGradient
-            colors={['#FF6B6B', '#FF8E8E']}
+            colors={["#FF6B6B", "#FF8E8E"]}
             style={styles.detailGradientButton}
           >
             <Text style={styles.detailAddToCartText}>Thêm vào giỏ hàng</Text>
@@ -594,7 +771,7 @@ const styles = StyleSheet.create({
     maxWidth: 320,
     height: height / 3.2, // chỉ chiếm 1/3 chiều cao màn hình
     borderRadius: 14,
-    overflow: 'hidden',
+    overflow: "hidden",
     zIndex: 20,
     elevation: 10,
     backgroundColor: "transparent",
@@ -660,7 +837,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 4,
     backgroundColor: "rgba(255,255,255,0.95)",
     borderRadius: 10,
-    overflow: 'hidden',
+    overflow: "hidden",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.2,
@@ -789,7 +966,7 @@ const styles = StyleSheet.create({
   addToCartBtn: {
     margin: 8,
     borderRadius: 8,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   gradientButton: {
     flexDirection: "row",
@@ -999,6 +1176,14 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "#f0f0f0",
   },
+  productDetailContainer: {
+    marginBottom: 12,
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "#edf2f7",
+  },
   productDetailItem: {
     flexDirection: "row",
     alignItems: "center",
@@ -1027,6 +1212,84 @@ const styles = StyleSheet.create({
     color: "#FF6B6B",
     fontWeight: "600",
   },
+  selectedVariantText: {
+    fontSize: 12,
+    color: "#2979ff",
+    marginTop: 4,
+  },
+  variantIndicator: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 8,
+    backgroundColor: "#f5f5f5",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    alignSelf: "flex-start",
+  },
+  variantCount: {
+    fontSize: 12,
+    color: "#666",
+    marginRight: 4,
+    fontWeight: "500",
+  },
+  variantsList: {
+    padding: 12,
+    backgroundColor: "#f7fafc",
+    borderTopWidth: 1,
+    borderTopColor: "#edf2f7",
+  },
+  variantItem: {
+    padding: 12,
+    backgroundColor: "#fff",
+    borderRadius: 8,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+  },
+  variantItemSelected: {
+    backgroundColor: "#ebf8ff",
+    borderColor: "#2979ff",
+  },
+  variantMainInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  variantName: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: "500",
+    color: "#333",
+  },
+  variantPrice: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#2979ff",
+    marginLeft: 8,
+  },
+  variantStock: {
+    fontSize: 12,
+    color: "#666",
+    marginTop: 4,
+  },
+  lowStock: {
+    color: "#ff4757",
+  },
+  selectedBadge: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+    backgroundColor: "#2979ff",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  selectedBadgeText: {
+    color: "#fff",
+    fontSize: 10,
+    fontWeight: "600",
+  },
   detailFooter: {
     flexDirection: "row",
     alignItems: "center",
@@ -1053,7 +1316,7 @@ const styles = StyleSheet.create({
     flex: 1,
     marginLeft: 16,
     borderRadius: 12,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   detailGradientButton: {
     paddingVertical: 16,
