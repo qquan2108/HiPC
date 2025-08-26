@@ -18,6 +18,26 @@ function formatCurrency(num) {
   return typeof num === "number" ? num.toLocaleString("vi-VN") + " đ" : "";
 }
 
+// Thêm hàm formatPhoneNumber ở đầu file, sau các import
+const formatPhoneNumber = (phone) => {
+  if (!phone) return "";
+
+  // Loại bỏ tất cả ký tự không phải số
+  const cleaned = String(phone).replace(/\D/g, "");
+
+  // Nếu số bắt đầu bằng 84, chuyển thành 0
+  if (cleaned.startsWith("84")) {
+    return "0" + cleaned.slice(2);
+  }
+
+  // Nếu không bắt đầu bằng 0, thêm 0
+  if (!cleaned.startsWith("0")) {
+    return "0" + cleaned;
+  }
+
+  return cleaned;
+};
+
 export default function OrderDetailScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
@@ -353,9 +373,15 @@ export default function OrderDetailScreen() {
               style={{ marginRight: 6 }}
             />
             <Text style={styles.addressText}>
-              {order.shippingAddress?.phoneNumber ||
+              {formatPhoneNumber(
+                order.shippingAddress?.phoneNumber ||
                 order.phoneNumber ||
-                order.user_id?.addresses?.phoneNum}
+                order.user_id?.addresses?.phoneNum
+              )}
+              {" "}
+              <Text style={{color: '#6B7280', fontSize: 12}}>
+                ({order.shippingAddress?.phoneNumber?.startsWith('84') ? '+84' : '0'})
+              </Text>
             </Text>
           </View>
           <View
