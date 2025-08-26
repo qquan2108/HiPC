@@ -5,6 +5,7 @@ import Constants from "expo-constants";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
+import { useRef } from "react";
 import {
   ActivityIndicator,
   Dimensions,
@@ -574,6 +575,8 @@ export default function DanhMucAll(props) {
   const [searchQuery, setSearchQuery] = useState("");
   // Thêm dòng này để khai báo state yêu thích
   const [favoriteIds, setFavoriteIds] = useState([]);
+  const reqSeq = useRef(0);
+  const DEBOUNCE_MS = 700; // có thể tăng/giảm 250–500ms theo ý bạn
 
   const toggleFavorite = (productId) => {
     setFavoriteIds((prev) =>
@@ -656,6 +659,7 @@ export default function DanhMucAll(props) {
   const fetchProducts = async () => {
     try {
       setLoading(true);
+      const seq = ++reqSeq.current
 
       const query = buildQueryFromFilters({ 
         filters, 
@@ -664,12 +668,8 @@ export default function DanhMucAll(props) {
       });
       
       const response = await axios.get(`/product/filter?${query}`);
-      
-      if (response.data?.products) {
-        setProducts(response.data.products);
-      } else {
-        setProducts([]);
-      }
+     if (seq !== reqSeq.current) return;
+      setProducts(Array.isArray(response.data?.products) ? response.data.products : []);
 
     } catch (error) {
       console.error('Error fetching products:', error);
@@ -680,11 +680,9 @@ export default function DanhMucAll(props) {
   };
 
   // Update search handler
-  const handleSearch = () => {
-    if (searchQuery.trim()) {
-      setActiveTab(0); // Switch to ALL tab
-      fetchProducts();
-    }
+const handleSearch = () => {
+    setActiveTab(0);
+    fetchProducts();
   };
 
   // Update filter apply handler
@@ -694,10 +692,18 @@ export default function DanhMucAll(props) {
   };
 
   // Update useEffect for fetching products
-  useEffect(() => {
+ useEffect(() => {
     fetchProducts();
-  }, [categoryId, activeTab, searchQuery]); // Add searchQuery to dependencies
+  }, [categoryId, activeTab]);
 
+  // Debounce khi gõ từ khoá
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setActiveTab(0); // về tab ALL
+      fetchProducts();
+    }, DEBOUNCE_MS);
+    return () => clearTimeout(t);
+  }, [searchQuery]);// Add searchQuery to dependencies
   const handleTabPress = (index) => {
     setActiveTab(index);
     if (tabs[index] === "Bộ lọc") {
@@ -815,7 +821,7 @@ export default function DanhMucAll(props) {
                 placeholder="Bạn muốn mua gì hôm nay?"
                 placeholderTextColor="#999"
                 value={searchQuery}
-                onChangeText={setSearchQuery}
+                onChangeText={setSearchQuery}  // gõ là tự debounce fetch
                 onSubmitEditing={handleSearch}
               />
               <TouchableOpacity

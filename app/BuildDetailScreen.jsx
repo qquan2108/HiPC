@@ -19,6 +19,15 @@ import axiosInstance from "../utils/AxiosInstance";
 
 const { width } = Dimensions.get('window');
 
+const toObjectIdString = (val) => {
+  if (!val) return "";
+  if (typeof val === "string") return val;
+  if (typeof val === "object") return val._id || val.id || "";
+  return "";
+};
+
+const isValidHex24 = (s) => /^[a-f\d]{24}$/i.test(String(s || ""));
+
 export default function BuildDetailScreen() {
   const { id: rawId } = useLocalSearchParams();
   const id = Array.isArray(rawId) ? rawId[0] : rawId;
@@ -58,31 +67,85 @@ export default function BuildDetailScreen() {
   const handleOrder = async () => {
     try {
       const userStr = await AsyncStorage.getItem("user");
-      if (!userStr) return Alert.alert("Thông báo", "Bạn cần đăng nhập để đặt hàng");
+      if (!userStr) {
+        return Alert.alert("Thông báo", "Bạn cần đăng nhập để đặt hàng");
+      }
+      
       const user = JSON.parse(userStr);
       const userId = user._id || user.id;
-      if (!userId) return Alert.alert("Thông báo", "Bạn cần đăng nhập để đặt hàng");
-
-      const buildIds = [];
-      for (const item of products) {
-        const payload = {
-          user_id: userId,
-          productId: item.product_id?._id,
-          quantity: item.quantity || 1,
-        };
-        if (item.variant) {
-          payload.variant = item.variant;
-        }
-        await axiosInstance.post("/cartt/add-to-cart", payload);
-        if (item.product_id?._id) buildIds.push(item.product_id._id);
+      if (!userId) {
+        return Alert.alert("Thông báo", "Bạn cần đăng nhập để đặt hàng");
       }
 
-      await AsyncStorage.setItem("buildCartItems", JSON.stringify(buildIds));
-      Alert.alert("Thành công", "Đã thêm tất cả sản phẩm vào giỏ hàng!", [
-        { text: "OK", onPress: () => router.push("/cart") }
-      ]);
+      // Track successful items for cart preview
+      const buildIds = [];
+      const failedItems = [];
+
+      for (const item of products) {
+        // Get product ID safely
+        const productId = toObjectIdString(item.product_id);
+        if (!isValidHex24(productId)) {
+          failedItems.push(`${item.product_id?.name || 'Unknown'} (invalid ID)`);
+          continue;
+        }
+
+        // Prepare variant data if exists
+        const v = item.variant || {};
+        const variantId = toObjectIdString(v._id || v.id);
+
+        const payload = {
+          user_id: userId,
+          productId,
+          quantity: Number(item.quantity) || 1,
+          // Include variant data conditionally
+          ...(variantId && isValidHex24(variantId) ? { variantId } : {}),
+          // Always include variant metadata if available
+          ...(v && (v.key || v.label || typeof v.priceDiff === 'number') ? {
+            variant: {
+              key: v.key || 'Phiên bản',
+              label: v.label || v.name || 'Tùy chọn',
+              priceDiff: Number(v.priceDiff || 0)
+            }
+          } : {})
+        };
+
+        try {
+          await axiosInstance.post("/cartt/add-to-cart", payload);
+          buildIds.push(productId);
+        } catch (err) {
+          failedItems.push(`${item.product_id?.name || 'Unknown'} (${err.message})`);
+        }
+      }
+
+      // Save successful items to buildCartItems
+      if (buildIds.length > 0) {
+        await AsyncStorage.setItem("buildCartItems", JSON.stringify(buildIds));
+      }
+
+      // Show appropriate message based on results
+      if (failedItems.length === 0) {
+        Alert.alert(
+          "Thành công",
+          "Đã thêm tất cả sản phẩm vào giỏ hàng!",
+          [{ text: "OK", onPress: () => router.push("/cart") }]
+        );
+      } else if (buildIds.length > 0) {
+        Alert.alert(
+          "Thêm vào giỏ hàng",
+          `Đã thêm ${buildIds.length} sản phẩm vào giỏ hàng.\n\nSản phẩm lỗi:\n${failedItems.join('\n')}`,
+          [{ text: "OK", onPress: () => router.push("/cart") }]
+        );
+      } else {
+        Alert.alert(
+          "Lỗi",
+          `Không thể thêm sản phẩm vào giỏ hàng:\n${failedItems.join('\n')}`
+        );
+      }
     } catch (e) {
-      Alert.alert("Lỗi", e.response?.data?.error || e.message);
+      Alert.alert(
+        "Lỗi",
+        e?.response?.data?.error || e.message || "Không thể thêm vào giỏ hàng"
+      );
     }
   };
 

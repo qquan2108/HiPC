@@ -70,6 +70,55 @@ export default function UngDungLapPC() {
       : "0 đ";
 
   const getBrandName = (id) => brands.find((b) => b._id === id)?.name || "";
+  const toObjectIdString = (val) => {
+  if (!val) return "";
+  if (typeof val === "string") return val;
+  if (typeof val === "object") return val._id || val.id || "";
+  return "";
+};
+const isValidHex24 = (s) => /^[a-f\d]{24}$/i.test(String(s || ""));
+  // Chuẩn hóa object variant về cùng format
+const normalizeVariant = (v = {}) => ({
+  _id: v._id || v.id,
+  key: v.key || 'Phiên bản',
+  label: v.label || v.name || 'Tùy chọn',
+  price: typeof v.price === 'number' ? v.price : undefined,
+  priceDiff: Number(v.priceDiff || 0),
+  stock: Number(v.stock || 0),
+});
+
+// Lấy danh sách option theo 2 kiểu: group.options[] hoặc phẳng; ở preset của bạn đang là phẳng
+const extractVariantOptions = (p) => {
+  const v = p?.variants || [];
+  if (!Array.isArray(v) || !v.length) return [];
+  if (Array.isArray(v[0]?.options)) return v[0].options.map(normalizeVariant);
+  return v.map(normalizeVariant);
+};
+
+const getDisplayPrice = (product, variant) => {
+  const base = Number(product?.price || 0);
+  const v = normalizeVariant(variant);
+  if (typeof v.price === 'number') return v.price;       // ưu tiên giá riêng của biến thể
+  return base + Number(v.priceDiff || 0);                 // hoặc cộng chênh lệch
+};
+
+// Lấy biến thể chọn sẵn cho 1 component (ưu tiên component.variant)
+const pickPresetVariant = (component, product) => {
+  // 1) preset đã nhúng variant
+  if (component?.variant) return normalizeVariant(component.variant);
+  // 2) tìm theo _id trong danh sách variants của product
+  const list = extractVariantOptions(product);
+  if (component?.variant?._id) {
+    const found = list.find(v => v._id === component.variant._id);
+    if (found) return found;
+  }
+  // 3) fallback: option đầu
+  return list[0] ? list[0] : null;
+};
+
+
+  
+
 
   // Enhanced category icons
   const getCategoryIcon = (categoryName) => {
@@ -77,14 +126,14 @@ export default function UngDungLapPC() {
       CPU: "🧠",
       GPU: "🎮",
       RAM: "💾",
-      Motherboard: "🔌",
-      Storage: "💿",
+      
+      
       PSU: "⚡",
       Case: "📦",
       Fan: "❄️",
-      Monitor: "🖥️",
-      Keyboard: "⌨️",
-      Mouse: "🖱️",
+      
+      
+      
       Mainboard: "🔌",
       VGA: "🎮",
       SSD: "💿",
@@ -288,15 +337,15 @@ export default function UngDungLapPC() {
   };
 
   // Enhanced product selection with animation
-  const openProductSelection = (category) => {
-    const categoryProducts = products.filter(
-      (p) =>
-        p.category_id === category._id || p.category_id._id === category._id
-    );
-    setCurrentCategoryForSelection(category);
-    setProductsForSelection(categoryProducts);
-    setShowProductModal(true);
-  };
+const openProductSelection = (category) => {
+  const categoryProducts = products.filter(
+    (p) => ((p.category_id?._id || p.category_id) === category._id)
+  );
+  setCurrentCategoryForSelection(category);
+  setProductsForSelection(categoryProducts);
+  setShowProductModal(true);
+};
+
 
   const selectProduct = (product) => {
     // Nếu có variant thì show dialog, KHÔNG cho thêm vào selectedComponents ngay
@@ -574,7 +623,7 @@ export default function UngDungLapPC() {
                       selectProduct({
                         ...item,
                         variant: variant,
-                        price: variant.price || item.price
+                        price: getDisplayPrice(item, variant)
                       });
                     }}
                   >
@@ -719,7 +768,7 @@ export default function UngDungLapPC() {
               style={{ maxHeight: 400 }}
               showsVerticalScrollIndicator={true}
             >
-              {/* HIỂN THỊ PRESET COMPONENTS - DANH SÁCH SẢN PHẨM CỦA PRESET */}
+              {/* HIỂN THỊ PRESET COMPONENTS - ĐANH SÁCH SẢN PHẨM CỦA PRESET */}
               {selectedPreset.components &&
                 selectedPreset.components.length > 0 && (
                   <View style={{ marginBottom: 20 }}>
@@ -738,192 +787,83 @@ export default function UngDungLapPC() {
                     </Text>
 
                     {selectedPreset.components.map((component, idx) => {
-                      // Tìm product data từ products array
-                      const product = products.find(
-                        (p) => p.id === component.productId
-                      );
+  // product trong store (nếu build trước đó đã fetch)
+  const productInStore = products.find(
+    p => p.id === (component.productId || component._id)
+  );
 
-                      if (!product) {
-                        // Nếu không tìm thấy trong products array, sử dụng data từ component
-                        return (
-                          <View
-                            key={component.productId || idx}
-                            style={{
-                              flexDirection: "row",
-                              alignItems: "center",
-                              marginBottom: 10,
-                              backgroundColor: "#f7f9fb",
-                              borderRadius: 12,
-                              padding: 12,
-                              borderWidth: 1,
-                              borderColor: "#e9ecef",
-                              shadowColor: "#000",
-                              shadowOffset: { width: 0, height: 1 },
-                              shadowOpacity: 0.05,
-                              shadowRadius: 2,
-                              elevation: 1,
-                            }}
-                          >
-                            <Image
-                              source={
-                                component.image
-                                  ? { uri: resolveImageUri(component.image) }
-                                  : require("../assets/images/pc.png")
-                              }
-                              style={{
-                                width: 50,
-                                height: 50,
-                                borderRadius: 10,
-                                marginRight: 12,
-                                backgroundColor: "#eee",
-                              }}
-                              resizeMode="cover"
-                            />
-                            <View style={{ flex: 1 }}>
-                              <Text
-                                style={{
-                                  fontWeight: "600",
-                                  fontSize: 15,
-                                  color: "#2c3e50",
-                                  marginBottom: 4,
-                                }}
-                                numberOfLines={2}
-                              >
-                                {component.name}
-                              </Text>
-                              <Text
-                                style={{
-                                  color: "#28a745",
-                                  fontWeight: "bold",
-                                  fontSize: 14,
-                                  marginBottom: 2,
-                                }}
-                              >
-                                {formatCurrency(component.price)}
-                              </Text>
-                              <Text
-                                style={{
-                                  color: "#6c757d",
-                                  fontSize: 12,
-                                }}
-                              >
-                                Số lượng: {component.quantity || 1}
-                              </Text>
-                            </View>
-                            <View
-                              style={{
-                                backgroundColor: "#17a2b8",
-                                borderRadius: 15,
-                                paddingHorizontal: 8,
-                                paddingVertical: 4,
-                              }}
-                            >
-                              <Text
-                                style={{
-                                  color: "#fff",
-                                  fontSize: 10,
-                                  fontWeight: "bold",
-                                }}
-                              >
-                                Cơ bản
-                              </Text>
-                            </View>
-                          </View>
-                        );
-                      }
+  // product có thể đã được embed sẵn trong preset: components[].products[0]
+  const embedded = Array.isArray(component.products) && component.products.length
+    ? component.products[0]
+    : null;
 
-                      // Nếu tìm thấy product data
-                      return (
-                        <View
-                          key={component.productId || idx}
-                          style={{
-                            flexDirection: "row",
-                            alignItems: "center",
-                            marginBottom: 10,
-                            backgroundColor: "#f7f9fb",
-                            borderRadius: 12,
-                            padding: 12,
-                            borderWidth: 1,
-                            borderColor: "#e9ecef",
-                            shadowColor: "#000",
-                            shadowOffset: { width: 0, height: 1 },
-                            shadowOpacity: 0.05,
-                            shadowRadius: 2,
-                            elevation: 1,
-                          }}
-                        >
-                          <Image
-                            source={product.image}
-                            style={{
-                              width: 50,
-                              height: 50,
-                              borderRadius: 10,
-                              marginRight: 12,
-                              backgroundColor: "#eee",
-                            }}
-                            resizeMode="cover"
-                          />
-                          <View style={{ flex: 1 }}>
-                            <Text
-                              style={{
-                                fontWeight: "600",
-                                fontSize: 15,
-                                color: "#2c3e50",
-                                marginBottom: 4,
-                              }}
-                              numberOfLines={2}
-                            >
-                              {product.name}
-                            </Text>
-                            <Text
-                              style={{
-                                color: "#28a745",
-                                fontWeight: "bold",
-                                fontSize: 14,
-                                marginBottom: 2,
-                              }}
-                            >
-                              {formatCurrency(product.price)}
-                            </Text>
-                            <Text
-                              style={{
-                                color: "#6c757d",
-                                fontSize: 12,
-                                marginBottom: 2,
-                              }}
-                            >
-                              Thương hiệu: {getBrandName(product.brand_id)}
-                            </Text>
-                            <Text
-                              style={{
-                                color: "#6c757d",
-                                fontSize: 12,
-                              }}
-                            >
-                              Số lượng: {component.quantity || 1}
-                            </Text>
-                          </View>
-                          <View
-                            style={{
-                              backgroundColor: "#17a2b8",
-                              borderRadius: 15,
-                              paddingHorizontal: 8,
-                              paddingVertical: 4,
-                            }}
-                          >
-                            <Text
-                              style={{
-                                color: "#fff",
-                                fontSize: 10,
-                                fontWeight: "bold",
-                              }}
-                            >
-                              Cơ bản
-                            </Text>
-                          </View>
-                        </View>
-                      );
-                    })}
+  // ưu tiên: store → embedded → component chính nó
+  const product = productInStore || embedded || component;
+
+  return (
+    <View
+      key={component.productId || component._id || idx}
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        marginBottom: 10,
+        backgroundColor: "#f7f9fb",
+        borderRadius: 12,
+        padding: 12,
+        borderWidth: 1,
+        borderColor: "#e9ecef",
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 2,
+        elevation: 1,
+      }}
+    >
+      <Image
+        source={
+          product?.image
+            ? (typeof product.image === 'string'
+                ? { uri: resolveImageUri(product.image) }
+                : product.image)
+            : require("../assets/images/pc.png")
+        }
+        style={{
+          width: 50, height: 50, borderRadius: 10, marginRight: 12,
+          backgroundColor: "#eee",
+        }}
+        resizeMode="cover"
+      />
+
+      <View style={{ flex: 1 }}>
+        <Text style={{ fontWeight: '600', fontSize: 14 }} numberOfLines={2}>
+          {product?.name || component?.name || 'Sản phẩm'}
+        </Text>
+
+        {(() => {
+          // Ưu tiên variant đã chọn trong preset; nếu không có → chọn theo danh sách variants của product
+          const v = pickPresetVariant(component, product);
+          const shownPrice = v
+            ? getDisplayPrice(product, v)
+            : Number(product?.price || 0);
+
+          return (
+            <>
+              {v && (
+                <Text style={{ color: '#6b7280', fontSize: 12, marginTop: 2 }}>
+                  {(v.key || 'Phiên bản')}: {v.label}
+                </Text>
+              )}
+              <Text style={{ color: '#16a34a', fontWeight: '700', fontSize: 14, marginTop: 2 }}>
+                {formatCurrency(shownPrice)}
+              </Text>
+            </>
+          );
+        })()}
+      </View>
+    </View>
+  );
+})}
+
                   </View>
                 )}
 
@@ -986,9 +926,9 @@ export default function UngDungLapPC() {
                               </Text>
                             </View>
                           ) : (
-                            comboProducts.map((product, i) => (
+                            comboProducts.map((item, i) => (
                               <View
-                                key={product._id || i}
+                                key={item._id || i}
                                 style={{
                                   flexDirection: "row",
                                   alignItems: "center",
@@ -1003,10 +943,9 @@ export default function UngDungLapPC() {
                                 }}
                               >
                                 <Image
-                                  source={
-                                    product.image
-                                      ? { uri: resolveImageUri(product.image) }
-                                      : require("../assets/images/pc.png")
+                                  source={item.image 
+                                    ? { uri: resolveImageUri(item.image) }
+                                    : require("../assets/images/pc.png")
                                   }
                                   style={{
                                     width: 40,
@@ -1017,44 +956,27 @@ export default function UngDungLapPC() {
                                   }}
                                   resizeMode="cover"
                                 />
+                                
                                 <View style={{ flex: 1 }}>
-                                  <Text
-                                    style={{
-                                      fontWeight: "500",
-                                      fontSize: 13,
-                                      color: "#2c3e50",
-                                    }}
-                                    numberOfLines={1}
-                                  >
-                                    {product.name}
+                                  <Text style={{ fontWeight: '600', fontSize: 13 }} numberOfLines={2}>
+                                    {item.name}
                                   </Text>
-                                  <Text
-                                    style={{
-                                      color: "#28a745",
-                                      fontWeight: "bold",
-                                      fontSize: 12,
-                                    }}
-                                  >
-                                    {formatCurrency(product.price)}
-                                  </Text>
-                                </View>
-                                <View
-                                  style={{
-                                    backgroundColor: "#28a745",
-                                    borderRadius: 12,
-                                    paddingHorizontal: 6,
-                                    paddingVertical: 2,
-                                  }}
-                                >
-                                  <Text
-                                    style={{
-                                      color: "#fff",
-                                      fontSize: 8,
-                                      fontWeight: "bold",
-                                    }}
-                                  >
-                                    COMBO
-                                  </Text>
+                                  {(() => {
+                                    const v = pickPresetVariant(item, item);
+                                    const shownPrice = v ? getDisplayPrice(item, v) : Number(item.price || 0);
+                                    return (
+                                      <>
+                                        {v && (
+                                          <Text style={{ color: '#6b7280', fontSize: 11, marginTop: 2 }}>
+                                            {(v.key || 'Phiên bản')}: {v.label}
+                                          </Text>
+                                        )}
+                                        <Text style={{ color: '#16a34a', fontWeight: '700', fontSize: 12, marginTop: 2 }}>
+                                          {formatCurrency(shownPrice)}
+                                        </Text>
+                                      </>
+                                    );
+                                  })()}
                                 </View>
                               </View>
                             ))
@@ -1142,62 +1064,58 @@ export default function UngDungLapPC() {
               </TouchableOpacity>
               <TouchableOpacity
   onPress={() => {
-    setLoaiCauHinh(selectedPreset.type || selectedPreset.id);
-    setPresetComponents(selectedPreset.components || []);
+  // 1) chọn loại cấu hình & components gốc
+  setLoaiCauHinh(selectedPreset.type || selectedPreset.id);
+  setPresetComponents(selectedPreset.components || []);
 
-    // Truyền sản phẩm preset sang selectedComponents (phần linh kiện tự chọn)
-    const presetSelected = {};
-    (selectedPreset.components || []).forEach((comp) => {
-      const product = products.find((p) => p.id === comp.productId);
-      if (product) {
-        let selectedProduct = { ...product };
+  // helper: chuẩn hóa id & image
+  const toIdStr = (v) =>
+    typeof v === 'object' && v !== null ? (v._id || v.id || String(v)) : String(v);
 
-        // Nếu sản phẩm có variant, gán variant mặc định (option đầu tiên)
-        if (
-          product.variants &&
-          product.variants.length > 0 &&
-          product.variants[0].options &&
-          product.variants[0].options.length > 0
-        ) {
-          const defaultOption = product.variants[0].options[0];
-          selectedProduct.variant = {
-            key: product.variants[0].key || "Phiên bản",
-            label: defaultOption.label,
-            priceDiff: defaultOption.priceDiff || 0,
-          };
-          if (defaultOption.priceDiff) {
-            selectedProduct.price =
-              (selectedProduct.price || 0) + defaultOption.priceDiff;
-          }
-        } else if (
-          comp.variant &&
-          comp.variant.key &&
-          comp.variant.label
-        ) {
-          selectedProduct.variant = {
-            key: comp.variant.key,
-            label: comp.variant.label,
-            priceDiff: comp.variant.priceDiff || 0,
-          };
-          if (comp.variant.priceDiff) {
-            selectedProduct.price =
-              (selectedProduct.price || 0) + comp.variant.priceDiff;
-          }
-        }
+  const normalizeImage = (img) => {
+    if (!img) return require("../assets/images/pc.png");
+    // đã là {uri: ...}
+    if (typeof img === 'object' && img.uri) return img;
+    // là string
+    return { uri: resolveImageUri(img) };
+  };
 
-        // Đảm bảo lấy đúng category_id để truyền sang selectedComponents
-        const categoryId =
-          comp.categoryId || product.category_id?._id || product.category_id;
-        if (categoryId) {
-          presetSelected[categoryId] = selectedProduct;
-        }
-      }
-    });
+  // 2) build selectedComponents từ preset
+  const presetSelected = {};
+  (selectedPreset.components || []).forEach((comp) => {
+    // product có thể đến từ store, hoặc embed trong preset (components[].products[0]), hoặc chính comp
+    const product =
+      products.find((p) => p.id === (comp.productId || comp._id)) ||
+      (Array.isArray(comp.products) && comp.products[0]) ||
+      comp;
 
-    setSelectedComponents(presetSelected); // <-- Đảm bảo truyền sang phần linh kiện tự chọn
-    setIsCustomizing(false);
-    setShowPresetComboModal(false);
-  }}
+    // chọn biến thể: ưu tiên variant trong preset; nếu không có → option đầu trong variants (phẳng hay group đều OK)
+    const v = pickPresetVariant(comp, product);
+
+    // giá hiển thị đúng theo biến thể
+    const price = v ? getDisplayPrice(product, v) : Number(product?.price || 0);
+
+    // key danh mục phải là STRING để map với category._id ở UI
+    const catIdRaw = comp.categoryId || product?.category_id?._id || product?.category_id;
+    const catKey = toIdStr(catIdRaw);
+    if (!catKey) return;
+
+    // push item đã chuẩn hóa
+    presetSelected[catKey] = {
+      ...product,
+      id: product.id || product._id,
+      _id: product._id || product.id,
+      image: normalizeImage(product.image),
+      variant: v || undefined,
+      price,
+    };
+  });
+
+  setSelectedComponents(presetSelected); // <-- giờ sẽ “đổ xuống” phần chọn linh kiện
+  setIsCustomizing(false);
+  setShowPresetComboModal(false);
+}}
+
   style={{
     paddingVertical: 10,
     paddingHorizontal: 22,
@@ -1278,74 +1196,57 @@ export default function UngDungLapPC() {
     }
     addAllToCartAndGoCart();
   };
-
-  const addAllToCartAndGoCart = async () => {
-    try {
-      setIsBuilding(true);
-      
-      const userId = await getUserId();
-      if (!userId) {
-        Alert.alert("Tài khoản không hợp lệ! Vui lòng đăng nhập lại.");
-        setIsBuilding(false);
-        return;
-      }
-
-      // Add preset components
-      const preset = Object.values(presetComponents).filter(Boolean);
-      for (const comp of preset) {
-        const payload = {
-          user_id: userId,
-          productId: comp.productId,
-          quantity: comp.quantity || 1,
-        };
-
-        if (comp.variant?._id) {
-          payload.variantId = comp.variant._id;
-        } else if (comp.variant?.label || comp.variant?.name) {
-          payload.variant = {
-            key: comp.variant.key || "Option",
-            label: comp.variant.label || comp.variant.name,
-            name: comp.variant.name || comp.variant.label
-          };
-        }
-
-        await axiosInstance.post("/cartt/add-to-cart", payload);
-      }
-
-      // Add selected components
-      const list = Object.values(selectedComponents).filter(Boolean);
-      for (const comp of list) {
-        const payload = {
-          user_id: userId,
-          productId: comp.id || comp._id,
-          quantity: comp.quantity || 1,
-        };
-
-        if (comp.variant?._id) {
-          payload.variantId = comp.variant._id;
-        } else if (comp.variant?.label || comp.variant?.name) {
-          payload.variant = {
-            key: comp.variant.key || "Option", 
-            label: comp.variant.label || comp.variant.name,
-            name: comp.variant.name || comp.variant.label
-          };
-        }
-
-        await axiosInstance.post("/cartt/add-to-cart", payload);
-      }
-
-      Alert.alert(
-        "Đã thêm vào giỏ hàng!",
-        "Chuyển đến giỏ hàng để thanh toán.",
-        [{ text: "OK", onPress: () => router.push("/cart") }]
-      );
-
-    } catch (e) {
-      Alert.alert("Lỗi", e.message || "Không thể thêm vào giỏ hàng");
-    } finally {
+const addAllToCartAndGoCart = async () => {
+  try {
+    setIsBuilding(true);
+    const userId = await getUserId();
+    if (!userId) {
+      Alert.alert("Tài khoản không hợp lệ! Vui lòng đăng nhập lại.");
       setIsBuilding(false);
+      return;
     }
-  };
+
+    // ✅ Chỉ dùng các món đã “đổ” xuống selectedComponents
+    const items = Object.values(selectedComponents);
+    if (items.length === 0) {
+      Alert.alert("Chưa có linh kiện nào trong cấu hình.");
+      setIsBuilding(false);
+      return;
+    }
+
+    for (const comp of items) {
+      if (!comp) continue;
+      const v = comp.variant ? normalizeVariant(comp.variant) : null;
+
+      // Lấy productId an toàn
+      const productId = comp._id || comp.id;
+      if (!productId) continue; // nếu vẫn thiếu thì bỏ qua để tránh crash
+
+      const payload = {
+        user_id: userId,
+        productId,
+        quantity: comp.quantity || 1,
+        ...(v && v._id ? { variantId: v._id } : {}),
+        price: getDisplayPrice(comp, v),
+      };
+
+      await axiosInstance.post("/cartt/add-to-cart", payload);
+    }
+
+    Alert.alert(
+      "Đã thêm vào giỏ hàng!",
+      "Chuyển đến giỏ hàng để thanh toán.",
+      [{ text: "OK", onPress: () => router.push("/cart") }]
+    );
+  } catch (e) {
+    // Ưu tiên lỗi từ server (nếu có)
+    const msg = e?.response?.data?.error || e?.message || "Không thể thêm vào giỏ hàng";
+    Alert.alert("Lỗi", msg);
+  } finally {
+    setIsBuilding(false);
+  }
+};
+
 
   const processOrder = async () => {
     try {
@@ -1358,63 +1259,98 @@ export default function UngDungLapPC() {
         return;
       }
 
-      const allComponents = [
-        ...presetComponents.map((comp) => ({
-          productId: comp.productId,
-          quantity: comp.quantity || 1,
-          ...(comp.variant && comp.variant.key && comp.variant.label
-            ? {
-                variant: {
-                  key: comp.variant.key,
-                  label: comp.variant.label,
-                  priceDiff: comp.variant.priceDiff || 0,
-                },
-              }
-            : {}),
-        })),
-        ...Object.values(selectedComponents).map((comp) => ({
-          productId: comp.id,
-          quantity: 1,
-          ...(comp.variant && comp.variant.key && comp.variant.label
-            ? {
-                variant: {
-                  key: comp.variant.key,
-                  label: comp.variant.label,
-                  priceDiff: comp.variant.priceDiff || 0,
-                },
-              }
-            : {}),
-        })),
+      // Gom sản phẩm từ presetComponents và selectedComponents
+      const fromPreset = Array.isArray(presetComponents) ? presetComponents : [];
+      const fromSelected = Object.values(selectedComponents || {});
+
+      const all = [
+        ...fromPreset.map((comp) => {
+          const pid =
+            toObjectIdString(comp.productId) ||
+            toObjectIdString(comp._id) ||
+            toObjectIdString(comp.id);
+
+          const v = comp.variant || {};
+          const variantId =
+            toObjectIdString(v._id) || toObjectIdString(v.id) || "";
+
+          return {
+            productId: pid,
+            quantity: Number(comp.quantity) || 1,
+            // Nếu BE chỉ cần key/label/priceDiff thì vẫn gửi, còn có _id thì gửi kèm variantId cho giỏ hàng/build sau này
+            variant: v && (v.key || v.label || v.priceDiff) ? {
+              key: v.key,
+              label: v.label || v.name,
+              priceDiff: Number(v.priceDiff || 0),
+            } : undefined,
+            ...(variantId && isValidHex24(variantId) ? { variantId } : {}),
+          };
+        }),
+
+        ...fromSelected.map((comp) => {
+          const pid =
+            toObjectIdString(comp._id) ||
+            toObjectIdString(comp.id) ||
+            toObjectIdString(comp.productId);
+
+          const v = comp.variant || {};
+          const variantId =
+            toObjectIdString(v._id) || toObjectIdString(v.id) || "";
+
+          return {
+            productId: pid,
+            quantity: Number(comp.quantity) || 1,
+            variant: v && (v.key || v.label || v.priceDiff) ? {
+              key: v.key,
+              label: v.label || v.name,
+              priceDiff: Number(v.priceDiff || 0),
+            } : undefined,
+            ...(variantId && isValidHex24(variantId) ? { variantId } : {}),
+          };
+        }),
       ];
 
+      // Lọc invalid & log để biết item nào lỗi
+      const invalid = all.filter((p) => !isValidHex24(p.productId));
+      const validProducts = all.filter((p) => isValidHex24(p.productId));
+
+      if (!validProducts.length) {
+        Alert.alert(
+          "Lỗi",
+          `Không có sản phẩm hợp lệ để lưu.\nSản phẩm lỗi: ${invalid
+            .map((p, i) => `${i + 1}) productId=${String(p.productId)}`)
+            .join("\n")}`
+        );
+        setIsBuilding(false);
+        return;
+      }
+
       const payload = {
-        userId, // Đảm bảo là ObjectId
-        name: loaiCauHinh,
-        products: allComponents,
+        userId,
+        name: loaiCauHinh || "Untitled Build",
+        products: validProducts,
       };
 
-      // Simulate build progress
+      // Giả lập progress mượt
       for (let i = 0; i <= 100; i += 10) {
         setBuildProgress(i);
-        await new Promise((resolve) => setTimeout(resolve, 100));
+        // eslint-disable-next-line no-await-in-loop
+        await new Promise((r) => setTimeout(r, 80));
       }
 
       const res = await axiosInstance.post("/pcbuild/build", payload);
-      const data = res.data.data || res.data;
+      const data = res.data?.data || res.data;
 
       Alert.alert(
         "Cấu hình đã được lưu!",
         `Build ID: ${data.buildId}\nTổng giá trị: ${formatCurrency(tongGia)}`,
         [
           { text: "Tiếp tục mua sắm" },
-          {
-            text: "Xem cấu hình",
-            onPress: () => router.push("/BuildListScreen"),
-          },
+          { text: "Xem cấu hình", onPress: () => router.push("/BuildListScreen") },
         ]
       );
     } catch (e) {
-      Alert.alert("Lỗi", e.response?.data?.error || e.message);
+      Alert.alert("Lỗi", e?.response?.data?.error || e?.message || "Không thể lưu cấu hình");
     } finally {
       setIsBuilding(false);
     }
@@ -1700,66 +1636,62 @@ export default function UngDungLapPC() {
                   showsHorizontalScrollIndicator={false}
                   style={{ marginBottom: 18 }}
                 >
-                  {variantProduct.variants[0]?.options?.map((option, idx) => (
-                    <TouchableOpacity
-                      key={idx}
-                      onPress={() => setSelectedVariant(option)}
-                      style={{
-                        paddingHorizontal: 18,
-                        paddingVertical: 10,
-                        borderRadius: 14,
-                        backgroundColor:
-                          selectedVariant === option ? "#667eea" : "#f3f4f6",
-                        marginRight: 10,
-                        borderWidth: selectedVariant === option ? 2 : 1,
-                        borderColor:
-                          selectedVariant === option ? "#667eea" : "#e0e7ef",
-                        flexDirection: "row",
-                        alignItems: "center",
-                        minWidth: 64,
-                        position: "relative",
-                      }}
-                      activeOpacity={0.85}
-                    >
-                      <Text
-                        style={{
-                          color: selectedVariant === option ? "#fff" : "#333",
-                          fontWeight:
-                            selectedVariant === option ? "bold" : "500",
-                          fontSize: 15,
-                        }}
-                      >
-                        {option.label || option.key}
-                      </Text>
-                      {option.priceDiff ? (
-                        <Text
-                          style={{
-                            color: selectedVariant === option ? "#fff" : "#888",
-                            fontSize: 12,
-                            marginLeft: 6,
-                            fontWeight: "600",
-                          }}
-                        >
-                          +{option.priceDiff.toLocaleString("vi-VN")}₫
-                        </Text>
-                      ) : null}
-                      {selectedVariant === option && (
-                        <Ionicons
-                          name="checkmark-circle"
-                          size={18}
-                          color="#fff"
-                          style={{
-                            marginLeft: 6,
-                            position: "absolute",
-                            top: -10,
-                            right: -10,
-                            backgroundColor: "#667eea",
-                            borderRadius: 9,
-                          }}
-                        />
-                      )}
-                    </TouchableOpacity>
-                  ))}
+                  {extractVariantOptions(variantProduct).map((option, idx) => (
+  <TouchableOpacity
+    key={option._id || idx}
+    onPress={() => setSelectedVariant(option)}
+    style={{
+      paddingHorizontal: 18,
+      paddingVertical: 10,
+      borderRadius: 14,
+      backgroundColor: selectedVariant?._id === option._id ? "#667eea" : "#f3f4f6",
+      marginRight: 10,
+      borderWidth: selectedVariant?._id === option._id ? 2 : 1,
+      borderColor: selectedVariant?._id === option._id ? "#667eea" : "#e0e7ef",
+      flexDirection: "row",
+      alignItems: "center",
+      minWidth: 64,
+      position: "relative",
+    }}
+    activeOpacity={0.85}
+  >
+    <Text
+      style={{
+        color: selectedVariant?._id === option._id ? "#fff" : "#333",
+        fontWeight: selectedVariant?._id === option._id ? "700" : "500",
+        fontSize: 15,
+      }}
+    >
+      {option.label}
+    </Text>
+    {typeof option.price === 'number' || option.priceDiff ? (
+      <Text
+        style={{
+          color: selectedVariant?._id === option._id ? "#fff" : "#888",
+          fontSize: 12,
+          marginLeft: 6,
+          fontWeight: "600",
+        }}
+      >
+        {typeof option.price === 'number'
+          ? formatCurrency(option.price)
+          : `+${(option.priceDiff||0).toLocaleString("vi-VN")}₫`}
+      </Text>
+    ) : null}
+    {selectedVariant?._id === option._id && (
+      <Ionicons
+        name="checkmark-circle"
+        size={18}
+        color="#fff"
+        style={{
+          marginLeft: 6, position: "absolute", top: -10, right: -10,
+          backgroundColor: "#667eea", borderRadius: 9,
+        }}
+      />
+    )}
+  </TouchableOpacity>
+))}
+
                 </ScrollView>
                 <View
                   style={{

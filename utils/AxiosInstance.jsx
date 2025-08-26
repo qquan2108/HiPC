@@ -5,7 +5,7 @@ import { Platform } from 'react-native';
 
 const baseURL =
   Platform.OS === 'ios' || Platform.OS === 'android'
-    ? 'http://10.94.6.123:3000' // IP LAN cho thiết bị thật
+    ? 'http://192.168.99.123:3000' // IP LAN cho thiết bị thật
     : 'http://localhost:3000';
 
 // Tạo instance

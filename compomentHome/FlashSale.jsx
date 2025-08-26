@@ -226,19 +226,20 @@ export default function FlashSale({
       const selected = [{
         id: selectedProduct._id,
         name: selectedProduct.name,
-        image: selectedProduct.image?.uri || selectedProduct.image,
+        // Fix image handling
+        image: typeof selectedProduct.image === 'string' 
+          ? { uri: selectedProduct.image }
+          : selectedProduct.image || require("../assets/images/pc1.png"),
         quantity: quantity,
-        price: selectedVariant.price,
+        price: getDisplayPrice(selectedProduct, selectedVariant),
         variant: {
           _id: selectedVariant._id,
           key: 'Phiên bản',
-          label: selectedVariant.label || selectedVariant.name, // Fallback to name if label not present
+          label: selectedVariant.label || selectedVariant.name,
           price: selectedVariant.price,
           stock: selectedVariant.stock
         }
       }];
-
-      console.log("Selected products for payment:", selected); // Debug log
 
       setShowOptionDialog(false);
       router.push({

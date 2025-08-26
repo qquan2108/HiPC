@@ -172,7 +172,14 @@ export default function PayProductList({ products, formatCurrency }) {
           ) : (
             // Render regular product
             <>
-              <Image source={item.image} style={styles.productImg} />
+              <Image 
+                source={
+                  typeof item.image === 'string'
+                    ? { uri: item.image }
+                    : item.image || require('../assets/images/pc1.png')
+                } 
+                style={styles.productImg}
+              />
               <View style={{ flex: 1, marginLeft: 10 }}>
                 <Text style={styles.productName} numberOfLines={2}>
                   {item.name}
