@@ -1,32 +1,82 @@
-# HiPC Expo App
+# HiPC - E-Commerce Platform for PC Hardware
 
-This repository contains a React Native application built with [Expo](https://expo.dev/).
+HiPC là một nền tảng thương mại điện tử chuyên biệt cho **linh kiện và PC**, được phát triển bằng **React Native (Expo Router)** cho mobile app và **Express.js + MongoDB** cho backend.  
+Dự án hướng đến trải nghiệm hiện đại, cá nhân hoá và tiện lợi cho người dùng Việt Nam.
 
-## Setup
+## 🚀 Tính năng chính
 
-1. Install Node.js if you have not already.
-2. Install project dependencies:
-   ```sh
-   npm install
-   ```
-3. Start the development server:
-   ```sh
-   npm start
-   # or
-   npx expo start
-   ```
+- 🔑 **Xác thực & Quản lý tài khoản**: đăng ký, đăng nhập, quên mật khẩu, quản lý thông tin người dùng.  
+- 🛒 **Mua sắm & Giỏ hàng**: thêm sản phẩm, quản lý biến thể, combo, flash sale, wishlist.  
+- 🖥️ **Build PC thông minh**: chọn linh kiện theo danh mục (CPU, GPU, RAM…), kiểm tra tương thích, tính hiệu năng.  
+- 🎁 **Ưu đãi & Voucher**: mã giảm giá theo % hoặc số tiền, giới hạn số lượng & thời gian.  
+- 📦 **Thanh toán & Giao hàng**: tích hợp **VNPAY** & **Stripe**, hỗ trợ giao hàng nhanh với GHN API.  
+- 🔔 **Thông báo đẩy (Push Notifications)**: cập nhật đơn hàng, ưu đãi, nhắc nhở.  
+- ⭐ **Đánh giá & Bình luận**: người dùng để lại review, chấm sao, kèm hình ảnh.  
+- 📊 **Quản trị (Admin Dashboard)**: quản lý sản phẩm, danh mục, thương hiệu, đơn hàng, voucher… (Handlebars + Express).  
 
-Use the Expo CLI prompts to run the app on a simulator or physical device (e.g. with `--android`, `--ios` or web). For more details, see the [Expo documentation](https://docs.expo.dev/).
+## 🛠️ Công nghệ sử dụng
 
-## Thanh toán qua VietQR
+### Frontend (Mobile)
+- [React Native](https://reactnative.dev/) + [Expo](https://expo.dev/)  
+- [Expo Router](https://expo.github.io/router/)  
+- [AsyncStorage](https://react-native-async-storage.github.io/async-storage/)  
+- [Axios](https://axios-http.com/)  
+- [Lottie](https://lottiefiles.com/) animations  
+- UI: LinearGradient, Ionicons, MaterialIcons, Skeleton loading  
 
-Trang `app/VietQRScreen.jsx` cho phép hiển thị QR Code động dùng dịch vụ [SePay](https://qr.sepay.vn). Truyền các tham số `acc`, `bank`, `amount` (tuỳ chọn) và `des` (tuỳ chọn) qua query trên đường dẫn để tạo mã QR. Ví dụ:
+### Backend
+- [Express.js](https://expressjs.com/)  
+- [MongoDB + Mongoose](https://mongoosejs.com/)  
+- [PM2](https://pm2.keymetrics.io/) để quản lý tiến trình  
+- Tích hợp GHN (Giao Hàng Nhanh) API, VNPAY, Stripe  
+
+### DevOps & Quản trị
+- Admin web: Handlebars (HBS)  
+- Telegram bot: điều khiển server (pm2 start/restart/log)  
+- GitHub Webhooks auto-deploy  
+
+## 📱 Screenshots
+
+*(Thêm ảnh màn hình demo app/web tại đây)*
+
+## ⚡ Cài đặt
+
+### 1. Mobile App (React Native - Expo)
+```bash
+# clone repo
+git clone https://github.com/<your-username>/hipc.git
+cd hipc
+
+# cài dependencies
+npm install
+
+# chạy ứng dụng
+npx expo start
+```
+
+### 2. Backend (Express.js)
+```bash
+cd server
+npm install
+npm run dev
+```
+
+## 📖 Cấu trúc thư mục chính
 
 ```
-/VietQRScreen?acc=0010000000355&bank=Vietcombank&amount=100000&des=Ung%20ho
+app/                # Mobile app (React Native + Expo)
+compoment*/         # Các component theo module (Cart, CTSP, Home, Pay...)
+utils/              # Axios, API helpers, notifications
+server/             # Backend Express.js + MongoDB (API, models, routes)
+views/              # Admin dashboard (Handlebars)
 ```
 
-Ứng dụng sẽ hiển thị hình ảnh QR Code để người dùng quét bằng ứng dụng ngân hàng.
-Khi thanh toán thành công, backend sẽ phát sự kiện `payment_success` qua Socket.IO.
-Trang `VietQRScreen` lắng nghe sự kiện này và hiển thị hộp thoại thông báo.
-Nhấn **OK** trong hộp thoại sẽ chuyển đến trang `CheckoutSuccess`.
+## 👤 Tác giả
+- **Nhóm Road to GT - Dự án tốt nghiệp** K19.3
+- **Thành viên:**
+- Nguyễn Lê Phương Anh
+- Võ Quốc Anh
+- Lê Hữu Nhân
+- Hà Văn Hiệp
+- Lê Hữu Tình
+- Triệu Văn Quốc Quân
