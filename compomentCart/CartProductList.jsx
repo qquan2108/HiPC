@@ -1,5 +1,5 @@
 import { Feather } from "@expo/vector-icons";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   Image,
   StyleSheet,
@@ -26,28 +26,64 @@ export default function CartProductList({
   const [tempQuantity, setTempQuantity] = useState({});
   const [showVariantModal, setShowVariantModal] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
+  const [qtyError, setQtyError] = useState({});
+  const [validatingQty, setValidatingQty] = useState({});
+  const qtyDebounceRef = useRef({});
 
-  const handleQuantityInputFocus = (itemId, currentQuantity) => {
-    setEditingQuantity(prev => ({ ...prev, [itemId]: true }));
-    setTempQuantity(prev => ({ ...prev, [itemId]: currentQuantity.toString() }));
-  };
+ const handleQuantityInputFocus = (itemId, currentQuantity) => {
+  setEditingQuantity(prev => ({ ...prev, [itemId]: true }));
+  setTempQuantity(prev => ({ ...prev, [itemId]: String(currentQuantity ?? 1) }));
+};
 
-  const handleQuantityInputBlur = async (itemId) => {
-    const inputValue = tempQuantity[itemId];
-    const newQuantity = parseInt(inputValue) || 1;
+const handleQuantityTextChange = (itemId, text) => {
+  // Only allow numbers
+  const numeric = text.replace(/[^0-9]/g, '');
+  setTempQuantity(prev => ({ ...prev, [itemId]: numeric }));
+
+  // Clear previous timeout
+  if (qtyDebounceRef.current[itemId]) {
+    clearTimeout(qtyDebounceRef.current[itemId]);
+  }
+
+  // Debounce validation
+  qtyDebounceRef.current[itemId] = setTimeout(async () => {
+    const num = parseInt(numeric, 10) || 1;
+    const result = await validateQuantity(itemId, num);
     
-    if (onQuantityInput) {
-      await onQuantityInput(itemId, newQuantity);
+    if (!result.ok) {
+      // Reset to max allowed quantity
+      setTempQuantity(prev => ({ 
+        ...prev, 
+        [itemId]: String(result.max || 1)
+      }));
+      onQuantityInput?.(itemId, result.max);
     }
-    
-    setEditingQuantity(prev => ({ ...prev, [itemId]: false }));
-    setTempQuantity(prev => ({ ...prev, [itemId]: '' }));
-  };
+  }, 300);
+};
 
-  const handleQuantityTextChange = (itemId, text) => {
-    const numericText = text.replace(/[^0-9]/g, '');
-    setTempQuantity(prev => ({ ...prev, [itemId]: numericText }));
-  };
+const handleQuantityInputBlur = async (itemId) => {
+  const raw = tempQuantity[itemId];
+  const next = parseInt(raw, 10);
+  
+  if (!next || next < 1) {
+    setTempQuantity(prev => ({ ...prev, [itemId]: '1' }));
+    onQuantityInput?.(itemId, 1);
+  } else {
+    const result = await validateQuantity(itemId, next);
+    if (result.ok) {
+      onQuantityInput?.(itemId, next);
+    } else {
+      setTempQuantity(prev => ({ 
+        ...prev, 
+        [itemId]: String(result.max || 1)
+      }));
+      onQuantityInput?.(itemId, result.max);
+    }
+  }
+  
+  setEditingQuantity(prev => ({ ...prev, [itemId]: false }));
+};
+
 
   // Fixed: Open variant selection modal
   const handleVariantPress = (product) => {
@@ -197,14 +233,7 @@ export default function CartProductList({
   };
 
   // Fixed: Get unique item ID
-  const getItemUniqueId = (item) => {
-    if (item.type === 'combo') {
-      return `combo_${item.comboId?._id || item.comboId}`;
-    }
-    return item.variant?._id 
-      ? `${item.productId?._id || item.productId}-${item.variant._id}`
-      : item.productId?._id || item.productId;
-  };
+const getItemUniqueId = (item) => item.id;
 
   // ✅ Update image handling with priority order
   const getProductImage = (item) => {
@@ -225,15 +254,48 @@ export default function CartProductList({
     return item.productId?.name || item.name || 'Sản phẩm';
   };
 
+  // Add the quantity validation function
+const validateQuantity = async (itemId, quantity) => {
+  try {
+    setValidatingQty(prev => ({ ...prev, [itemId]: true }));
+    
+    const item = cart.find(i => i.id === itemId);
+    if (!item) return { ok: true };
+
+    // Get max stock from variant or product
+    const maxStock = item.variant?.stock || item.productId?.stock || 99;
+    
+    if (quantity > maxStock) {
+      setQtyError(prev => ({
+        ...prev,
+        [itemId]: `Tối đa ${maxStock} sản phẩm`
+      }));
+      return { 
+        ok: false, 
+        max: maxStock,
+        quantity: maxStock 
+      };
+    }
+
+    setQtyError(prev => ({ ...prev, [itemId]: null }));
+    return { ok: true, quantity };
+
+  } catch (err) {
+    console.error('Error validating quantity:', err);
+    return { ok: false, error: err.message };
+  } finally {
+    setValidatingQty(prev => ({ ...prev, [itemId]: false }));
+  }
+};
+
   return (
     <View style={styles.cartBox}>
-      {Array.isArray(cart) && cart.map(item => {
-        const uniqueId = getItemUniqueId(item);
-        const isSelected = selectedIds.includes(uniqueId);
+{Array.isArray(cart) && cart.map(item => {
+   const isSelected = selectedIds.includes(item.id);
         
         return (
           <TouchableOpacity
-            key={uniqueId}
+            key={item.id}
             activeOpacity={0.9}
             onPress={() => onProductPress && onProductPress(item)}
             disabled={item.type === 'combo'}
@@ -249,7 +311,7 @@ export default function CartProductList({
                   styles.checkbox,
                   isSelected && styles.checkboxSelected
                 ]}
-                onPress={() => onToggleSelect && onToggleSelect(uniqueId)}
+                onPress={() => onToggleSelect && onToggleSelect(item.id)}
                 activeOpacity={0.8}
               >
                 <View style={styles.checkboxInner}>
@@ -304,7 +366,7 @@ export default function CartProductList({
               <View style={styles.rightActions}>
                 {/* Remove button */}
                 <TouchableOpacity
-                  onPress={() => onRemove && onRemove(uniqueId)}
+                  onPress={() => onRemove && onRemove(item.id)}
                   style={styles.removeButton}
                   activeOpacity={0.7}
                 >
@@ -313,7 +375,11 @@ export default function CartProductList({
 
                 <View style={styles.quantityContainer}>
                   <TouchableOpacity 
-                    onPress={() => onQuantity && onQuantity(uniqueId, -1)} 
+                    onPress={async () => {
+                      const newQty = Math.max(1, (item.quantity || 1) - 1);
+                      const result = await validateQuantity(item.id, newQty);
+                      if (result.ok) onQuantity?.(item.id, -1);
+                    }}
                     style={styles.quantityBtn}
                     disabled={item.quantity <= 1}
                     activeOpacity={0.7}
@@ -322,16 +388,34 @@ export default function CartProductList({
                   </TouchableOpacity>
 
                   <TextInput
-                    style={styles.quantityInput}
-                    value={String(item.quantity || 1)}
-                    onChangeText={(text) => handleQuantityTextChange(uniqueId, text)}
+                    style={[
+                      styles.quantityInput,
+                      qtyError[item.id] && styles.quantityInputError,
+                      validatingQty[item.id] && styles.quantityInputValidating
+                    ]}
+                    value={
+                      editingQuantity[item.id]
+                        ? (tempQuantity[item.id] ?? String(item.quantity || 1))
+                        : String(item.quantity || 1)
+                    }
+                    onFocus={() => handleQuantityInputFocus(item.id, item.quantity)}
+                    onBlur={() => handleQuantityInputBlur(item.id)}
+                    onChangeText={(text) => handleQuantityTextChange(item.id, text)}
                     keyboardType="numeric"
                     maxLength={3}
                   />
 
                   <TouchableOpacity 
-                    onPress={() => onQuantity && onQuantity(uniqueId, 1)} 
-                    style={styles.quantityBtn}
+                    onPress={async () => {
+                      const newQty = (item.quantity || 1) + 1;
+                      const result = await validateQuantity(item.id, newQty);
+                      if (result.ok) onQuantity?.(item.id, 1);
+                    }}
+                    style={[
+                      styles.quantityBtn,
+                      validatingQty[item.id] && styles.quantityBtnDisabled
+                    ]}
+                    disabled={validatingQty[item.id]}
                     activeOpacity={0.7}
                   >
                     <Feather name="plus" size={12} color="#666" />
@@ -534,6 +618,12 @@ const styles = StyleSheet.create({
     color: '#333',
     padding: 0,
     backgroundColor: '#fff',
+  },
+  quantityInputError: {
+    borderColor: '#ff4757',
+  },
+  quantityInputValidating: {
+    backgroundColor: '#e8f0fe',
   },
   // ENHANCED: Improved Combo styles for better spacing
   comboProductsWrap: {

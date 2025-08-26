@@ -39,6 +39,10 @@ export default function AddressModal({
   const [userDefaultAddress, setUserDefaultAddress] = useState(null);
   const [fadeAnim] = useState(new Animated.Value(0));
 
+  const validatePhoneNumber = (phoneNumber) => {
+  const phoneRegex = /^0\d{9}$/; // Starts with 0 and has exactly 10 digits
+  return phoneRegex.test(phoneNumber);
+};
   // Reset form khi modal đóng
   useEffect(() => {
     if (!visible) {
@@ -149,6 +153,14 @@ export default function AddressModal({
       });
       return;
     }
+    if (!validatePhoneNumber(phone)) {
+    Toast.show({
+      type: "error",
+      text1: "Số điện thoại không hợp lệ",
+      text2: "Vui lòng nhập số điện thoại bắt đầu bằng số 0 và đủ 10 số"
+    });
+    return;
+  }
 
     try {
       const userStr = await AsyncStorage.getItem("user");
@@ -508,6 +520,11 @@ export default function AddressModal({
                     maxLength={15}
                     placeholderTextColor="#999"
                   />
+                   {phone.length > 0 && !validatePhoneNumber(phone) && (
+    <Text style={styles.errorText}>
+      Số điện thoại phải bắt đầu bằng số 0 và đủ 10 số
+    </Text>
+  )}
                 </View>
 
                 <TouchableOpacity style={styles.saveButton} onPress={handleAdd}>

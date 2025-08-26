@@ -9,7 +9,9 @@ import {
   Animated,
   Dimensions,
   FlatList,
+  Image,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   ScrollView,
   StyleSheet,
@@ -18,8 +20,6 @@ import {
   TouchableOpacity,
   Vibration,
   View,
-  Modal,
- Image,
 } from "react-native";
 import Toast from "react-native-toast-message";
 import axiosInstance from '../utils/AxiosInstance';
@@ -500,17 +500,40 @@ const [pendingAction, setPendingAction] = useState(''); // 'cart' | 'buy'
     }
   };
 
+const parseBasePrice = (priceLike) => {
+  if (typeof priceLike === 'number') return priceLike;
+  if (typeof priceLike === 'string') return Number(priceLike.replace(/[^\d]/g, '')) || 0;
+  return 0;
+};
+
+const directAddToCart = async (product, qty = 1) => {
+  const userId = await getUserId();
+  if (!userId) {
+    Toast.show({ type: 'error', text1: 'Vui lòng đăng nhập để mua hàng!', position: 'top' });
+    router.push('/LoginScreen');
+    return;
+  }
+  await axiosInstance.post('/cartt/add-to-cart', {
+    user_id: userId,
+    productId: getProductId(product),
+    quantity: qty,
+  });
+  Toast.show({ type: 'success', text1: 'Đã thêm vào giỏ hàng!', position: 'bottom' });
+};
+
+// Replace existing handleAddToCart
 const handleAddToCart = async (product) => {
   if (await mustLogin()) {
     Toast.show({ type: 'error', text1: 'Vui lòng đăng nhập để mua hàng!', position: 'top' });
     return router.push('/LoginScreen');
   }
 
-  // Chỉ mở dialog nếu sản phẩm có biến thể
+  // Có biến thể → mở modal như cũ
   if (product?.variants && product.variants.length > 0) {
     setSelectedProduct(product);
     setPendingAction('cart');
     setShowVariantDialog(true);
+
     const opts = extractVariantOptions(product);
     const first = (opts && opts.find(o => (o?.stock ?? 1) > 0)) || (opts && opts[0]) || null;
     setSelectedVariant(first);
@@ -518,20 +541,32 @@ const handleAddToCart = async (product) => {
     return;
   }
 
-  Toast.show({ type: 'error', text1: 'Vui lòng chọn biến thể sản phẩm', position: 'top' });
+  // KHÔNG có biến thể → gửi thẳng lên server
+  try {
+    await directAddToCart(product, 1);
+  } catch (err) {
+    Toast.show({
+      type: 'error',
+      text1: 'Thêm giỏ hàng thất bại!',
+      text2: err?.response?.data?.error || err.message,
+      position: 'top',
+    });
+  }
 };
 
+// Replace existing handleBuyNow
 const handleBuyNow = async (product) => {
   if (await mustLogin()) {
     Toast.show({ type: 'error', text1: 'Vui lòng đăng nhập để mua hàng!', position: 'top' });
     return router.push('/LoginScreen');
   }
 
-  // Chỉ mở dialog nếu sản phẩm có biến thể
+  // Có biến thể → mở modal chọn biến thể (giữ nguyên behavior)
   if (product?.variants && product.variants.length > 0) {
     setSelectedProduct(product);
     setPendingAction('buy');
     setShowVariantDialog(true);
+
     const opts = extractVariantOptions(product);
     const first = (opts && opts.find(o => (o?.stock ?? 1) > 0)) || (opts && opts[0]) || null;
     setSelectedVariant(first);
@@ -539,10 +574,52 @@ const handleBuyNow = async (product) => {
     return;
   }
 
-  Toast.show({ type: 'error', text1: 'Vui lòng chọn biến thể sản phẩm', position: 'top' });
+  // KHÔNG có biến thể → đi thẳng qua /pay
+  try {
+    const base = parseBasePrice(product?.price);
+    const payload = [{
+      id: getProductId(product),
+      name: product.name,
+      image: typeof product.image === 'string' ? product.image : product.image?.uri || product.image,
+      quantity: 1,
+      price: base,
+      variant: null,
+    }];
+    router.push({ pathname: '/pay', params: { selectedProducts: JSON.stringify(payload) } });
+  } catch (err) {
+    Toast.show({ type: 'error', text1: 'Mua ngay thất bại!', position: 'top' });
+  }
 };
-
-
+  // const handleBuyNow = async (product) => {
+  //   if (await mustLogin()) {
+  //     Toast.show({ type: 'error', text1: 'Vui lòng đăng nhập để mua hàng!', position: 'top' });
+  //     return router.push('/LoginScreen');
+  //   }
+  
+  //   // Chỉ mở dialog nếu sản phẩm có biến thể
+  //   if (product?.variants && product.variants.length > 0) {
+  //     setSelectedProduct(product);
+  //     setPendingAction('buy');
+  //     setShowVariantDialog(true);
+  //     const opts = extractVariantOptions(product);
+  //     const first = (opts && opts.find(o => (o?.stock ?? 1) > 0)) || (opts && opts[0]) || null;
+  //     setSelectedVariant(first);
+  //     setVariantQuantity(1);
+  //     return;
+  //   }
+  
+  //   // Nếu không có biến thể, trực tiếp thêm vào giỏ hàng với số lượng 1
+  //   try {
+  //     await directAddToCart(product, 1);
+  //   } catch (err) {
+  //     Toast.show({
+  //       type: 'error',
+  //       text1: 'Mua ngay thất bại!',
+  //       text2: err?.response?.data?.error || err.message,
+  //       position: 'top',
+  //     });
+  //   }
+  // };
 const handleVariantSelect = (variant) => {
   setSelectedVariant(variant);
   const key = selectedProduct?.variants?.[0]?.key;

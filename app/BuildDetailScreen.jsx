@@ -1,27 +1,27 @@
+import { Ionicons, MaterialIcons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import { 
-  ActivityIndicator, 
-  FlatList, 
-  StyleSheet, 
-  Text, 
-  View, 
-  Image, 
-  TouchableOpacity, 
+import {
+  ActivityIndicator,
   Alert,
+  Dimensions,
+  FlatList,
+  Image,
   SafeAreaView,
-  ScrollView,
-  Dimensions
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
-import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import axiosInstance from "../utils/AxiosInstance";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const { width } = Dimensions.get('window');
 
 export default function BuildDetailScreen() {
-  const { id } = useLocalSearchParams();
+  const { id: rawId } = useLocalSearchParams();
+  const id = Array.isArray(rawId) ? rawId[0] : rawId;
   const [build, setBuild] = useState(null);
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -39,9 +39,13 @@ export default function BuildDetailScreen() {
     (async () => {
       setLoading(true);
       try {
-        const res = await axiosInstance.get(`/pcbuild/${id}`);
-        setBuild(res.data.build);
-        setProducts(res.data.products || []);
+        const { data } = await axiosInstance.get(`/pcbuild/${id}`);
+        const b = data.build || data;                    // Handle both formats
+        const prods = Array.isArray(b?.products)
+          ? b.products
+          : (data.products || []);
+        setBuild(b || null);
+        setProducts(prods || []);
       } catch (_err) {
         setBuild(null);
         setProducts([]);
@@ -194,9 +198,13 @@ export default function BuildDetailScreen() {
         
         <View style={styles.priceContainer}>
           <Text style={styles.productPrice}>
-            {formatCurrency(
-              (item.product_id?.price || 0) + (item.variant?.priceDiff || 0)
-            )}
+            {formatCurrency((() => {
+              const base = Number(item?.product_id?.price || 0);
+              const v = item?.variant || {};
+              // Prefer absolute variant price; fallback to priceDiff
+              if (typeof v.price === "number") return v.price;
+              return base + Number(v.priceDiff || 0);
+            })())}
           </Text>
           {item.quantity > 1 && (
             <Text style={styles.quantityText}>x{item.quantity}</Text>
@@ -227,7 +235,7 @@ export default function BuildDetailScreen() {
 
       <FlatList
         data={products}
-        keyExtractor={(item) => item._id}
+        keyExtractor={(item, idx) => String(item?._id || item?.product_id?._id || idx)}
         renderItem={renderProductCard}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
@@ -270,7 +278,11 @@ export default function BuildDetailScreen() {
                 <View style={styles.metaItem}>
                   <MaterialIcons name="calendar-today" size={16} color="#666" />
                   <Text style={styles.metaText}>
-                    {new Date(build.createdAt).toLocaleDateString("vi-VN")}
+                    {(() => {
+                      const d = build?.createdAt ?? build?.created_at;
+                      const dt = d ? new Date(d) : null;
+                      return dt && !isNaN(dt) ? dt.toLocaleDateString("vi-VN") : "";
+                    })()}
                   </Text>
                 </View>
                 <View style={styles.metaItem}>

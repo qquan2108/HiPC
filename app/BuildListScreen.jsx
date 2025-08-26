@@ -3,10 +3,11 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "@react-navigation/native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Animated,
   Dimensions,
   FlatList,
   Modal,
@@ -14,14 +15,20 @@ import {
   SafeAreaView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
-  View,
-  Animated,
-  TextInput
+  View
 } from "react-native";
 import axiosInstance from "../utils/AxiosInstance";
 
 const { width, height } = Dimensions.get('window');
+
+const safeDate = (item) => {
+  const d = item?.createdAt || item?.created_at || item?.updatedAt || item?.updated_at;
+  if (!d) return '';
+  const dt = new Date(d);
+  return isNaN(dt.getTime()) ? '' : dt.toLocaleDateString('vi-VN');
+};
 
 export default function BuildListScreen() {
   const [builds, setBuilds] = useState([]);
@@ -38,8 +45,8 @@ export default function BuildListScreen() {
   const [showSearch, setShowSearch] = useState(false);
   const router = useRouter();
 
-  const fadeAnim = new Animated.Value(0);
-  const slideAnim = new Animated.Value(-100);
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(-100)).current;
 
   const loadBuilds = async () => {
     const userStr = await AsyncStorage.getItem("user");
@@ -294,30 +301,18 @@ const res = await axiosInstance.get(`/pcbuild/user/${userId}`);
   };
 
   // Filter builds based on search query
-  const filteredBuilds = builds.filter(build =>
-    build.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    build.status?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredBuilds = builds.filter(b => {
+    const q = (searchQuery || '').toLowerCase();
+    const hay = 
+      `${b.name || ''} ${b.status || ''} ${b.searchableText || ''}`.toLowerCase();
+    return hay.includes(q);
+  });
 
   const renderBuildCard = ({ item, index }) => {
     const isSelected = selectedBuilds.includes(item._id);
     
     return (
-      <Animated.View 
-        style={[
-          styles.buildCard, 
-          isSelected && styles.selectedCard,
-          {
-            opacity: fadeAnim,
-            transform: [{
-              translateY: fadeAnim.interpolate({
-                inputRange: [0, 1],
-                outputRange: [50, 0],
-              })
-            }]
-          }
-        ]}
-      >
+      <Animated.View>
         <TouchableOpacity
           onPress={() => {
             if (isSelectionMode) {
@@ -393,7 +388,7 @@ const res = await axiosInstance.get(`/pcbuild/user/${userId}`);
               <View style={styles.dateSection}>
                 <MaterialIcons name="schedule" size={16} color="#999" />
                 <Text style={styles.buildDate}>
-                  {new Date(item.createdAt).toLocaleDateString("vi-VN")}
+                  {safeDate(item)}
                 </Text>
               </View>
             </View>
@@ -624,7 +619,7 @@ const res = await axiosInstance.get(`/pcbuild/user/${userId}`);
       ) : (
         <FlatList
           data={filteredBuilds}
-          keyExtractor={item => item._id}
+          keyExtractor={item => String(item._id)}
           renderItem={renderBuildCard}
           contentContainerStyle={styles.listContainer}
           refreshControl={

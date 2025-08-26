@@ -355,8 +355,6 @@ export default function FlashSale({
             </View>
             <Text style={styles.sectionTitle}>Khung Giờ Vàng</Text>
             <View style={styles.liveIndicator}>
-              <View style={styles.liveDot} />
-              <Text style={styles.liveText}>LIVE</Text>
             </View>
           </View>
 

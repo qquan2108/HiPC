@@ -178,23 +178,7 @@ const EnhancedHeader = ({
           <Text style={styles.userName}>{form.full_name || 'Chưa có tên'}</Text>
           <Text style={styles.userEmail}>{form.email || 'Chưa có email'}</Text>
           
-          {/* User Stats */}
-          <View style={styles.userStats}>
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>24</Text>
-              <Text style={styles.statLabel}>Đơn hàng</Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>12</Text>
-              <Text style={styles.statLabel}>Yêu thích</Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>5</Text>
-              <Text style={styles.statLabel}>Voucher</Text>
-            </View>
-          </View>
+          
         </View>
 
         {/* Action Buttons */}
