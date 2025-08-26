@@ -199,7 +199,7 @@ export default function NewProducts({
       Toast.show({
         type: "success",
         text1: "Đã thêm vào giỏ hàng!",
-        position: "bottom",
+        position: "top",
       });
     } catch {
       Toast.show({
@@ -241,7 +241,7 @@ export default function NewProducts({
       Toast.show({
         type: "success",
         text1: "Đã thêm vào giỏ hàng!",
-        position: "bottom",
+        position: "top",
       });
     } catch (err) {
       Toast.show({

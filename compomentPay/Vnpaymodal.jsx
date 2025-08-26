@@ -1,63 +1,104 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, Modal, TouchableOpacity, ActivityIndicator, StyleSheet, Platform } from 'react-native';
-import { WebView } from 'react-native-webview';
-import { Feather } from '@expo/vector-icons';
-import Constants from 'expo-constants';
-import axiosInstance from '../utils/AxiosInstance';
+import React, { useState, useEffect } from "react";
+import {
+  View,
+  Text,
+  Modal,
+  TouchableOpacity,
+  ActivityIndicator,
+  StyleSheet,
+  Platform,
+} from "react-native";
+import { WebView } from "react-native-webview";
+import { Feather } from "@expo/vector-icons";
+import axiosInstance from "../utils/AxiosInstance";
 
-const RETURN_URL = 'hipc://vnpay_return'; // Phải giống hệt backend
-
-export default function VnPayModal({ visible, orderId, amount, orderInfo, onClose }) {
+export default function VnPayModal({
+  visible,
+  orderId,
+  amount,
+  orderInfo,
+  onClose,
+}) {
   const [paymentUrl, setPaymentUrl] = useState(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (!visible) { setPaymentUrl(null); return; }
+    if (!visible) {
+      setPaymentUrl(null);
+      return;
+    }
     setLoading(true);
-    axiosInstance.post('/vnpay/create_payment', { orderId, amount, orderInfo })
-      .then(res => {
+    axiosInstance
+      .post("/vnpay/create_payment", { orderId, amount, orderInfo })
+      .then((res) => {
         const data = res.data;
         if (data.code === 0 && data.data.paymentUrl) {
           setPaymentUrl(data.data.paymentUrl);
         } else {
-          throw new Error(data.message || 'Không có URL thanh toán');
+          throw new Error(data.message || "Không có URL thanh toán");
         }
       })
-      .catch(err => onClose({ success: false, message: err.message }))
+      .catch((err) =>
+        onClose({
+          success: false,
+          message: err?.message || "Không tạo được URL thanh toán",
+        })
+      )
       .finally(() => setLoading(false));
   }, [visible]);
 
-  const onNavChange = ({ url }) => {
-    if (RETURN_URL && url.startsWith(RETURN_URL)) {
-      console.log('VNPAY return url:', url); // Log để kiểm tra
-      const match = url.match(/vnp_ResponseCode=([^&]+)/);
-      const code = match ? match[1] : null;
-      onClose({ success: code === '00', code });
+  const handleMessage = (event) => {
+    try {
+      const payload = JSON.parse(event?.nativeEvent?.data || "{}");
+      // backend /vnpay_return sẽ trả { status, code, message, orderId, amount }
+      const ok = payload?.status === "success" || payload?.code === "00";
+      onClose({
+        success: ok,
+        code: payload?.code,
+        message: payload?.message,
+        data: payload,
+      });
+    } catch {
+      onClose({ success: false, message: "Không đọc được dữ liệu thanh toán" });
     }
   };
-
   return (
-    <Modal visible={visible} animationType='slide'>
+    <Modal visible={visible} animationType="slide">
       <View style={styles.header}>
         <TouchableOpacity onPress={() => onClose({ success: false })}>
-          <Feather name='x' size={24} color='#222' />
+          <Feather name="x" size={24} color="#222" />
         </TouchableOpacity>
         <Text style={styles.title}>Thanh toán VNPAY</Text>
       </View>
-      {Platform.OS === 'web' ? (
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+      {Platform.OS === "web" ? (
+        <View
+          style={{ flex: 1, justifyContent: "center", alignItems: "center" }}
+        >
           <Text>Thanh toán VNPAY không hỗ trợ trên nền tảng web.</Text>
         </View>
       ) : loading ? (
-        <ActivityIndicator style={{ flex: 1 }} size='large' />
+        <ActivityIndicator style={{ flex: 1 }} size="large" />
       ) : paymentUrl ? (
-        <WebView source={{ uri: paymentUrl }} onNavigationStateChange={onNavChange} startInLoadingState />
+        <WebView
+          source={{ uri: paymentUrl }}
+          onMessage={handleMessage}
+          onError={() =>
+            onClose({ success: false, message: "Kết nối VNPAY lỗi" })
+          }
+          startInLoadingState
+        />
       ) : null}
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  header: { height: 56, flexDirection: 'row', alignItems: 'center', padding: 12, backgroundColor: '#f7f7f7' },
-  title: { flex: 1, textAlign: 'center', fontSize: 18, fontWeight: 'bold' },
+  header: {
+    height: 56,
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 12,
+    backgroundColor: "#f7f7f7",
+  },
+  title: { flex: 1, textAlign: "center", fontSize: 18, fontWeight: "bold" },
 });

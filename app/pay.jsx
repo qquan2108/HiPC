@@ -190,73 +190,72 @@ export default function PayScreen() {
   // Fetch available shipping services
   const SERVICE_PRIORITY = { 1: 0, 2: 1, 3: 2, 0: 3 }; // ưu tiên: Nhanh > Chuẩn > Tiết kiệm > khác
 
-const fetchShippingServices = async (address) => {
-  if (!address || !address.districtId) {
-    setShippingServices([]);
-    setSelectedService(null);
-    Toast.show({
-      type: "error",
-      text1: "Vui lòng tạo địa chỉ đúng tại sổ địa chỉ",
-      text2: "Để tính phí giao hàng nhanh",
-    });
-    return;
-  }
-
-  setIsLoadingShipping(true);
-  try {
-    const response = await ghnRequest(
-      "/v2/shipping-order/available-services",
-      {
-        shop_id: Number(GHN_SHOP_ID),
-        from_district: Number(SHOP_DISTRICT_ID),
-        to_district: Number(address.districtId),
-      }
-    );
-
-    const services = Array.isArray(response?.data) ? response.data : [];
-
-    if (services.length === 0) {
+  const fetchShippingServices = async (address) => {
+    if (!address || !address.districtId) {
       setShippingServices([]);
       setSelectedService(null);
       Toast.show({
         type: "error",
-        text1: "Không có dịch vụ giao hàng khả dụng",
-        text2: "Vui lòng kiểm tra lại địa chỉ giao hàng",
+        text1: "Vui lòng tạo địa chỉ đúng tại sổ địa chỉ",
+        text2: "Để tính phí giao hàng nhanh",
       });
       return;
     }
 
-    // Sắp xếp theo độ ưu tiên service_type_id
-    const sorted = [...services].sort((a, b) => {
-      const pa = SERVICE_PRIORITY[a?.service_type_id] ?? 99;
-      const pb = SERVICE_PRIORITY[b?.service_type_id] ?? 99;
-      return pa - pb;
-    });
+    setIsLoadingShipping(true);
+    try {
+      const response = await ghnRequest(
+        "/v2/shipping-order/available-services",
+        {
+          shop_id: Number(GHN_SHOP_ID),
+          from_district: Number(SHOP_DISTRICT_ID),
+          to_district: Number(address.districtId),
+        }
+      );
 
-    setShippingServices(services);
+      const services = Array.isArray(response?.data) ? response.data : [];
 
-    // Nếu chưa chọn hoặc service đã chọn không còn trong danh sách, chọn theo ưu tiên
-    const stillValid =
-      selectedService &&
-      services.some((s) => s.service_id === selectedService.service_id);
+      if (services.length === 0) {
+        setShippingServices([]);
+        setSelectedService(null);
+        Toast.show({
+          type: "error",
+          text1: "Không có dịch vụ giao hàng khả dụng",
+          text2: "Vui lòng kiểm tra lại địa chỉ giao hàng",
+        });
+        return;
+      }
 
-    if (!stillValid) {
-      setSelectedService(sorted[0]);
+      // Sắp xếp theo độ ưu tiên service_type_id
+      const sorted = [...services].sort((a, b) => {
+        const pa = SERVICE_PRIORITY[a?.service_type_id] ?? 99;
+        const pb = SERVICE_PRIORITY[b?.service_type_id] ?? 99;
+        return pa - pb;
+      });
+
+      setShippingServices(services);
+
+      // Nếu chưa chọn hoặc service đã chọn không còn trong danh sách, chọn theo ưu tiên
+      const stillValid =
+        selectedService &&
+        services.some((s) => s.service_id === selectedService.service_id);
+
+      if (!stillValid) {
+        setSelectedService(sorted[0]);
+      }
+    } catch (error) {
+      console.error("Error fetching shipping services:", error);
+      setShippingServices([]);
+      setSelectedService(null);
+      Toast.show({
+        type: "error",
+        text1: "Không thể tải dịch vụ vận chuyển",
+        text2: "Vui lòng kiểm tra địa chỉ giao hàng",
+      });
+    } finally {
+      setIsLoadingShipping(false);
     }
-  } catch (error) {
-    console.error("Error fetching shipping services:", error);
-    setShippingServices([]);
-    setSelectedService(null);
-    Toast.show({
-      type: "error",
-      text1: "Không thể tải dịch vụ vận chuyển",
-      text2: "Vui lòng kiểm tra địa chỉ giao hàng",
-    });
-  } finally {
-    setIsLoadingShipping(false);
-  }
-};
-
+  };
 
   // Calculate shipping fee
   const calculateShippingFee = async (service, address) => {
@@ -335,8 +334,6 @@ const fetchShippingServices = async (address) => {
       });
     }
   };
-
-  
 
   const getServiceLabel = (service) => {
     if (!service) return "";
@@ -693,10 +690,18 @@ const fetchShippingServices = async (address) => {
         user_id: userId,
         products: productsData,
         total_price: totalBeforeDiscount,
-        phoneNumber: selectedAddress.phoneNum || selectedAddress.phoneNumber || "",
-        shippingFee, 
+        phoneNumber:
+          selectedAddress.phoneNum || selectedAddress.phoneNumber || "",
+        shippingFee,
         total,
-        address: selectedAddress?.address + " " + wardName + ", " + districtName + ", " + provinceName || "",
+        address:
+          selectedAddress?.address +
+            " " +
+            wardName +
+            ", " +
+            districtName +
+            ", " +
+            provinceName || "",
         paymentMethod: selectedPayment,
         shippingMethod: selectedService?.service_id || null,
         selectedOrderVoucher,
@@ -790,9 +795,10 @@ const fetchShippingServices = async (address) => {
     } catch (err) {
       console.error("Checkout error:", err);
       if (err.response) {
-        const errMsg = err.response.data?.error || err.message || "Vui lòng thử lại.";
+        const errMsg =
+          err.response.data?.error || err.message || "Vui lòng thử lại.";
         const detail = err.response.data?.detail;
-        if (detail && detail.type === 'variant') {
+        if (detail && detail.type === "variant") {
           Toast.show({
             type: "error",
             text1: "Số lượng tồn kho không đủ",
@@ -824,52 +830,33 @@ const fetchShippingServices = async (address) => {
     }
   };
 
-  const handleVnPayClose = async (result) => {
+  const handleVnPayClose = (result) => {
     setShowVnPayModal(false);
+    const ok = result?.success || result?.code === "00";
 
-    if (!vnpayData?.orderId) {
+    if (!ok) {
       Toast.show({
         type: "error",
         text1: result?.message || "Thanh toán thất bại",
       });
       setPayStatus("fail");
+      // Quay về màn Payment (tuỳ UX)
+      // router.replace('/payment');
       return;
     }
 
-    try {
-      const verifyRes = await axiosInstance.post("/vnpay/verify_payment", {
-        orderId: vnpayData.orderId,
-        code: result?.code,
-      });
-
-      if (verifyRes.data?.success) {
-        Toast.show({ type: "success", text1: "Đặt hàng thành công!" });
-        setPayStatus("success");
-        router.push({
-          pathname: "/CheckoutSuccess",
-          params: {
-            orderId: vnpayData.orderId,
-            total,
-            products: JSON.stringify(products),
-            address: selectedAddress?.address || addressText,
-            paymentMethod: selectedPayment,
-          },
-        });
-      } else {
-        Toast.show({
-          type: "error",
-          text1: verifyRes.data?.message || "Thanh toán thất bại",
-        });
-        setPayStatus("fail");
-      }
-    } catch (err) {
-      console.error(err);
-      Toast.show({
-        type: "error",
-        text1: result?.message || "Thanh toán thất bại",
-      });
-      setPayStatus("fail");
-    }
+    Toast.show({ type: "success", text1: "Thanh toán thành công!" });
+    setPayStatus("success");
+    router.push({
+      pathname: "/CheckoutSuccess",
+      params: {
+        orderId: vnpayData?.orderId,
+        total,
+        products: JSON.stringify(products),
+        address: selectedAddress?.address || "",
+        paymentMethod: selectedPayment,
+      },
+    });
   };
 
   const renderIcon = (iconName, iconLib, color, size = 24) => {
@@ -921,7 +908,6 @@ const fetchShippingServices = async (address) => {
             {selectedAddress ? (
               <View style={styles.addressContent}>
                 <View style={styles.addressInfo}>
-                  
                   {/* Tên địa chỉ (label hoặc recipientName) */}
                   <Text style={styles.addressText}>
                     {selectedAddress.label || selectedAddress.recipientName}
@@ -1188,7 +1174,8 @@ const fetchShippingServices = async (address) => {
                 products.length === 0 ||
                 !selectedService ||
                 shippingFee <= 0 ||
-                isOrdering) && styles.orderButtonDisabled,
+                isOrdering) &&
+                styles.orderButtonDisabled,
             ]}
             onPress={handleOrder}
             disabled={

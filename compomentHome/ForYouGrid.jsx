@@ -166,7 +166,10 @@ export default function ForYouGrid({
     setVariantSelections((prev) => ({ ...prev, [key]: option }));
     if (selectedProduct?.variants?.[0]?.key === key) {
       setSelectedVariant(option);
-      const max = Math.max(1, Number(variantSelections[key]?.stock ?? selectedVariant?.stock ?? 99));
+      const max = Math.max(
+        1,
+        Number(variantSelections[key]?.stock ?? selectedVariant?.stock ?? 99)
+      );
       setQtyError(null);
       setQuantity((q) => {
         const next = Math.min(Math.max(1, q), max);
@@ -203,7 +206,7 @@ export default function ForYouGrid({
       Toast.show({
         type: "success",
         text1: "Đã thêm vào giỏ hàng!",
-        position: "bottom",
+        position: "top",
       });
     } catch {
       Toast.show({
@@ -247,7 +250,7 @@ export default function ForYouGrid({
       Toast.show({
         type: "success",
         text1: "Đã thêm vào giỏ hàng!",
-        position: "bottom",
+        position: "top",
       });
     } catch (err) {
       Toast.show({
@@ -299,10 +302,18 @@ export default function ForYouGrid({
   const getRandomVoucher = () => {
     const vouchers = [
       { text: "GIẢM 20%", color: ["#FF6B6B", "#FF4B2B"], icon: "local-offer" },
-      { text: "VOUCHER 30%", color: ["#00B4DB", "#0083B0"], icon: "confirmation-number" },
+      {
+        text: "VOUCHER 30%",
+        color: ["#00B4DB", "#0083B0"],
+        icon: "confirmation-number",
+      },
       { text: "SALE 25%", color: ["#667EEA", "#764BA2"], icon: "bolt" },
       { text: "KHUYẾN MÃI 15%", color: ["#FF9F43", "#FF7E05"], icon: "stars" },
-      { text: "GIẢM 35%", color: ["#F6416C", "#FF0080"], icon: "local-fire-department" }
+      {
+        text: "GIẢM 35%",
+        color: ["#F6416C", "#FF0080"],
+        icon: "local-fire-department",
+      },
     ];
     return vouchers[Math.floor(Math.random() * vouchers.length)];
   };
@@ -334,7 +345,12 @@ export default function ForYouGrid({
             </View>
             <TouchableOpacity
               style={styles.viewAllButton}
-              onPress={() => router.push("/danhmucall")}
+              onPress={() =>
+                router.push({
+                  pathname: "/danhmucall",
+                  params: { showAll: true },
+                })
+              }
             >
               <Text style={styles.viewAllText}>Xem tất cả</Text>
               <Ionicons name="chevron-forward" size={14} color="#fff" />
@@ -538,7 +554,8 @@ export default function ForYouGrid({
                 source={
                   typeof selectedProduct?.image === "string"
                     ? { uri: selectedProduct.image }
-                    : selectedProduct?.image || require("../assets/images/pc1.png")
+                    : selectedProduct?.image ||
+                      require("../assets/images/pc1.png")
                 }
                 style={styles.modalProductImage}
                 resizeMode="contain"
@@ -548,7 +565,10 @@ export default function ForYouGrid({
                   {selectedProduct?.name}
                 </Text>
                 <Text style={styles.modalProductPrice}>
-                  {formatPrice(selectedVariant?.price || selectedProduct?.price)}₫
+                  {formatPrice(
+                    selectedVariant?.price || selectedProduct?.price
+                  )}
+                  ₫
                 </Text>
                 {selectedVariant && (
                   <Text style={styles.stockInfo}>
@@ -566,7 +586,8 @@ export default function ForYouGrid({
                   key={variant._id}
                   style={[
                     styles.optionButton,
-                    selectedVariant?._id === variant._id && styles.optionButtonSelected,
+                    selectedVariant?._id === variant._id &&
+                      styles.optionButtonSelected,
                     variant.stock <= 0 && styles.disabledVariant,
                   ]}
                   onPress={() => handleVariantSelect(variant)}
@@ -576,13 +597,16 @@ export default function ForYouGrid({
                     <Text
                       style={[
                         styles.optionText,
-                        selectedVariant?._id === variant._id && styles.optionTextSelected,
+                        selectedVariant?._id === variant._id &&
+                          styles.optionTextSelected,
                       ]}
                     >
                       {variant.name}
                     </Text>
                     <Text style={styles.variantStock}>
-                      {variant.stock <= 0 ? "Hết hàng" : `Còn ${variant.stock} sản phẩm`}
+                      {variant.stock <= 0
+                        ? "Hết hàng"
+                        : `Còn ${variant.stock} sản phẩm`}
                     </Text>
                   </View>
                   <View style={styles.variantPrice}>
@@ -628,8 +652,12 @@ export default function ForYouGrid({
                     const next = Math.min(Math.max(1, num), max);
                     setQuantity(next);
                     setQtyError(null);
-                    if (qtyDebounceRef.current) clearTimeout(qtyDebounceRef.current);
-                    qtyDebounceRef.current = setTimeout(() => apiValidateQuantity(next), 300);
+                    if (qtyDebounceRef.current)
+                      clearTimeout(qtyDebounceRef.current);
+                    qtyDebounceRef.current = setTimeout(
+                      () => apiValidateQuantity(next),
+                      300
+                    );
                   }}
                   keyboardType="number-pad"
                   style={styles.quantityInput}
@@ -639,7 +667,8 @@ export default function ForYouGrid({
                 <TouchableOpacity
                   style={[
                     styles.quantityButton,
-                    quantity >= (selectedVariant?.stock ?? 99) && styles.quantityButtonDisabled,
+                    quantity >= (selectedVariant?.stock ?? 99) &&
+                      styles.quantityButtonDisabled,
                   ]}
                   onPress={() => {
                     const max = selectedVariant?.stock ?? 99;
@@ -655,7 +684,11 @@ export default function ForYouGrid({
                   <Ionicons
                     name="add"
                     size={20}
-                    color={quantity >= (selectedVariant?.stock ?? 99) ? "#ccc" : "#666"}
+                    color={
+                      quantity >= (selectedVariant?.stock ?? 99)
+                        ? "#ccc"
+                        : "#666"
+                    }
                   />
                 </TouchableOpacity>
               </View>
@@ -673,7 +706,8 @@ export default function ForYouGrid({
               <TouchableOpacity
                 style={[
                   styles.confirmButton,
-                  (!selectedVariant || selectedVariant.stock <= 0) && styles.disabledButton,
+                  (!selectedVariant || selectedVariant.stock <= 0) &&
+                    styles.disabledButton,
                 ]}
                 onPress={handleConfirmOption}
                 disabled={!selectedVariant || selectedVariant.stock <= 0}
@@ -1173,14 +1207,14 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   voucherBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
     marginBottom: 8,
-    alignSelf: 'flex-start',
-    shadowColor: '#000',
+    alignSelf: "flex-start",
+    shadowColor: "#000",
     shadowOffset: {
       width: 0,
       height: 2,
@@ -1190,9 +1224,9 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   voucherText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 10,
-    fontWeight: '700',
+    fontWeight: "700",
     marginLeft: 4,
     letterSpacing: 0.3,
   },

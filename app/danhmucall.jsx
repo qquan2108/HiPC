@@ -39,22 +39,16 @@ function computeSource(uri, fallback) {
 }
 
 const { width, height } = Dimensions.get("window");
-const tabs = ["ALL", "Mới nhất", "Giá thấp", "Giá cao", "Bộ lọc"];
+const tabs = ["Danh Muc", "ALL", "Giá thấp", "Giá cao", "Bộ lọc"];
 
-const FilterModal = ({
-  visible,
-  onClose,
-  onApply,
-  filters,
-  setFilters,
-  categoryId,
-}) => {
+const FilterModal = ({ visible, onClose, onApply, filters, setFilters, categoryId  }) => {
   const [tempFilters, setTempFilters] = useState(filters);
   const [filterFields, setFilterFields] = useState([]);
   const [loading, setLoading] = useState(true);
   const [categories, setCategories] = useState([]);
   const [brands, setBrands] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState(categoryId);
+  const [variants, setVariants] = useState([]); // Add this line
 
   useEffect(() => {
     if (visible) {
@@ -66,6 +60,7 @@ const FilterModal = ({
         setFilterFields([]);
         setLoading(false);
       }
+      fetchVariants(); // Fetch variants when modal is visible
     }
   }, [visible, selectedCategory]);
 
@@ -98,6 +93,16 @@ const FilterModal = ({
       setFilterFields([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchVariants = async () => {
+    try {
+      const res = await axios.get("/variants");
+      setVariants(Array.isArray(res.data) ? res.data : []);
+    } catch (e) {
+      console.error("Error fetching variants:", e);
+      setVariants([]);
     }
   };
 
@@ -182,6 +187,34 @@ const FilterModal = ({
     }));
   };
 
+  const handleVariantGroupChange = (key, slug, isSelected) => {
+    setFilters(prev => {
+      const groups = [...(prev.variantGroups || [])];
+      const groupIndex = groups.findIndex(g => g.key === key);
+
+      if (groupIndex === -1 && isSelected) {
+        // Add new group
+        groups.push({ key, slugs: [slug] });
+      } else if (groupIndex !== -1) {
+        // Update existing group
+        const group = groups[groupIndex];
+        if (isSelected) {
+          group.slugs = [...new Set([...group.slugs, slug])];
+        } else {
+          group.slugs = group.slugs.filter(s => s !== slug);
+          if (group.slugs.length === 0) {
+            groups.splice(groupIndex, 1);
+          }
+        }
+      }
+
+      return {
+        ...prev,
+        variantGroups: groups
+      };
+    });
+  };
+
   const handleApply = () => {
     setFilters({ ...tempFilters, category: selectedCategory });
     onApply();
@@ -201,6 +234,8 @@ const FilterModal = ({
       resolution: [],
       specifications: {},
       category: null,
+      variantIds: [], // Reset variantIds here
+      variantGroups: [] // Reset variantGroups here
     };
     setTempFilters(resetData);
     setSelectedCategory(null);
@@ -319,6 +354,79 @@ const FilterModal = ({
     </View>
   );
 
+  const renderVariantSection = () => (
+    <View style={filterStyles.section}>
+      <Text style={filterStyles.sectionTitle}>Biến thể</Text>
+      <View style={filterStyles.optionContainer}>
+        {variants.map((variant, index) => (
+          <TouchableOpacity
+            key={variant._id || index}
+            style={[
+              filterStyles.option,
+              tempFilters.variantIds?.includes(variant._id) &&
+                filterStyles.optionSelected,
+            ]}
+            onPress={() =>
+              setTempFilters((prev) => ({
+                ...prev,
+                variantIds: prev.variantIds?.includes(variant._id)
+                  ? prev.variantIds.filter((id) => id !== variant._id)
+                  : [...(prev.variantIds || []), variant._id],
+              }))
+            }
+          >
+            <Text
+              style={[
+                filterStyles.optionText,
+                tempFilters.variantIds?.includes(variant._id) &&
+                  filterStyles.optionTextSelected,
+              ]}
+            >
+              {variant.name}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+    </View>
+  );
+
+  const renderVariantGroups = () => (
+    <View style={filterStyles.section}>
+      <Text style={filterStyles.sectionTitle}>Nhóm biến thể</Text>
+      <View style={filterStyles.optionContainer}>
+        {variants.map((variant, index) => {
+          const isSelected = filters.variantGroups?.some(g => 
+            g.key === variant.group && g.slugs.includes(variant.slug)
+          );
+
+          return (
+            <TouchableOpacity
+              key={`${variant.group}-${variant.slug}-${index}`}
+              style={[
+                filterStyles.option,
+                isSelected && filterStyles.optionSelected,
+              ]}
+              onPress={() => handleVariantGroupChange(
+                variant.group,
+                variant.slug,
+                !isSelected
+              )}
+            >
+              <Text
+                style={[
+                  filterStyles.optionText,
+                  isSelected && filterStyles.optionTextSelected,
+                ]}
+              >
+                {variant.name}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+    </View>
+  );
+
   return (
     <Modal
       visible={visible}
@@ -411,6 +519,10 @@ const FilterModal = ({
                   )}
                 </View>
               </View>
+              {/* Variant Filter - Add this */}
+              {renderVariantSection()}
+              {/* Nhóm biến thể */}
+              {renderVariantGroups()}
               {/* Dynamic specification filters theo danh mục */}
               {selectedCategory &&
                 filterFields.length > 0 &&
@@ -452,6 +564,8 @@ export default function DanhMucAll(props) {
     resolution: [],
     specifications: {},
     category: params.categoryId || null,
+    variantIds: [],
+    variantGroups: [] // Add this line
   });
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -468,95 +582,121 @@ export default function DanhMucAll(props) {
         : [...prev, productId]
     );
   };
+  const buildQueryFromFilters = ({ filters, searchQuery, activeTab }) => {
+    const params = new URLSearchParams();
+
+    // Text search
+    if (searchQuery?.trim()) params.set('q', searchQuery.trim());
+
+    // Category
+    const cat = filters?.category || null;
+    if (cat) params.set('category', String(cat));
+
+    // Brand (multi)
+    if (Array.isArray(filters?.brands) && filters.brands.length > 0) {
+      params.set('brand', filters.brands.join(','));
+    }
+
+    // Price range
+    const [min, max] = filters?.priceRange || [0, 200000000];
+    params.set('priceMin', String(min ?? 0));
+    params.set('priceMax', String(max ?? 200000000));
+
+    // Specifications
+    if (filters?.specifications && typeof filters.specifications === 'object') {
+      const keys = Object.keys(filters.specifications).filter(
+        k => Array.isArray(filters.specifications[k]) && filters.specifications[k].length
+      );
+      if (keys.length > 0) {
+        const k = keys[0];
+        params.set('specKey', k);
+        params.set('specValue', filters.specifications[k].join(','));
+      }
+    }
+
+    // Sort based on active tab
+    switch (activeTab) {
+      case 2: params.set('sort', 'price_asc'); break;
+      case 3: params.set('sort', 'price_desc'); break;
+      case 1: params.set('sort', 'newest'); break;
+      default: break; // ALL tab uses default sort
+    }
+
+    // Variant filter if available
+    if (Array.isArray(filters?.variantIds) && filters.variantIds.length > 0) {
+      params.set('variantIds', filters.variantIds.join(','));
+    }
+
+    // Add variantGroups handling
+    if (Array.isArray(filters?.variantGroups) && filters.variantGroups.length > 0) {
+      for (const g of filters.variantGroups) {
+        const key = (g?.key || '').trim();
+        const slugs = Array.isArray(g?.slugs) 
+          ? g.slugs
+              .map(s => String(s).toLowerCase().trim())
+              .filter(Boolean) 
+          : [];
+        
+        if (key && slugs.length) {
+          params.append('group', 
+            `${encodeURIComponent(key)}:${encodeURIComponent(slugs.join(','))}`
+          );
+        }
+      }
+    }
+
+    // Pagination
+    params.set('page', '1');
+    params.set('limit', '50');
+
+    return params.toString();
+  };
+
+  // Update fetchProducts function
   const fetchProducts = async () => {
     try {
       setLoading(true);
 
-      // Tab "Mới nhất" (index 1): lấy tất cả sản phẩm, sort newest
-      if (activeTab === 1) {
-        const response = await axios.get("/product/filter?sort=newest&page=1&limit=50");
-        setProducts(response.data.products || []);
-        setLoading(false);
-        return;
-      }
-
-      // Tab "Giá thấp" (index 2): lấy tất cả sản phẩm, sort price_asc
-      if (activeTab === 2) {
-        const response = await axios.get("/product/filter?sort=price_asc&page=1&limit=50");
-        setProducts(response.data.products || []);
-        setLoading(false);
-        return;
-      }
-
-      // Tab "Giá cao" (index 3): lấy tất cả sản phẩm, sort price_desc
-      if (activeTab === 3) {
-        const response = await axios.get("/product/filter?sort=price_desc&page=1&limit=50");
-        setProducts(response.data.products || []);
-        setLoading(false);
-        return;
-      }
-
-      // Tab "ALL" (index 0): vẫn giữ logic lọc theo danh mục nếu có categoryId
-      const currentCategoryId = categoryId || filters.category;
-      const showAll = params.showAll === 'true';
-
-      if (currentCategoryId) {
-        const response = await axios.get(`/product/by-category/${currentCategoryId}`);
-        setProducts(response.data.products || []);
-      } else if (showAll) {
-        const response = await axios.get("/product/all");
-        setProducts(response.data.products || []);
+      const query = buildQueryFromFilters({ 
+        filters, 
+        searchQuery, 
+        activeTab 
+      });
+      
+      const response = await axios.get(`/product/filter?${query}`);
+      
+      if (response.data?.products) {
+        setProducts(response.data.products);
       } else {
         setProducts([]);
       }
+
     } catch (error) {
+      console.error('Error fetching products:', error);
       setProducts([]);
     } finally {
       setLoading(false);
     }
   };
 
-  // Chỉ cập nhật categoryId khi params thay đổi và khác với state hiện tại
- useEffect(() => {
-  if (params.categoryId && params.categoryId !== categoryId) {
-    setCategoryId(params.categoryId);
-    setFilters((prev) => ({
-      ...prev,
-      category: params.categoryId,
-    }));
-  } else if (params.showAll === 'true') {
-    // Handle show all case
-    setCategoryId(null);
-    setFilters((prev) => ({
-      ...prev,
-      category: null,
-    }));
-  } else if (!params.categoryId && !params.showAll && categoryId !== null) {
-    setCategoryId(null);
-    setFilters({
-      priceRange: [0, 200000000],
-      status: [],
-      brands: [],
-      storage: [],
-      usage: [],
-      cpu: [],
-      screenSize: [],
-      graphics: [],
-      resolution: [],
-      specifications: {},
-      category: null,
-    });
-  }
-}, [params.categoryId, params.showAll]);
+  // Update search handler
+  const handleSearch = () => {
+    if (searchQuery.trim()) {
+      setActiveTab(0); // Switch to ALL tab
+      fetchProducts();
+    }
+  };
 
-  // Fetch products khi categoryId, activeTab, hoặc filters.category thay đổi
-  useEffect(() => {
-    console.log("Params từ Home:", params);
-    console.log("categoryId:", categoryId);
+  // Update filter apply handler
+  const applyFilters = () => {
+    setActiveTab(0); // Switch to ALL tab
     fetchProducts();
-  }, [categoryId, activeTab]);
+  };
 
- 
+  // Update useEffect for fetching products
+  useEffect(() => {
+    fetchProducts();
+  }, [categoryId, activeTab, searchQuery]); // Add searchQuery to dependencies
 
   const handleTabPress = (index) => {
     setActiveTab(index);
@@ -565,14 +705,7 @@ export default function DanhMucAll(props) {
     }
   };
 
-  const applyFilters = () => {
-    console.log("Applying filters:", filters);
-    fetchProducts();
-  };
-
-  const handleSearch = () => {
-    fetchProducts();
-  };
+ 
 
   if (loading) {
     return (
@@ -659,11 +792,7 @@ export default function DanhMucAll(props) {
             <View style={styles.badge}>
               <Text style={styles.badgeText}>Miễn phí vận chuyển</Text>
             </View>
-            <View style={[styles.badge, styles.stockBadge]}>
-              <Text style={styles.badgeText}>
-                {item.stock > 0 ? `Còn ${item.stock} sản phẩm` : "Hết hàng"}
-              </Text>
-            </View>
+            
           </View>
         </View>
       </TouchableOpacity>
@@ -759,6 +888,7 @@ export default function DanhMucAll(props) {
         filters={filters}
         setFilters={setFilters}
         categoryId={categoryId}
+        
       />
 
       <CustomTabBar

@@ -15,11 +15,13 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  View
+  View,
+  Animated,
+  TextInput
 } from "react-native";
 import axiosInstance from "../utils/AxiosInstance";
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 export default function BuildListScreen() {
   const [builds, setBuilds] = useState([]);
@@ -32,7 +34,12 @@ export default function BuildListScreen() {
   const [newBuildName, setNewBuildName] = useState('');
   const [presets, setPresets] = useState([]);
   const [user, setUser] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showSearch, setShowSearch] = useState(false);
   const router = useRouter();
+
+  const fadeAnim = new Animated.Value(0);
+  const slideAnim = new Animated.Value(-100);
 
   const loadBuilds = async () => {
     const userStr = await AsyncStorage.getItem("user");
@@ -50,8 +57,16 @@ export default function BuildListScreen() {
     }
 
     try {
-      const res = await axiosInstance.get(`/pcbuild/user/${userId}`);
-      setBuilds(Array.isArray(res.data) ? res.data : []);
+const res = await axiosInstance.get(`/pcbuild/user/${userId}`);
+ const payload = res.data || {};
+ setBuilds(Array.isArray(payload) ? payload : (payload.builds || []));
+     
+      // Animation cho fade in
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: true,
+      }).start();
     } catch (err) {
       console.error('Lỗi khi tải builds:', err);
       setBuilds([]);
@@ -93,11 +108,23 @@ export default function BuildListScreen() {
   const enterSelectionMode = (buildId) => {
     setIsSelectionMode(true);
     setSelectedBuilds([buildId]);
+    
+    Animated.timing(slideAnim, {
+      toValue: 0,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
   };
 
   const exitSelectionMode = () => {
     setIsSelectionMode(false);
     setSelectedBuilds([]);
+    
+    Animated.timing(slideAnim, {
+      toValue: -100,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
   };
 
   const selectAllBuilds = () => {
@@ -111,7 +138,7 @@ export default function BuildListScreen() {
   const deleteSelectedBuilds = () => {
     Alert.alert(
       "Xác nhận xóa",
-      `Bạn có chắc chắn muốn xóa ${selectedBuilds.length} build đã chọn?`,
+      `Bạn có chắc chắn muốn xóa ${selectedBuilds.length} cấu hình đã chọn?`,
       [
         { text: "Hủy", style: "cancel" },
         {
@@ -130,9 +157,9 @@ export default function BuildListScreen() {
               }
               await loadBuilds();
               exitSelectionMode();
-              Alert.alert("Thành công", "Đã xóa build thành công!");
+              Alert.alert("Thành công", "Đã xóa cấu hình thành công!");
             } catch (err) {
-              Alert.alert("Lỗi", err.response?.data?.error || "Không thể xóa build");
+              Alert.alert("Lỗi", err.response?.data?.error || "Không thể xóa cấu hình");
             }
           }
         }
@@ -142,115 +169,57 @@ export default function BuildListScreen() {
 
   const createBuildFromPreset = async (preset) => {
     try {
-      await axiosInstance.post(`/pcbuild/presets/${preset.id}/create-build`, {
+      await axiosInstance.post(`/pcbuild/presets/${preset._id}/create-build`, {
         userId: user._id || user.id,
         buildName: `${preset.name} - ${new Date().toLocaleDateString('vi-VN')}`
       });
       
-      Alert.alert("Thành công", "Đã tạo build từ preset!");
+      Alert.alert("Thành công", "Đã tạo cấu hình từ preset!");
       setShowPresetModal(false);
       await loadBuilds();
     } catch (err) {
-      Alert.alert("Lỗi", err.response?.data?.error || "Không thể tạo build từ preset");
+      Alert.alert("Lỗi", err.response?.data?.error || "Không thể tạo cấu hình từ preset");
     }
   };
 
   const createNewBuild = () => {
     if (!newBuildName.trim()) {
-      Alert.alert("Lỗi", "Vui lòng nhập tên build");
+      Alert.alert("Lỗi", "Vui lòng nhập tên cấu hình");
       return;
     }
     
     setShowCreateModal(false);
     setNewBuildName('');
-    // Navigate to build creation screen with name
     router.push(`/buildpc?name=${encodeURIComponent(newBuildName)}`);
-  };
-
-  const renderBuildCard = ({ item }) => {
-    const isSelected = selectedBuilds.includes(item._id);
-    
-    return (
-      <TouchableOpacity
-        style={[styles.buildCard, isSelected && styles.selectedCard]}
-        onPress={() => {
-          if (isSelectionMode) {
-            toggleBuildSelection(item._id);
-          } else {
-            router.push(`/BuildDetailScreen?id=${item._id}`);
-          }
-        }}
-        onLongPress={() => {
-          if (!isSelectionMode) {
-            enterSelectionMode(item._id);
-          }
-        }}
-      >
-        <View style={styles.cardContent}>
-          {isSelectionMode && (
-            <View style={styles.selectionIndicator}>
-              <Ionicons 
-                name={isSelected ? "checkbox" : "square-outline"} 
-                size={24} 
-                color={isSelected ? "#4CAF50" : "#ccc"} 
-              />
-            </View>
-          )}
-          
-          <View style={styles.buildInfo}>
-            <Text style={styles.buildName} numberOfLines={1}>
-              {item.name || "Build không tên"}
-            </Text>
-            
-            <View style={styles.priceRow}>
-              <MaterialIcons name="attach-money" size={16} color="#2979ff" />
-              <Text style={styles.buildPrice}>
-                {item.total_price?.toLocaleString("vi-VN") || 0} đ
-              </Text>
-            </View>
-            
-            <View style={styles.statusRow}>
-              <View style={[styles.statusBadge, getStatusStyle(item.status)]}>
-                <Text style={[styles.statusText, getStatusTextStyle(item.status)]}>
-                  {getStatusLabel(item.status)}
-                </Text>
-              </View>
-              <Text style={styles.buildDate}>
-                {new Date(item.createdAt).toLocaleDateString("vi-VN")}
-              </Text>
-            </View>
-          </View>
-          
-          {!isSelectionMode && (
-            <TouchableOpacity 
-              style={styles.moreButton}
-              onPress={() => showBuildOptions(item)}
-            >
-              <Ionicons name="ellipsis-vertical" size={20} color="#888" />
-            </TouchableOpacity>
-          )}
-        </View>
-      </TouchableOpacity>
-    );
   };
 
   const showBuildOptions = (build) => {
     Alert.alert(
-      build.name || "Build không tên",
+      build.name || "Cấu hình không tên",
       "Chọn hành động",
       [
         { text: "Xem chi tiết", onPress: () => router.push(`/BuildDetailScreen?id=${build._id}`) },
         { text: "Chỉnh sửa", onPress: () => router.push(`/BuildEditScreen?id=${build._id}`) },
+        { text: "Sao chép", onPress: () => duplicateBuild(build) },
         { text: "Xóa", style: "destructive", onPress: () => deleteSingleBuild(build._id) },
         { text: "Hủy", style: "cancel" }
       ]
     );
   };
 
+  const duplicateBuild = async (build) => {
+    try {
+      // Logic để sao chép build - có thể implement sau
+      Alert.alert("Thông báo", "Tính năng sao chép đang được phát triển");
+    } catch (err) {
+      Alert.alert("Lỗi", "Không thể sao chép cấu hình");
+    }
+  };
+
   const deleteSingleBuild = (buildId) => {
     Alert.alert(
       "Xác nhận xóa",
-      "Bạn có chắc chắn muốn xóa build này?",
+      "Bạn có chắc chắn muốn xóa cấu hình này?",
       [
         { text: "Hủy", style: "cancel" },
         {
@@ -262,9 +231,9 @@ export default function BuildListScreen() {
                 data: { userId: user._id || user.id }
               });
               await loadBuilds();
-              Alert.alert("Thành công", "Đã xóa build!");
+              Alert.alert("Thành công", "Đã xóa cấu hình!");
             } catch (err) {
-              Alert.alert("Lỗi", err.response?.data?.error || "Không thể xóa build");
+              Alert.alert("Lỗi", err.response?.data?.error || "Không thể xóa cấu hình");
             }
           }
         }
@@ -272,19 +241,19 @@ export default function BuildListScreen() {
     );
   };
 
-  const getStatusStyle = (status) => {
+  const getStatusColor = (status) => {
     switch (status) {
-      case 'completed': return styles.completedStatus;
-      case 'in-progress': return styles.progressStatus;
-      default: return styles.draftStatus;
+      case 'completed': return '#4CAF50';
+      case 'in-progress': return '#FF9800';
+      default: return '#9E9E9E';
     }
   };
 
-  const getStatusTextStyle = (status) => {
+  const getStatusGradient = (status) => {
     switch (status) {
-      case 'completed': return styles.completedText;
-      case 'in-progress': return styles.progressText;
-      default: return styles.draftText;
+      case 'completed': return ['#4CAF50', '#45a049'];
+      case 'in-progress': return ['#FF9800', '#f57c00'];
+      default: return ['#9E9E9E', '#757575'];
     }
   };
 
@@ -292,37 +261,27 @@ export default function BuildListScreen() {
     switch (status) {
       case 'completed': return 'Hoàn thành';
       case 'in-progress': return 'Đang thực hiện';
-      default: return 'Nháp';
+      default: return 'Bản nháp';
     }
   };
 
-  const renderPresetCard = ({ item }) => (
-    <TouchableOpacity
-      style={styles.presetCard}
-      onPress={() => createBuildFromPreset(item)}
-    >
-      <View style={styles.presetContent}>
-        <View style={[styles.presetIcon, getCategoryStyle(item.category)]}>
-          <MaterialIcons name={getCategoryIcon(item.category)} size={24} color="#fff" />
-        </View>
-        <View style={styles.presetInfo}>
-          <Text style={styles.presetName}>{item.name}</Text>
-          <Text style={styles.presetDescription} numberOfLines={2}>
-            {item.description}
-          </Text>
-          <Text style={styles.presetPrice}>
-            Ước tính: {item.estimatedPrice?.toLocaleString("vi-VN") || 0} đ
-          </Text>
-        </View>
-      </View>
-    </TouchableOpacity>
-  );
+  const getPerformanceColor = (price) => {
+    if (price > 30000000) return '#4CAF50'; // High-end
+    if (price > 15000000) return '#FF9800'; // Mid-range
+    return '#2196F3'; // Budget
+  };
 
-  const getCategoryStyle = (category) => {
+  const getPerformanceLabel = (price) => {
+    if (price > 30000000) return 'High-end';
+    if (price > 15000000) return 'Mid-range';
+    return 'Budget';
+  };
+
+  const getCategoryGradient = (category) => {
     switch (category) {
-      case 'gaming': return styles.gamingCategory;
-      case 'work': return styles.workCategory;
-      default: return styles.budgetCategory;
+      case 'gaming': return ['#e91e63', '#ad1457'];
+      case 'work': return ['#2196f3', '#1565c0'];
+      default: return ['#4caf50', '#388e3c'];
     }
   };
 
@@ -334,12 +293,179 @@ export default function BuildListScreen() {
     }
   };
 
+  // Filter builds based on search query
+  const filteredBuilds = builds.filter(build =>
+    build.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    build.status?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const renderBuildCard = ({ item, index }) => {
+    const isSelected = selectedBuilds.includes(item._id);
+    
+    return (
+      <Animated.View 
+        style={[
+          styles.buildCard, 
+          isSelected && styles.selectedCard,
+          {
+            opacity: fadeAnim,
+            transform: [{
+              translateY: fadeAnim.interpolate({
+                inputRange: [0, 1],
+                outputRange: [50, 0],
+              })
+            }]
+          }
+        ]}
+      >
+        <TouchableOpacity
+          onPress={() => {
+            if (isSelectionMode) {
+              toggleBuildSelection(item._id);
+            } else {
+              router.push(`/BuildDetailScreen?id=${item._id}`);
+            }
+          }}
+          onLongPress={() => {
+            if (!isSelectionMode) {
+              enterSelectionMode(item._id);
+            }
+          }}
+          activeOpacity={0.7}
+          style={styles.cardTouchable}
+        >
+          {/* Selection indicator */}
+          {isSelectionMode && (
+            <View style={styles.selectionIndicator}>
+              <View style={[styles.checkbox, isSelected && styles.checkedBox]}>
+                {isSelected && (
+                  <Ionicons name="checkmark" size={18} color="#fff" />
+                )}
+              </View>
+            </View>
+          )}
+          
+          {/* Card Content */}
+          <View style={styles.cardContent}>
+            {/* Header Row */}
+            <View style={styles.cardHeader}>
+              <View style={styles.buildIconContainer}>
+                <LinearGradient
+                  colors={getStatusGradient(item.status)}
+                  style={styles.buildIcon}
+                >
+                  <MaterialIcons name="computer" size={24} color="#fff" />
+                </LinearGradient>
+              </View>
+              
+              <View style={styles.buildMainInfo}>
+                <Text style={styles.buildName} numberOfLines={2}>
+                  {item.name || "Cấu hình không tên"}
+                </Text>
+                
+                <View style={styles.statusContainer}>
+                  <View style={[styles.statusDot, { backgroundColor: getStatusColor(item.status) }]} />
+                  <Text style={[styles.statusText, { color: getStatusColor(item.status) }]}>
+                    {getStatusLabel(item.status)}
+                  </Text>
+                </View>
+              </View>
+              
+              {!isSelectionMode && (
+                <TouchableOpacity 
+                  style={styles.moreButton}
+                  onPress={() => showBuildOptions(item)}
+                >
+                  <Ionicons name="ellipsis-vertical" size={20} color="#666" />
+                </TouchableOpacity>
+              )}
+            </View>
+            
+            {/* Price and Stats Row */}
+            <View style={styles.cardStats}>
+              <View style={styles.priceSection}>
+                <MaterialIcons name="attach-money" size={20} color="#2979ff" />
+                <Text style={styles.buildPrice}>
+                  {(item.total_price || 0).toLocaleString("vi-VN")} đ
+                </Text>
+              </View>
+              
+              <View style={styles.dateSection}>
+                <MaterialIcons name="schedule" size={16} color="#999" />
+                <Text style={styles.buildDate}>
+                  {new Date(item.createdAt).toLocaleDateString("vi-VN")}
+                </Text>
+              </View>
+            </View>
+            
+            {/* Performance Indicator */}
+            <View style={styles.performanceSection}>
+              <View style={styles.performanceBar}>
+                <View 
+                  style={[
+                    styles.performanceFill, 
+                    { 
+                      width: `${Math.min(100, (item.total_price || 0) / 50000000 * 100)}%`,
+                      backgroundColor: getPerformanceColor(item.total_price || 0)
+                    }
+                  ]} 
+                />
+              </View>
+              <Text style={styles.performanceText}>
+                {getPerformanceLabel(item.total_price || 0)}
+              </Text>
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Animated.View>
+    );
+  };
+
+  const renderPresetCard = ({ item }) => (
+    <TouchableOpacity
+      style={styles.presetCard}
+      onPress={() => createBuildFromPreset(item)}
+      activeOpacity={0.8}
+    >
+      <LinearGradient
+        colors={getCategoryGradient(item.category)}
+        style={styles.presetGradient}
+      >
+        <View style={styles.presetContent}>
+          <View style={styles.presetIconContainer}>
+            <MaterialIcons name={getCategoryIcon(item.category)} size={32} color="#fff" />
+          </View>
+          
+          <View style={styles.presetInfo}>
+            <Text style={styles.presetName}>{item.name}</Text>
+            <Text style={styles.presetDescription} numberOfLines={2}>
+              {item.description}
+            </Text>
+            <View style={styles.presetPriceContainer}>
+              <MaterialIcons name="attach-money" size={16} color="rgba(255,255,255,0.8)" />
+              <Text style={styles.presetPrice}>
+                {(item.estimatedPrice || 0).toLocaleString("vi-VN")} đ
+              </Text>
+            </View>
+          </View>
+        </View>
+      </LinearGradient>
+    </TouchableOpacity>
+  );
+
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
+        <LinearGradient colors={["#667eea", "#764ba2"]} style={styles.header}>
+          <View style={styles.headerContent}>
+            <Text style={styles.headerTitle}>Cấu hình của tôi</Text>
+          </View>
+        </LinearGradient>
         <View style={styles.center}>
-          <ActivityIndicator size="large" color="#2979ff" />
-          <Text style={styles.loadingText}>Đang tải...</Text>
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#2979ff" />
+            <Text style={styles.loadingText}>Đang tải cấu hình...</Text>
+          </View>
         </View>
       </SafeAreaView>
     );
@@ -347,31 +473,80 @@ export default function BuildListScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* Header */}
       <LinearGradient colors={["#667eea", "#764ba2"]} style={styles.header}>
         <View style={styles.headerContent}>
-          <Text style={styles.headerTitle}>Cấu hình của tôi</Text>
+          <View style={styles.headerLeft}>
+            <Text style={styles.headerTitle}>Cấu hình của tôi</Text>
+            <Text style={styles.headerSubtitle}>
+              {builds.length} cấu hình
+            </Text>
+          </View>
+          
           <View style={styles.headerButtons}>
             {isSelectionMode ? (
               <TouchableOpacity style={styles.headerButton} onPress={exitSelectionMode}>
                 <Ionicons name="close" size={24} color="#fff" />
               </TouchableOpacity>
             ) : (
-              <TouchableOpacity style={styles.headerButton} onPress={() => setShowCreateModal(true)}>
-                <Ionicons name="add" size={24} color="#fff" />
-              </TouchableOpacity>
+              <>
+                <TouchableOpacity 
+                  style={styles.headerButton} 
+                  onPress={() => setShowSearch(!showSearch)}
+                >
+                  <Ionicons name="search" size={24} color="#fff" />
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={styles.headerButton} 
+                  onPress={() => setShowCreateModal(true)}
+                >
+                  <Ionicons name="add" size={24} color="#fff" />
+                </TouchableOpacity>
+              </>
             )}
           </View>
         </View>
         
+        {/* Search Bar */}
+        {showSearch && (
+          <View style={styles.searchContainer}>
+            <View style={styles.searchInputContainer}>
+              <Ionicons name="search" size={20} color="#666" />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Tìm kiếm cấu hình..."
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                placeholderTextColor="#999"
+              />
+              {searchQuery.length > 0 && (
+                <TouchableOpacity onPress={() => setSearchQuery('')}>
+                  <Ionicons name="close-circle" size={20} color="#999" />
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+        )}
+        
+        {/* Selection Toolbar */}
         {isSelectionMode && (
-          <View style={styles.selectionToolbar}>
+          <Animated.View 
+            style={[
+              styles.selectionToolbar,
+              { transform: [{ translateY: slideAnim }] }
+            ]}
+          >
             <TouchableOpacity style={styles.toolbarButton} onPress={selectAllBuilds}>
               <Ionicons name="checkmark-circle" size={20} color="#fff" />
-              <Text style={styles.toolbarText}>Chọn tất cả</Text>
+              <Text style={styles.toolbarText}>Tất cả</Text>
             </TouchableOpacity>
-            <Text style={styles.selectionCount}>
-              {selectedBuilds.length} đã chọn
-            </Text>
+            
+            <View style={styles.selectionCount}>
+              <Text style={styles.selectionCountText}>
+                {selectedBuilds.length} đã chọn
+              </Text>
+            </View>
+            
             <TouchableOpacity 
               style={[styles.toolbarButton, styles.deleteButton]} 
               onPress={deleteSelectedBuilds}
@@ -380,44 +555,118 @@ export default function BuildListScreen() {
               <Ionicons name="trash" size={20} color="#fff" />
               <Text style={styles.toolbarText}>Xóa</Text>
             </TouchableOpacity>
-          </View>
+          </Animated.View>
         )}
       </LinearGradient>
 
-      {!builds.length ? (
+      {/* Content */}
+      {!filteredBuilds.length ? (
         <View style={styles.emptyState}>
-          <MaterialIcons name="computer" size={80} color="#ccc" />
-          <Text style={styles.emptyTitle}>Chưa có cấu hình nào</Text>
-          <Text style={styles.emptyDescription}>
-            Tạo cấu hình đầu tiên từ preset hoặc tự thiết kế
-          </Text>
-          <TouchableOpacity style={styles.createButton} onPress={() => setShowPresetModal(true)}>
-            <Text style={styles.createButtonText}>Khám phá Preset</Text>
-          </TouchableOpacity>
+          {searchQuery ? (
+            // Search empty state
+            <View style={styles.emptySearchContainer}>
+              <MaterialIcons name="search-off" size={80} color="#ccc" />
+              <Text style={styles.emptyTitle}>Không tìm thấy kết quả</Text>
+              <Text style={styles.emptyDescription}>
+                Không có cấu hình nào phù hợp với "{searchQuery}"
+              </Text>
+              <TouchableOpacity 
+                style={styles.clearSearchButton} 
+                onPress={() => setSearchQuery('')}
+              >
+                <Text style={styles.clearSearchText}>Xóa tìm kiếm</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            // No builds empty state
+            <View style={styles.emptyContainer}>
+              <View style={styles.emptyImageContainer}>
+                <LinearGradient
+                  colors={['#f0f2f5', '#e1e5e9']}
+                  style={styles.emptyImageCircle}
+                >
+                  <MaterialIcons name="computer" size={60} color="#999" />
+                </LinearGradient>
+              </View>
+              
+              <Text style={styles.emptyTitle}>Chưa có cấu hình nào</Text>
+              <Text style={styles.emptyDescription}>
+                Tạo cấu hình đầu tiên từ preset có sẵn{'\n'}hoặc tự thiết kế theo ý thích
+              </Text>
+              
+              <View style={styles.emptyButtonsContainer}>
+                <TouchableOpacity 
+                  style={styles.presetButton} 
+                  onPress={() => setShowPresetModal(true)}
+                >
+                  <LinearGradient
+                    colors={['#2979ff', '#1565c0']}
+                    style={styles.buttonGradient}
+                  >
+                    <MaterialIcons name="palette" size={20} color="#fff" />
+                    <Text style={styles.buttonText}>Khám phá Preset</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+                
+                <TouchableOpacity 
+                  style={styles.buildButton} 
+                  onPress={() => router.push('/buildpc')}
+                >
+                  <View style={styles.outlineButton}>
+                    <MaterialIcons name="build" size={20} color="#2979ff" />
+                    <Text style={styles.outlineButtonText}>Tự thiết kế</Text>
+                  </View>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
         </View>
       ) : (
         <FlatList
-          data={builds}
+          data={filteredBuilds}
           keyExtractor={item => item._id}
           renderItem={renderBuildCard}
           contentContainerStyle={styles.listContainer}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={["#2979ff"]} />
+            <RefreshControl 
+              refreshing={refreshing} 
+              onRefresh={onRefresh} 
+              colors={["#2979ff"]}
+              tintColor="#2979ff"
+            />
           }
           showsVerticalScrollIndicator={false}
+          ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
         />
       )}
 
-      {/* FAB */}
-      <TouchableOpacity style={styles.fab} onPress={() => setShowCreateModal(true)}>
-        <Ionicons name="add" size={28} color="#fff" />
-      </TouchableOpacity>
+      {/* Floating Action Button */}
+      {!isSelectionMode && (
+        <TouchableOpacity style={styles.fab} onPress={() => setShowCreateModal(true)}>
+          <LinearGradient
+            colors={['#2979ff', '#1565c0']}
+            style={styles.fabGradient}
+          >
+            <Ionicons name="add" size={28} color="#fff" />
+          </LinearGradient>
+        </TouchableOpacity>
+      )}
 
       {/* Create Modal */}
-      <Modal visible={showCreateModal} transparent animationType="slide">
+      <Modal 
+        visible={showCreateModal} 
+        transparent 
+        animationType="slide"
+        onRequestClose={() => setShowCreateModal(false)}
+      >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Tạo cấu hình mới</Text>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Tạo cấu hình mới</Text>
+              <TouchableOpacity onPress={() => setShowCreateModal(false)}>
+                <Ionicons name="close" size={24} color="#666" />
+              </TouchableOpacity>
+            </View>
             
             <TouchableOpacity 
               style={styles.modalOption} 
@@ -426,38 +675,56 @@ export default function BuildListScreen() {
                 setShowPresetModal(true);
               }}
             >
-              <MaterialIcons name="palette" size={24} color="#2979ff" />
-              <Text style={styles.optionText}>Từ Preset có sẵn</Text>
+              <View style={styles.optionIcon}>
+                <MaterialIcons name="palette" size={24} color="#2979ff" />
+              </View>
+              <View style={styles.optionContent}>
+                <Text style={styles.optionTitle}>Từ Preset có sẵn</Text>
+                <Text style={styles.optionDescription}>
+                  Chọn từ các mẫu cấu hình được thiết kế sẵn
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color="#ccc" />
             </TouchableOpacity>
             
             <TouchableOpacity 
               style={styles.modalOption}
               onPress={() => {
                 setShowCreateModal(false);
-                // Change from BuildCreationScreen to buildpc
                 router.push('/buildpc');
               }}
             >
-              <MaterialIcons name="build" size={24} color="#2979ff" />
-              <Text style={styles.optionText}>Tự thiết kế</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={styles.cancelButton} 
-              onPress={() => setShowCreateModal(false)}
-            >
-              <Text style={styles.cancelText}>Hủy</Text>
+              <View style={styles.optionIcon}>
+                <MaterialIcons name="build" size={24} color="#2979ff" />
+              </View>
+              <View style={styles.optionContent}>
+                <Text style={styles.optionTitle}>Tự thiết kế</Text>
+                <Text style={styles.optionDescription}>
+                  Tự do lựa chọn từng linh kiện theo ý thích
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color="#ccc" />
             </TouchableOpacity>
           </View>
         </View>
       </Modal>
 
       {/* Preset Modal */}
-      <Modal visible={showPresetModal} transparent animationType="slide">
+      <Modal 
+        visible={showPresetModal} 
+        transparent 
+        animationType="slide"
+        onRequestClose={() => setShowPresetModal(false)}
+      >
         <View style={styles.modalOverlay}>
           <View style={styles.presetModal}>
             <View style={styles.presetHeader}>
-              <Text style={styles.presetModalTitle}>Chọn Preset Build</Text>
+              <View>
+                <Text style={styles.presetModalTitle}>Chọn Preset Build</Text>
+                <Text style={styles.presetSubtitle}>
+                  {presets.length} mẫu có sẵn
+                </Text>
+              </View>
               <TouchableOpacity onPress={() => setShowPresetModal(false)}>
                 <Ionicons name="close" size={24} color="#666" />
               </TouchableOpacity>
@@ -465,10 +732,11 @@ export default function BuildListScreen() {
             
             <FlatList
               data={presets}
-              keyExtractor={item => item.id}
+              keyExtractor={item => item._id}
               renderItem={renderPresetCard}
               showsVerticalScrollIndicator={false}
               contentContainerStyle={styles.presetList}
+              ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
             />
           </View>
         </View>
@@ -489,10 +757,23 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   
+  loadingContainer: {
+    backgroundColor: "#fff",
+    borderRadius: 20,
+    padding: 32,
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  
   loadingText: {
-    marginTop: 12,
+    marginTop: 16,
     color: "#666",
     fontSize: 16,
+    fontWeight: "500",
   },
   
   header: {
@@ -502,16 +783,26 @@ const styles = StyleSheet.create({
   
   headerContent: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     justifyContent: "space-between",
     paddingHorizontal: 16,
     paddingTop: 12,
   },
   
+  headerLeft: {
+    flex: 1,
+  },
+  
   headerTitle: {
     color: "#fff",
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: "bold",
+  },
+  
+  headerSubtitle: {
+    color: "rgba(255,255,255,0.8)",
+    fontSize: 14,
+    marginTop: 2,
   },
   
   headerButtons: {
@@ -528,6 +819,28 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   
+  searchContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+  },
+  
+  searchInputContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255,255,255,0.2)",
+    borderRadius: 25,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  
+  searchInput: {
+    flex: 1,
+    color: "#fff",
+    fontSize: 16,
+    marginLeft: 8,
+    marginRight: 8,
+  },
+  
   selectionToolbar: {
     flexDirection: "row",
     alignItems: "center",
@@ -540,8 +853,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
     backgroundColor: "rgba(255,255,255,0.2)",
   },
   
@@ -553,13 +866,16 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 14,
     marginLeft: 4,
-    fontWeight: "500",
+    fontWeight: "600",
+  },
+  selectionCount: {
+    alignItems: "center",
   },
   
-  selectionCount: {
+  selectionCountText: {
     color: "#fff",
     fontSize: 16,
-    fontWeight: "600",
+    fontWeight: "bold",
   },
   
   listContainer: {
@@ -570,12 +886,11 @@ const styles = StyleSheet.create({
   buildCard: {
     backgroundColor: "#fff",
     borderRadius: 16,
-    marginBottom: 16,
-    elevation: 3,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
+    elevation: 4,
   },
   
   selectedCard: {
@@ -584,31 +899,102 @@ const styles = StyleSheet.create({
     backgroundColor: "#f8fff8",
   },
   
-  cardContent: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 16,
+  cardTouchable: {
+    borderRadius: 16,
+    overflow: "hidden",
   },
   
   selectionIndicator: {
+    position: "absolute",
+    top: 12,
+    right: 12,
+    zIndex: 1,
+  },
+  
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: "#ddd",
+    backgroundColor: "#fff",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  
+  checkedBox: {
+    backgroundColor: "#4CAF50",
+    borderColor: "#4CAF50",
+  },
+  
+  cardContent: {
+    padding: 16,
+  },
+  
+  cardHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    marginBottom: 12,
+  },
+  
+  buildIconContainer: {
     marginRight: 12,
   },
   
-  buildInfo: {
+  buildIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  
+  buildMainInfo: {
     flex: 1,
+    paddingRight: 8,
   },
   
   buildName: {
     fontSize: 18,
     fontWeight: "bold",
     color: "#333",
-    marginBottom: 8,
+    marginBottom: 6,
+    lineHeight: 24,
   },
   
-  priceRow: {
+  statusContainer: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 8,
+  },
+  
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 6,
+  },
+  
+  statusText: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  
+  moreButton: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: "#f5f5f5",
+  },
+  
+  cardStats: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 12,
+  },
+  
+  priceSection: {
+    flexDirection: "row",
+    alignItems: "center",
   },
   
   buildPrice: {
@@ -618,56 +1004,42 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
   
-  statusRow: {
+  dateSection: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-  },
-  
-  statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    alignSelf: "flex-start",
-  },
-  
-  completedStatus: {
-    backgroundColor: "#e8f5e8",
-  },
-  
-  progressStatus: {
-    backgroundColor: "#fff3e0",
-  },
-  
-  draftStatus: {
-    backgroundColor: "#f3f4f6",
-  },
-  
-  statusText: {
-    fontSize: 12,
-    fontWeight: "600",
-  },
-  
-  completedText: {
-    color: "#4caf50",
-  },
-  
-  progressText: {
-    color: "#ff9800",
-  },
-  
-  draftText: {
-    color: "#666",
   },
   
   buildDate: {
     color: "#999",
     fontSize: 12,
+    marginLeft: 4,
   },
   
-  moreButton: {
-    padding: 8,
-    borderRadius: 20,
+  performanceSection: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  
+  performanceBar: {
+    flex: 1,
+    height: 6,
+    backgroundColor: "#f0f0f0",
+    borderRadius: 3,
+    marginRight: 12,
+    overflow: "hidden",
+  },
+  
+  performanceFill: {
+    height: "100%",
+    borderRadius: 3,
+  },
+  
+  performanceText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#666",
+    minWidth: 60,
+    textAlign: "right",
   },
   
   emptyState: {
@@ -677,50 +1049,124 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
   },
   
+  emptyContainer: {
+    alignItems: "center",
+    maxWidth: width - 64,
+  },
+  
+  emptySearchContainer: {
+    alignItems: "center",
+    maxWidth: width - 64,
+  },
+  
+  emptyImageContainer: {
+    marginBottom: 24,
+  },
+  
+  emptyImageCircle: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  
   emptyTitle: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: "bold",
-    color: "#666",
-    marginTop: 16,
+    color: "#333",
     marginBottom: 8,
+    textAlign: "center",
   },
   
   emptyDescription: {
     fontSize: 16,
-    color: "#999",
+    color: "#666",
     textAlign: "center",
     lineHeight: 24,
     marginBottom: 32,
   },
   
-  createButton: {
-    backgroundColor: "#2979ff",
-    paddingHorizontal: 32,
-    paddingVertical: 16,
-    borderRadius: 25,
+  emptyButtonsContainer: {
+    width: "100%",
   },
   
-  createButtonText: {
+  presetButton: {
+    borderRadius: 16,
+    overflow: "hidden",
+    marginBottom: 12,
+  },
+  
+  buildButton: {
+    borderRadius: 16,
+    overflow: "hidden",
+  },
+  
+  buttonGradient: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+  },
+  
+  buttonText: {
     color: "#fff",
     fontSize: 16,
     fontWeight: "bold",
+    marginLeft: 8,
+  },
+  
+  outlineButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderWidth: 2,
+    borderColor: "#2979ff",
+    borderRadius: 16,
+  },
+  
+  outlineButtonText: {
+    color: "#2979ff",
+    fontSize: 16,
+    fontWeight: "bold",
+    marginLeft: 8,
+  },
+  
+  clearSearchButton: {
+    backgroundColor: "#2979ff",
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 25,
+    marginTop: 16,
+  },
+  
+  clearSearchText: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "600",
   },
   
   fab: {
     position: "absolute",
     right: 20,
     bottom: 20,
+    borderRadius: 28,
+    shadowColor: "#2979ff",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  
+  fabGradient: {
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: "#2979ff",
     justifyContent: "center",
     alignItems: "center",
-    elevation: 8,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
   },
   
   modalOverlay: {
@@ -731,58 +1177,74 @@ const styles = StyleSheet.create({
   
   modalContent: {
     backgroundColor: "#fff",
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingBottom: 32,
+  },
+  
+  modalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f0f0f0",
   },
   
   modalTitle: {
     fontSize: 20,
     fontWeight: "bold",
     color: "#333",
-    marginBottom: 20,
-    textAlign: "center",
   },
   
   modalOption: {
     flexDirection: "row",
     alignItems: "center",
     paddingVertical: 16,
-    paddingHorizontal: 12,
-    borderRadius: 12,
-    marginBottom: 12,
+    paddingHorizontal: 20,
+    marginHorizontal: 16,
+    borderRadius: 16,
     backgroundColor: "#f8faff",
+    marginTop: 12,
   },
   
-  optionText: {
+  optionIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "rgba(41, 121, 255, 0.1)",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 16,
+  },
+  
+  optionContent: {
+    flex: 1,
+  },
+  
+  optionTitle: {
     fontSize: 16,
+    fontWeight: "bold",
     color: "#333",
-    marginLeft: 12,
-    fontWeight: "500",
+    marginBottom: 4,
   },
   
-  cancelButton: {
-    alignSelf: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    marginTop: 8,
-  },
-  
-  cancelText: {
-    fontSize: 16,
+  optionDescription: {
+    fontSize: 14,
     color: "#666",
+    lineHeight: 20,
   },
   
   presetModal: {
     backgroundColor: "#fff",
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
     maxHeight: "80%",
   },
   
   presetHeader: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     justifyContent: "space-between",
     padding: 20,
     borderBottomWidth: 1,
@@ -795,17 +1257,28 @@ const styles = StyleSheet.create({
     color: "#333",
   },
   
+  presetSubtitle: {
+    fontSize: 14,
+    color: "#666",
+    marginTop: 2,
+  },
+  
   presetList: {
     padding: 16,
   },
   
   presetCard: {
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: "#f0f0f0",
+    borderRadius: 16,
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  
+  presetGradient: {
+    padding: 20,
   },
   
   presetContent: {
@@ -813,25 +1286,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   
-  presetIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+  presetIconContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: "rgba(255,255,255,0.2)",
     justifyContent: "center",
     alignItems: "center",
     marginRight: 16,
-  },
-  
-  gamingCategory: {
-    backgroundColor: "#e91e63",
-  },
-  
-  workCategory: {
-    backgroundColor: "#2196f3",
-  },
-  
-  budgetCategory: {
-    backgroundColor: "#4caf50",
   },
   
   presetInfo: {
@@ -839,22 +1301,28 @@ const styles = StyleSheet.create({
   },
   
   presetName: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: "bold",
-    color: "#333",
-    marginBottom: 4,
+    color: "#fff",
+    marginBottom: 6,
   },
   
   presetDescription: {
     fontSize: 14,
-    color: "#666",
+    color: "rgba(255,255,255,0.9)",
     lineHeight: 20,
     marginBottom: 8,
   },
   
+  presetPriceContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  
   presetPrice: {
     fontSize: 14,
-    color: "#2979ff",
+    color: "rgba(255,255,255,0.9)",
     fontWeight: "600",
+    marginLeft: 4,
   },
 });
