@@ -225,6 +225,7 @@ export default function FlashSale({
     if (optionDialogMode === "buy") {
       const selected = [{
         id: selectedProduct._id,
+        variantId: selectedVariant._id,
         name: selectedProduct.name,
         // Fix image handling
         image: typeof selectedProduct.image === 'string' 

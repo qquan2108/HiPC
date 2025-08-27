@@ -681,10 +681,11 @@ export default function PayScreen() {
       }
 
       const productsData = products.map((p) => ({
-        productId: p.id || p._id,
-        quantity: p.quantity,
-        variant: p.variant || undefined,
-      }));
+   productId: p.id || p._id,
+   quantity: Number(p.quantity) || 1,
+   // Ưu tiên p.variantId; fallback lấy từ object p.variant._id
+   variantId: p.variantId || p?.variant?._id,
+ }));
 
       const orderData = {
         user_id: userId,
