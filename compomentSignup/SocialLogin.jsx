@@ -3,7 +3,6 @@ import { View, TouchableOpacity, Image, StyleSheet } from "react-native";
 
 const socialIcons = {
   Google: require("../assets/images/Google.png"),
-  apple: require("../assets/images/apple.png"),
   Facebook: require("../assets/images/Facebook.png"),
 };
 

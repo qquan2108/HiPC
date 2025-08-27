@@ -45,7 +45,9 @@ const LoginScreen = () => {
       const res = await axiosInstance.post('/users/login', { email, password });
       console.log("🧩 res.data:", res.data);
       const user = res.data.user;
-      if (user || user.active === false) {
+
+      // Fix: Check if user exists AND is inactive
+      if (user && user.active === false) {
         Toast.show({
           type: 'error',
           text1: 'Tài khoản đã bị khóa',
@@ -57,12 +59,14 @@ const LoginScreen = () => {
         setIsLoading(false);
         return;
       }
+
       if (res.data?.token) {
         await AsyncStorage.setItem('token', res.data.token);
         console.log("👤 res.data.user:", user);
         console.log("🆔 user._id:", user?._id);
         await AsyncStorage.setItem('user', JSON.stringify(user));
         await AsyncStorage.setItem('user_id', user.id);
+        
         Toast.show({
           type: 'success',
           text1: 'Đăng nhập thành công!',
@@ -71,6 +75,7 @@ const LoginScreen = () => {
           position: 'top',
           autoHide: true,
         });
+
         setTimeout(() => {
           if (router.params?.redirect) {
             router.replace(router.params.redirect);

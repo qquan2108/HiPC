@@ -41,9 +41,9 @@ const SignUpScreen = () => {
 
   // State cho các trường địa chỉ
   const [label, setLabel] = useState("Địa chỉ nhận hàng");
-  const [provinceId, setProvinceId] = useState(null);
-  const [districtId, setDistrictId] = useState(null);
-  const [wardCode, setWardCode] = useState(null);
+ const [provinceId, setProvinceId] = useState("");
+ const [districtId, setDistrictId] = useState("");
+ const [wardCode, setWardCode] = useState("");
   const [provinces, setProvinces] = useState([]);
   const [districts, setDistricts] = useState([]);
   const [wards, setWards] = useState([]);
@@ -100,67 +100,82 @@ const SignUpScreen = () => {
     }
   }, [districtId]);
 
-  const handleRegister = async () => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (
-      !fullName || !email || !pass || !confirmPass || !phone ||
-      !address || !label || !provinceId || !districtId || !wardCode
-    ) {
-      Alert.alert("Lỗi", "Vui lòng nhập đầy đủ thông tin, bao gồm địa chỉ.");
-      return;
-    }
-    if (!emailRegex.test(email)) {
-      Alert.alert("Lỗi", "Email không hợp lệ.");
-      return;
-    }
-    if (pass.length < 6) {
-      Alert.alert("Lỗi", "Mật khẩu phải từ 6 ký tự trở lên.");
-      return;
-    }
-    if (pass !== confirmPass) {
-      Alert.alert("Lỗi", "Mật khẩu không khớp.");
-      return;
-    }
+  // Update the handleRegister function
+const handleRegister = async () => {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (
+    !fullName || !email || !pass || !confirmPass || !phone ||
+    !address || !label || !provinceId || !districtId || !wardCode
+  ) {
+    Alert.alert("Lỗi", "Vui lòng nhập đầy đủ thông tin, bao gồm địa chỉ.");
+    return;
+  }
+  if (!emailRegex.test(email)) {
+    Alert.alert("Lỗi", "Email không hợp lệ.");
+    return;
+  }
+  if (pass.length < 6) {
+    Alert.alert("Lỗi", "Mật khẩu phải từ 6 ký tự trở lên.");
+    return;
+  }
+  if (pass !== confirmPass) {
+    Alert.alert("Lỗi", "Mật khẩu không khớp.");
+    return;
+  }
 
-    setIsLoading(true);
-    try {
-      const res = await axiosInstance.post("/users/register", {
-        full_name: fullName,
-        email,
-        password: pass,
-        phone,
-        address,
-        label,
+  setIsLoading(true);
+  try {
+    const payload = {
+      full_name: fullName.trim(),
+      email: email.trim().toLowerCase(),
+      password: pass,
+      phone: phone.trim(),
+      address: address.trim(),
+      label: label.trim(),
+      provinceId,
+      districtId, 
+      wardCode,
+      addresses: [{
+        label: label.trim() || "Địa chỉ nhận hàng",
+        address: address.trim(),
+        phoneNum: phone.trim(),
         provinceId,
         districtId,
         wardCode,
-      });
+        isDefault: true
+      }]
+    };
 
-      Toast.show({
-        type: 'success',
-        text1: 'Đăng ký thành công!',
-        text2: res.data.message || 'Chào mừng bạn đến với HIPC 🎉',
-        visibilityTime: 2000,
-        position: 'top',
-        autoHide: true,
-      });
-      setTimeout(() => {
-        router.push("/LoginScreen");
-      }, 1500);
-    } catch (err) {
-      console.error(err);
-      Toast.show({
-        type: 'error',
-        text1: 'Đăng ký thất bại',
-        text2: err.response?.data?.message || "Có lỗi xảy ra.",
-        visibilityTime: 3000,
-        position: 'top',
-        autoHide: true,
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    const res = await axiosInstance.post("/users/register", payload);
+
+    Toast.show({
+      type: 'success',
+      text1: 'Đăng ký thành công!',
+      text2: res.data?.message || 'Chào mừng bạn đến với HIPC 🎉',
+      visibilityTime: 2000,
+      position: 'top',
+      autoHide: true,
+    });
+
+    // Delay navigation slightly to show success message
+    setTimeout(() => {
+      router.push("/LoginScreen");
+    }, 1500);
+
+  } catch (err) {
+    console.error('Registration error:', err.response?.data || err.message);
+    Toast.show({
+      type: 'error',
+      text1: 'Đăng ký thất bại',
+      text2: err.response?.data?.message || "Có lỗi xảy ra, vui lòng thử lại.",
+      visibilityTime: 3000,
+      position: 'top',
+      autoHide: true,
+    });
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   return (
     <>
